@@ -1,0 +1,53 @@
+{
+    "name": "duyler/http-server",
+    "description": "Non-blocking HTTP server for Duyler Framework worker mode with PSR-7 support",
+    "version": "1.0.1",
+    "type": "library",
+    "license": "MIT",
+    "keywords": [
+        "http",
+        "server",
+        "non-blocking",
+        "psr-7",
+        "event-bus",
+        "duyler",
+        "worker",
+        "fiber"
+    ],
+    "authors": [
+        {
+            "name": "Duyler Team"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "psr/http-message": "^2.0",
+        "psr/http-factory": "^1.1",
+        "psr/log": "^3.0",
+        "nyholm/psr7": "^1.8",
+        "nyholm/psr7-server": "^1.1"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.90",
+        "phpstan/phpstan": "^1.11",
+        "phpstan/phpstan-strict-rules": "^1.6",
+        "phpunit/phpunit": "^10.5",
+        "rector/rector": "^1.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Duyler\\HttpServer\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Duyler\\HttpServer\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "optimize-autoloader": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

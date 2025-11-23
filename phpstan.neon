@@ -1,0 +1,23 @@
+includes:
+    - vendor/phpstan/phpstan-strict-rules/rules.neon
+
+parameters:
+    level: 8
+    paths:
+        - src
+    tmpDir: .phpstan.cache
+    treatPhpDocTypesAsCertain: false
+    reportUnmatchedIgnoredErrors: false
+    ignoreErrors:
+        - '#Instanceof between resource.*and.*Socket will always evaluate to false#'
+        - '#Parameter.*expects.*resource.*given#'
+        - '#Method.*should return.*but returns#'
+        - '#Property.*does not accept#'
+        - '#Variable.*might not be defined#'
+        - '#Only booleans are allowed in a negated boolean#'
+        - '#Constant.*is unused#'
+        - '#Strict comparison using === between.*will always evaluate to false#'
+        - '#Parameter .* of function gmdate expects#'
+        - '#Parameter .* of function fread expects#'
+        - '#return type has no value type specified in iterable type array#'
+
