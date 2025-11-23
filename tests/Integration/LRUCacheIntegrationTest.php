@@ -150,4 +150,3 @@ class LRUCacheIntegrationTest extends TestCase
         rmdir($dir);
     }
 }
-

@@ -9,6 +9,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class RateLimitIntegrationTest extends TestCase
 {
@@ -25,7 +26,7 @@ class RateLimitIntegrationTest extends TestCase
     {
         try {
             $this->server->stop();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
         }
         parent::tearDown();
     }
@@ -180,4 +181,3 @@ class RateLimitIntegrationTest extends TestCase
         return $port;
     }
 }
-

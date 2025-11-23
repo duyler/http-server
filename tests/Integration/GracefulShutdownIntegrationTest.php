@@ -9,6 +9,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class GracefulShutdownIntegrationTest extends TestCase
 {
@@ -35,7 +36,7 @@ class GracefulShutdownIntegrationTest extends TestCase
     {
         try {
             $this->server->stop();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
         }
         parent::tearDown();
     }
@@ -238,4 +239,3 @@ class GracefulShutdownIntegrationTest extends TestCase
         return $port;
     }
 }
-

@@ -218,4 +218,3 @@ class ServerMetricsTest extends TestCase
         $this->assertIsFloat($metrics['requests_per_second']);
     }
 }
-

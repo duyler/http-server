@@ -95,4 +95,3 @@ class SslSocketTest extends TestCase
         $this->assertTrue(true);
     }
 }
-

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
-use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Upload\TempFileManager;
@@ -139,4 +138,3 @@ class MultipartBoundaryIntegrationTest extends TestCase
         return $request;
     }
 }
-

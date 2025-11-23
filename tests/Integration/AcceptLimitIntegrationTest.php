@@ -8,8 +8,6 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
 
 class AcceptLimitIntegrationTest extends TestCase
 {
@@ -75,4 +73,3 @@ class AcceptLimitIntegrationTest extends TestCase
         $this->assertInstanceOf(Server::class, $server);
     }
 }
-

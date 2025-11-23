@@ -127,7 +127,7 @@ class ConnectionPool
 
             foreach ($toRemove as $connection) {
                 $connection->close();
-                
+
                 if ($this->connections->contains($connection)) {
                     $this->connections->detach($connection);
                     $resourceId = $this->getSocketId($connection->getSocket());

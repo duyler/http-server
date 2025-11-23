@@ -18,6 +18,10 @@ use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Duyler\HttpServer\Upload\TempFileManager;
+use Duyler\HttpServer\WebSocket\Connection as WebSocketConnection;
+use Duyler\HttpServer\WebSocket\Frame;
+use Duyler\HttpServer\WebSocket\Handshake;
+use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -49,6 +53,14 @@ class Server implements ServerInterface
 
     private bool $isRunning = false;
     private bool $isShuttingDown = false;
+
+    private bool $hasWebSocket = false;
+
+    /** @var array<string, WebSocketServer> */
+    private array $wsServers = [];
+
+    /** @var array<int, WebSocketConnection> */
+    private array $wsConnections = [];
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -128,6 +140,12 @@ class Server implements ServerInterface
             return;
         }
 
+        if ($this->hasWebSocket) {
+            foreach ($this->wsServers as $wsServer) {
+                $wsServer->closeAll();
+            }
+        }
+
         $this->connectionPool->closeAll();
 
         if (isset($this->socket)) {
@@ -158,7 +176,7 @@ class Server implements ServerInterface
         $startTime = time();
         $activeCount = $this->getActiveConnectionCount();
 
-        while (($activeCount > 0 || !$this->requestQueue->isEmpty() || count($this->pendingResponses) > 0) 
+        while (($activeCount > 0 || !$this->requestQueue->isEmpty() || count($this->pendingResponses) > 0)
                && (time() - $startTime) < $timeout) {
             usleep(Constants::SHUTDOWN_POLL_INTERVAL_MICROSECONDS);
 
@@ -207,6 +225,13 @@ class Server implements ServerInterface
     public function reset(): void
     {
         $this->logger->warning('Resetting server state');
+
+        if ($this->hasWebSocket) {
+            foreach ($this->wsServers as $wsServer) {
+                $wsServer->closeAll();
+            }
+            $this->wsConnections = [];
+        }
 
         $this->connectionPool->closeAll();
         $this->requestQueue = new SplQueue();
@@ -266,6 +291,10 @@ class Server implements ServerInterface
 
             $this->readFromConnections();
             $this->cleanupTimedOutConnections();
+
+            if ($this->hasWebSocket) {
+                $this->processWebSocketKeepalive();
+            }
 
             return !$this->requestQueue->isEmpty();
         } catch (Throwable $e) {
@@ -373,6 +402,15 @@ class Server implements ServerInterface
         return $this->staticFileHandler?->getCacheStats();
     }
 
+    public function attachWebSocket(string $path, WebSocketServer $ws): void
+    {
+        $this->wsServers[$path] = $ws;
+        $this->hasWebSocket = true;
+        $ws->setLogger($this->logger);
+
+        $this->logger->info('WebSocket attached', ['path' => $path]);
+    }
+
     private function createSocket(): SocketInterface
     {
         if ($this->config->ssl) {
@@ -453,6 +491,15 @@ class Server implements ServerInterface
         }
 
         foreach ($connections as $connection) {
+            if ($this->hasWebSocket) {
+                $connId = $this->getSocketId($connection->getSocket());
+
+                if (isset($this->wsConnections[$connId])) {
+                    $this->handleWebSocketData($connection, $this->wsConnections[$connId]);
+                    continue;
+                }
+            }
+
             if (!$connection->isValid()) {
                 $this->closeConnection($connection);
                 continue;
@@ -549,6 +596,11 @@ class Server implements ServerInterface
                 $connection->getRemoteAddress(),
                 $connection->getRemotePort(),
             );
+
+            if ($this->hasWebSocket && Handshake::isWebSocketRequest($request)) {
+                $this->handleWebSocketHandshake($connection, $request);
+                return;
+            }
 
             if ($this->rateLimiter !== null && !$this->rateLimiter->isAllowed($connection->getRemoteAddress())) {
                 $this->logger->warning('Rate limit exceeded', [
@@ -720,6 +772,127 @@ class Server implements ServerInterface
     private function getActiveConnectionCount(): int
     {
         return $this->connectionPool->count();
+    }
+
+    private function handleWebSocketHandshake(Connection $connection, ServerRequestInterface $request): void
+    {
+        $path = $request->getUri()->getPath();
+
+        $wsServer = $this->wsServers[$path] ?? null;
+
+        if ($wsServer === null) {
+            $this->logger->debug('WebSocket endpoint not found', ['path' => $path]);
+            $this->sendErrorResponse($connection, 404, 'WebSocket endpoint not found');
+            return;
+        }
+
+        $config = $wsServer->getConfig();
+        if (!Handshake::validateOrigin($request, $config)) {
+            $this->logger->warning('WebSocket origin validation failed', [
+                'origin' => $request->getHeaderLine('Origin'),
+            ]);
+            $this->sendErrorResponse($connection, 403, 'Origin not allowed');
+            return;
+        }
+
+        $response = Handshake::createResponse($request, $config);
+        $connection->write($response);
+
+        $wsConn = new WebSocketConnection($connection, $request, $wsServer);
+        $wsConn->setState(\Duyler\HttpServer\WebSocket\Enum\ConnectionState::OPEN);
+
+        $connId = $this->getSocketId($connection->getSocket());
+        $this->wsConnections[$connId] = $wsConn;
+
+        $connection->clearBuffer();
+
+        $wsServer->addConnection($wsConn);
+
+        $this->logger->info('WebSocket connection established', [
+            'path' => $path,
+            'remote' => $connection->getRemoteAddress(),
+            'conn_id' => $wsConn->getId(),
+        ]);
+    }
+
+    private function handleWebSocketData(Connection $tcpConn, WebSocketConnection $wsConn): void
+    {
+        if (!$tcpConn->isValid()) {
+            $wsConn->close();
+            return;
+        }
+
+        $socket = $tcpConn->getSocket();
+
+        if ($socket instanceof Socket) {
+            $read = [$socket];
+            $write = null;
+            $except = null;
+            $changed = socket_select($read, $write, $except, 0);
+
+            if ($changed === false || $changed === 0) {
+                return;
+            }
+        } elseif (is_resource($socket)) {
+            $read = [$socket];
+            $write = null;
+            $except = null;
+            $changed = stream_select($read, $write, $except, 0);
+
+            if ($changed === false || $changed === 0) {
+                return;
+            }
+        }
+
+        try {
+            $data = $tcpConn->read($this->config->bufferSize);
+
+            if ($data === false || $data === '') {
+                $wsConn->close();
+                return;
+            }
+
+            $tcpConn->appendToBuffer($data);
+
+            while (true) {
+                $buffer = $tcpConn->getBuffer();
+                $frame = Frame::decode($buffer);
+
+                if ($frame === null) {
+                    break;
+                }
+
+                $frameSize = $frame->getSize();
+                $remaining = substr($buffer, $frameSize);
+
+                $tcpConn->clearBuffer();
+                if ($remaining !== '') {
+                    $tcpConn->appendToBuffer($remaining);
+                }
+
+                $message = $wsConn->processFrame($frame);
+
+                if ($message !== null) {
+                    $wsConn->getServer()->emit('message', $wsConn, $message);
+                }
+            }
+        } catch (Throwable $e) {
+            if ($this->config->debugMode) {
+                $this->logger->debug('WebSocket read error, closing connection', [
+                    'conn_id' => $wsConn->getId(),
+                    'error' => $e->getMessage(),
+                ]);
+            }
+            $wsConn->close();
+        }
+    }
+
+    private function processWebSocketKeepalive(): void
+    {
+        foreach ($this->wsServers as $wsServer) {
+            $wsServer->processPings();
+            $wsServer->cleanupClosedConnections();
+        }
     }
 
     /**

@@ -75,11 +75,11 @@ class ServerMetrics
     public function recordRequestDuration(float $duration): void
     {
         $this->totalRequestDuration += $duration;
-        
+
         if ($this->minRequestDuration === 0.0 || $duration < $this->minRequestDuration) {
             $this->minRequestDuration = $duration;
         }
-        
+
         if ($duration > $this->maxRequestDuration) {
             $this->maxRequestDuration = $duration;
         }
@@ -91,8 +91,8 @@ class ServerMetrics
     public function getMetrics(): array
     {
         $uptime = time() - $this->startTime;
-        $avgDuration = $this->totalRequests > 0 
-            ? $this->totalRequestDuration / $this->totalRequests 
+        $avgDuration = $this->totalRequests > 0
+            ? $this->totalRequestDuration / $this->totalRequests
             : 0.0;
 
         return [
@@ -140,4 +140,3 @@ class ServerMetrics
         return round(($this->cacheHits / $total) * Constants::PERCENT_MULTIPLIER, 2);
     }
 }
-

@@ -143,7 +143,7 @@ class StaticFileHandler
         string $mimeType,
         int $mtime,
         string $etag,
-        int $filesize
+        int $filesize,
     ): ResponseInterface {
         $stream = \Nyholm\Psr7\Stream::create(fopen($filePath, 'r'));
 
@@ -206,9 +206,9 @@ class StaticFileHandler
     private function evictIfNeeded(int $newFileSize): void
     {
         while (
-            (count($this->cache) >= $this->maxCacheFiles || 
-             $this->cacheSize + $newFileSize > $this->maxCacheSize) &&
-            count($this->cache) > 0
+            (count($this->cache) >= $this->maxCacheFiles
+             || $this->cacheSize + $newFileSize > $this->maxCacheSize)
+            && count($this->cache) > 0
         ) {
             $this->evictLeastRecentlyUsed();
         }

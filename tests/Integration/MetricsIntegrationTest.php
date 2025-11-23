@@ -112,4 +112,3 @@ class MetricsIntegrationTest extends TestCase
         $this->assertGreaterThanOrEqual(0, $metrics['uptime_seconds']);
     }
 }
-

@@ -26,7 +26,7 @@ class RateLimiter
 
         $this->requests[$identifier] = array_filter(
             $this->requests[$identifier],
-            fn(float $timestamp) => $timestamp > $windowStart
+            fn(float $timestamp) => $timestamp > $windowStart,
         );
 
         if (count($this->requests[$identifier]) < $this->maxRequests) {
@@ -48,7 +48,7 @@ class RateLimiter
 
         $activeRequests = array_filter(
             $this->requests[$identifier],
-            fn(float $timestamp) => $timestamp > $windowStart
+            fn(float $timestamp) => $timestamp > $windowStart,
         );
 
         return max(0, $this->maxRequests - count($activeRequests));
@@ -77,7 +77,7 @@ class RateLimiter
         foreach ($this->requests as $identifier => $timestamps) {
             $this->requests[$identifier] = array_filter(
                 $timestamps,
-                fn(float $timestamp) => $timestamp > $windowStart
+                fn(float $timestamp) => $timestamp > $windowStart,
             );
 
             if (count($this->requests[$identifier]) === 0) {
@@ -102,4 +102,3 @@ class RateLimiter
         return count($this->requests);
     }
 }
-

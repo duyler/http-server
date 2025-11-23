@@ -14,13 +14,13 @@ final class TempFileManager
     public function create(string $prefix = 'upload_'): string
     {
         $tmpFile = tempnam(sys_get_temp_dir(), $prefix);
-        
+
         if ($tmpFile === false) {
             throw new RuntimeException('Failed to create temporary file');
         }
 
         $this->files[] = $tmpFile;
-        
+
         return $tmpFile;
     }
 
@@ -31,7 +31,7 @@ final class TempFileManager
                 @unlink($file);
             }
         }
-        
+
         $this->files = [];
     }
 
@@ -45,4 +45,3 @@ final class TempFileManager
         $this->cleanup();
     }
 }
-

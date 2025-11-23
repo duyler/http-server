@@ -163,4 +163,3 @@ class TempFileCleanupTest extends TestCase
         return $files !== false ? count($files) : 0;
     }
 }
-

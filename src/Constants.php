@@ -17,8 +17,5 @@ final class Constants
 
     public const PERCENT_MULTIPLIER = 100;
 
-    private function __construct()
-    {
-    }
+    private function __construct() {}
 }
-

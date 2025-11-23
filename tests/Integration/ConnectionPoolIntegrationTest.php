@@ -31,7 +31,7 @@ class ConnectionPoolIntegrationTest extends TestCase
     public function connection_pool_respects_max_connections_from_config(): void
     {
         $pool = new ConnectionPool(maxConnections: 3);
-        
+
         $connections = [];
         for ($i = 0; $i < 5; $i++) {
             $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
@@ -51,7 +51,7 @@ class ConnectionPoolIntegrationTest extends TestCase
     public function connection_pool_handles_rapid_add_remove(): void
     {
         $pool = new ConnectionPool(maxConnections: 50);
-        
+
         $connections = [];
         for ($i = 0; $i < 20; $i++) {
             $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
@@ -64,7 +64,7 @@ class ConnectionPoolIntegrationTest extends TestCase
 
         $initialCount = $pool->count();
         $this->assertGreaterThan(0, $initialCount);
-        
+
         foreach ($connections as $conn) {
             $pool->remove($conn);
         }
@@ -76,12 +76,12 @@ class ConnectionPoolIntegrationTest extends TestCase
     public function connection_pool_find_by_socket_works_correctly(): void
     {
         $pool = new ConnectionPool();
-        
+
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if ($socket === false) {
             $this->fail('Failed to create socket');
         }
-        
+
         $conn = new Connection($socket, '192.168.1.100', 443);
         $pool->add($conn);
 
@@ -97,7 +97,7 @@ class ConnectionPoolIntegrationTest extends TestCase
     public function connection_pool_remove_timed_out_works(): void
     {
         $pool = new ConnectionPool();
-        
+
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if ($socket !== false) {
             $conn = new Connection($socket, '127.0.0.1', 8080);
@@ -105,12 +105,11 @@ class ConnectionPoolIntegrationTest extends TestCase
         }
 
         $this->assertSame(1, $pool->count());
-        
+
         sleep(1);
-        
+
         $removed = $pool->removeTimedOut(timeout: 0);
-        
+
         $this->assertGreaterThanOrEqual(0, $removed);
     }
 }
-

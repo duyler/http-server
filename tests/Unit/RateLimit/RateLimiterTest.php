@@ -39,7 +39,7 @@ class RateLimiterTest extends TestCase
 
         $limiter->isAllowed('client1');
         $limiter->isAllowed('client1');
-        
+
         $this->assertFalse($limiter->isAllowed('client1'));
         $this->assertTrue($limiter->isAllowed('client2'));
     }
@@ -76,7 +76,7 @@ class RateLimiterTest extends TestCase
 
         $limiter->isAllowed('client1');
         $limiter->isAllowed('client1');
-        
+
         $this->assertFalse($limiter->isAllowed('client1'));
 
         $limiter->reset('client1');
@@ -105,7 +105,7 @@ class RateLimiterTest extends TestCase
 
         $limiter->isAllowed('client1');
         $limiter->isAllowed('client1');
-        
+
         $this->assertFalse($limiter->isAllowed('client1'));
 
         sleep(2);
@@ -166,10 +166,10 @@ class RateLimiterTest extends TestCase
 
         $limiter->isAllowed('client1');
         usleep(500000);
-        
+
         $limiter->isAllowed('client1');
         usleep(500000);
-        
+
         $limiter->isAllowed('client1');
 
         $this->assertFalse($limiter->isAllowed('client1'));
@@ -204,4 +204,3 @@ class RateLimiterTest extends TestCase
         $this->assertSame(2, $limiter->getActiveIdentifiersCount());
     }
 }
-

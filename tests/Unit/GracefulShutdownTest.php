@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class GracefulShutdownTest extends TestCase
 {
@@ -33,7 +34,7 @@ class GracefulShutdownTest extends TestCase
     {
         try {
             $this->server->stop();
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
         }
         parent::tearDown();
     }
@@ -172,4 +173,3 @@ class GracefulShutdownTest extends TestCase
         return $port;
     }
 }
-

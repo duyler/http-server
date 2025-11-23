@@ -59,8 +59,8 @@ class LargeFileMemoryTest extends TestCase
             sprintf(
                 'Memory usage should not increase significantly. Actual: %d bytes (%.2f MB)',
                 $memoryDiff,
-                $memoryDiff / 1024 / 1024
-            )
+                $memoryDiff / 1024 / 1024,
+            ),
         );
 
         $stats = $handler->getCacheStats();
@@ -91,7 +91,7 @@ class LargeFileMemoryTest extends TestCase
         $this->assertLessThan(
             3 * 1024 * 1024,
             $memoryDiff,
-            sprintf('Memory should not accumulate. Actual: %.2f MB', $memoryDiff / 1024 / 1024)
+            sprintf('Memory should not accumulate. Actual: %.2f MB', $memoryDiff / 1024 / 1024),
         );
     }
 
@@ -163,4 +163,3 @@ class LargeFileMemoryTest extends TestCase
         rmdir($dir);
     }
 }
-

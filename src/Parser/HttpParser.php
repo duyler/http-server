@@ -93,7 +93,7 @@ class HttpParser
             if (in_array($normalizedName, self::SINGULAR_HEADERS, true)) {
                 if (isset($headers[$normalizedName])) {
                     throw new ParseException(
-                        sprintf('Duplicate header not allowed: %s', $normalizedName)
+                        sprintf('Duplicate header not allowed: %s', $normalizedName),
                     );
                 }
             }

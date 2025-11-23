@@ -7,6 +7,7 @@ Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 suppor
 - ✅ **Non-blocking I/O** - Works seamlessly with Duyler Event Bus MainCyclic state
 - ✅ **PSR-7 Compatible** - Full support for PSR-7 HTTP messages
 - ✅ **HTTP & HTTPS** - Support for both HTTP and HTTPS protocols
+- ✅ **WebSocket Support** - RFC 6455 compliant WebSocket implementation with zero-cost abstraction
 - ✅ **File Upload/Download** - Complete multipart form-data and file streaming support
 - ✅ **Static Files** - Built-in static file serving with LRU caching
 - ✅ **Keep-Alive** - HTTP persistent connections support
@@ -135,6 +136,58 @@ $config = new ServerConfig(
 $server = new Server($config);
 $server->start();
 ```
+
+### WebSocket Server
+
+```php
+use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Duyler\HttpServer\WebSocket\WebSocketConfig;
+use Duyler\HttpServer\WebSocket\Connection;
+use Duyler\HttpServer\WebSocket\Message;
+
+$wsConfig = new WebSocketConfig(
+    maxMessageSize: 1048576,
+    pingInterval: 30,
+    validateOrigin: false,
+);
+
+$ws = new WebSocketServer($wsConfig);
+
+$ws->on('connect', function (Connection $conn) {
+    echo "New connection: {$conn->getId()}\n";
+});
+
+$ws->on('message', function (Connection $conn, Message $message) {
+    $data = $message->getJson();
+    
+    $conn->send([
+        'type' => 'echo',
+        'data' => $data,
+    ]);
+});
+
+$ws->on('close', function (Connection $conn, int $code, string $reason) {
+    echo "Connection closed: $code\n";
+});
+
+$server->attachWebSocket('/ws', $ws);
+$server->start();
+
+while (true) {
+    if ($server->hasRequest()) {
+        $request = $server->getRequest();
+        
+        if ($request !== null) {
+            $response = new Response(200, [], 'Hello');
+            $server->respond($response);
+        }
+    }
+    
+    usleep(1000);
+}
+```
+
+See `examples/websocket-chat.php` for a complete chat application example.
 
 ### Static File Serving
 
@@ -278,6 +331,7 @@ $metrics = $server->getMetrics();
 - `respond(ResponseInterface): void` - Send response for the current request
 - `getMetrics(): array` - Get server performance metrics
 - `setLogger(LoggerInterface)` - Set external Logger
+- `attachWebSocket(string $path, WebSocketServer $ws): void` - attach WebSocketServer
 
 ### StaticFileHandler
 
@@ -318,13 +372,8 @@ composer phpstan
 
 ## Roadmap
 
-- [ ] HTTP/2 support
-- [ ] WebSocket support
-- [ ] Built-in middleware system
-- [ ] Request/Response logging
-- [ ] Metrics and monitoring
-- [ ] Graceful shutdown
-- [ ] Worker pool management
+ - [ ] HTTP/2 support
+ - [ ] Worker pool management
 
 ## Contributing
 
@@ -336,7 +385,7 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 
 ## Support
 
-- 🐛 [Issue Tracker](https://github.com/duyler/http-server/issues)
-- 💬 [Discussions](https://github.com/duyler/http-server/discussions)
-- 🌟 [Duyler Framework](https://github.com/duyler)
+-  [Issue Tracker](https://github.com/duyler/http-server/issues)
+-  [Discussions](https://github.com/duyler/http-server/discussions)
+-  [Duyler Framework](https://github.com/duyler)
 

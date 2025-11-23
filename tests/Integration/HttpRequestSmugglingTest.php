@@ -184,4 +184,3 @@ class HttpRequestSmugglingTest extends TestCase
         return $port;
     }
 }
-

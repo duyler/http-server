@@ -7,7 +7,6 @@ namespace Duyler\HttpServer\Tests\Unit\Upload;
 use Duyler\HttpServer\Upload\TempFileManager;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use RuntimeException;
 
 class TempFileManagerTest extends TestCase
 {
@@ -132,4 +131,3 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(1, $this->manager->getTrackedFilesCount());
     }
 }
-

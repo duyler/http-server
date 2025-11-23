@@ -160,4 +160,3 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThan(0.1, $elapsed, 'Optimized write should be fast');
     }
 }
-

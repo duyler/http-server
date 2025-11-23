@@ -8,6 +8,7 @@ use Duyler\HttpServer\ErrorHandler;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use RuntimeException;
 
 class ErrorHandlerTest extends TestCase
 {
@@ -32,7 +33,7 @@ class ErrorHandlerTest extends TestCase
             E_WARNING,
             'Test warning',
             __FILE__,
-            __LINE__
+            __LINE__,
         );
 
         $this->assertFalse($result);
@@ -41,8 +42,8 @@ class ErrorHandlerTest extends TestCase
     #[Test]
     public function handles_exceptions_correctly(): void
     {
-        $exception = new \RuntimeException('Test exception');
-        
+        $exception = new RuntimeException('Test exception');
+
         // Просто проверяем, что handleException можно вызвать без ошибок
         ErrorHandler::handleException($exception);
 
@@ -53,7 +54,7 @@ class ErrorHandlerTest extends TestCase
     public function handles_fatal_error_callback(): void
     {
         $callbackInvoked = false;
-        
+
         $callback = function (array $error) use (&$callbackInvoked): void {
             $callbackInvoked = true;
             $this->assertArrayHasKey('type', $error);
@@ -72,9 +73,9 @@ class ErrorHandlerTest extends TestCase
             'file' => __FILE__,
             'line' => __LINE__,
         ];
-        
+
         $callback($testError);
-        
+
         $this->assertTrue($callbackInvoked);
     }
 
@@ -86,7 +87,7 @@ class ErrorHandlerTest extends TestCase
         }
 
         $callbackInvoked = false;
-        
+
         $callback = function (int $signal) use (&$callbackInvoked): void {
             $callbackInvoked = true;
             $this->assertIsInt($signal);
@@ -97,7 +98,7 @@ class ErrorHandlerTest extends TestCase
 
         // Тестируем callback напрямую
         $callback(SIGTERM);
-        
+
         $this->assertTrue($callbackInvoked);
     }
 
@@ -124,7 +125,7 @@ class ErrorHandlerTest extends TestCase
             E_WARNING,
             'Test warning',
             __FILE__,
-            __LINE__
+            __LINE__,
         );
 
         error_reporting($oldReporting);
@@ -132,4 +133,3 @@ class ErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 }
-

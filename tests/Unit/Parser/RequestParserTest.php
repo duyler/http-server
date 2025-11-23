@@ -39,7 +39,7 @@ class RequestParserTest extends TestCase
     public function parses_simple_get_request(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $this->assertSame('GET', $request->getMethod());
@@ -51,7 +51,7 @@ class RequestParserTest extends TestCase
     public function parses_query_parameters(): void
     {
         $rawRequest = "GET /path?foo=bar&baz=qux HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $queryParams = $request->getQueryParams();
@@ -63,7 +63,7 @@ class RequestParserTest extends TestCase
     public function parses_cookies(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc123; user=john\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $cookies = $request->getCookieParams();
@@ -81,7 +81,7 @@ class RequestParserTest extends TestCase
         $rawRequest .= "Content-Length: " . strlen($body) . "\r\n";
         $rawRequest .= "\r\n";
         $rawRequest .= $body;
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $parsedBody = $request->getParsedBody();
@@ -99,7 +99,7 @@ class RequestParserTest extends TestCase
         $rawRequest .= "Content-Length: " . strlen($body) . "\r\n";
         $rawRequest .= "\r\n";
         $rawRequest .= $body;
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $parsedBody = $request->getParsedBody();
@@ -117,7 +117,7 @@ class RequestParserTest extends TestCase
         $rawRequest .= "Content-Length: " . strlen($body) . "\r\n";
         $rawRequest .= "\r\n";
         $rawRequest .= $body;
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $this->assertNull($request->getParsedBody());
@@ -127,7 +127,7 @@ class RequestParserTest extends TestCase
     public function handles_empty_body(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $this->assertNull($request->getParsedBody());
@@ -137,7 +137,7 @@ class RequestParserTest extends TestCase
     public function preserves_server_params(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '192.168.1.100', 54321);
 
         $serverParams = $request->getServerParams();
@@ -150,11 +150,10 @@ class RequestParserTest extends TestCase
     public function handles_request_without_host_header(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\n\r\n";
-        
+
         $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
 
         $this->assertSame('GET', $request->getMethod());
         $this->assertSame('/', $request->getUri()->getPath());
     }
 }
-

@@ -41,7 +41,7 @@ readonly class ServerConfig
             throw new InvalidConfigException(sprintf(
                 'Port must be between %d and %d',
                 Constants::MIN_PORT,
-                Constants::MAX_PORT
+                Constants::MAX_PORT,
             ));
         }
 
