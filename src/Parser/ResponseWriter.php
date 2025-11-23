@@ -33,23 +33,25 @@ class ResponseWriter
 
     public function write(ResponseInterface $response): string
     {
-        $output = $this->buildStatusLine($response);
-        $output .= $this->buildHeaders($response);
-        $output .= "\r\n";
-        $output .= $this->getBody($response);
+        $parts = [];
+        $parts[] = $this->buildStatusLine($response);
+        $parts[] = $this->buildHeaders($response);
+        $parts[] = "\r\n";
+        $parts[] = $this->getBody($response);
 
-        return $output;
+        return implode('', $parts);
     }
 
     public function writeChunked(ResponseInterface $response, callable $callback): void
     {
-        $output = $this->buildStatusLine($response);
+        $parts = [];
+        $parts[] = $this->buildStatusLine($response);
 
         $response = $response->withHeader('Transfer-Encoding', 'chunked');
-        $output .= $this->buildHeaders($response);
-        $output .= "\r\n";
+        $parts[] = $this->buildHeaders($response);
+        $parts[] = "\r\n";
 
-        $callback($output);
+        $callback(implode('', $parts));
 
         $body = $response->getBody();
         $body->rewind();
@@ -66,6 +68,48 @@ class ResponseWriter
         }
 
         $callback("0\r\n\r\n");
+    }
+
+    public function writeBuffered(ResponseInterface $response, callable $callback, int $bufferSize = 8192): void
+    {
+        $parts = [];
+        $parts[] = $this->buildStatusLine($response);
+        $parts[] = $this->buildHeaders($response);
+        $parts[] = "\r\n";
+
+        $headers = implode('', $parts);
+        $body = $response->getBody();
+        $body->rewind();
+
+        $bodySize = $body->getSize();
+
+        if ($bodySize === null || $bodySize <= $bufferSize) {
+            $callback($headers . $body->getContents());
+            return;
+        }
+
+        $buffer = $headers;
+        $bufferLength = strlen($headers);
+
+        while (!$body->eof()) {
+            $chunk = $body->read($bufferSize - $bufferLength);
+            if ($chunk === '') {
+                break;
+            }
+
+            $buffer .= $chunk;
+            $bufferLength = strlen($buffer);
+
+            if ($bufferLength >= $bufferSize) {
+                $callback($buffer);
+                $buffer = '';
+                $bufferLength = 0;
+            }
+        }
+
+        if ($bufferLength > 0) {
+            $callback($buffer);
+        }
     }
 
     private function buildStatusLine(ResponseInterface $response): string
@@ -87,15 +131,15 @@ class ResponseWriter
 
     private function buildHeaders(ResponseInterface $response): string
     {
-        $output = '';
+        $parts = [];
 
         foreach ($response->getHeaders() as $name => $values) {
             foreach ($values as $value) {
-                $output .= sprintf("%s: %s\r\n", $name, $value);
+                $parts[] = sprintf("%s: %s\r\n", $name, $value);
             }
         }
 
-        return $output;
+        return implode('', $parts);
     }
 
     private function getBody(ResponseInterface $response): string

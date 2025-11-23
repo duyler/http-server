@@ -8,9 +8,12 @@ Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 suppor
 - ✅ **PSR-7 Compatible** - Full support for PSR-7 HTTP messages
 - ✅ **HTTP & HTTPS** - Support for both HTTP and HTTPS protocols
 - ✅ **File Upload/Download** - Complete multipart form-data and file streaming support
-- ✅ **Static Files** - Built-in static file serving with in-memory caching
+- ✅ **Static Files** - Built-in static file serving with LRU caching
 - ✅ **Keep-Alive** - HTTP persistent connections support
 - ✅ **Range Requests** - Partial content support for large file downloads
+- ✅ **Rate Limiting** - Sliding window rate limiter with configurable limits
+- ✅ **Graceful Shutdown** - Clean server termination with timeout
+- ✅ **Server Metrics** - Built-in performance and health monitoring
 - ✅ **High Performance** - Optimized for long-running worker processes
 
 ## Requirements
@@ -39,12 +42,21 @@ $config = new ServerConfig(
 );
 
 $server = new Server($config);
-$server->start();
+
+// Check if server started successfully
+if (!$server->start()) {
+    die('Failed to start HTTP server');
+}
 
 // In your event loop
 while (true) {
     if ($server->hasRequest()) {
         $request = $server->getRequest();
+        
+        // Check for null (race condition or error)
+        if ($request === null) {
+            continue;
+        }
         
         // Process request
         $response = new Response(200, [], 'Hello World!');
@@ -93,6 +105,14 @@ $config = new ServerConfig(
     // Static Cache
     enableStaticCache: true,       // Enable in-memory static file cache
     staticCacheSize: 52428800,     // Max cache size (50MB)
+    
+    // Rate Limiting
+    enableRateLimit: false,        // Enable rate limiting
+    rateLimitRequests: 100,        // Max requests per window
+    rateLimitWindow: 60,           // Rate limit window in seconds
+    
+    // Performance
+    maxAcceptsPerCycle: 10,        // Max new connections per cycle
     
     // Debug
     debugMode: false,              // Enable debug logging mode
@@ -177,20 +197,86 @@ foreach ($uploadedFiles as $field => $file) {
 }
 ```
 
+### Rate Limiting
+
+```php
+$config = new ServerConfig(
+    enableRateLimit: true,
+    rateLimitRequests: 100,     // Max 100 requests
+    rateLimitWindow: 60,        // Per 60 seconds (per IP)
+);
+
+$server = new Server($config);
+$server->start();
+
+// Rate limiting is applied automatically
+// Clients exceeding limits receive 429 Too Many Requests
+```
+
+### Graceful Shutdown
+
+```php
+$server = new Server(new ServerConfig());
+$server->start();
+
+// Register shutdown handler
+pcntl_signal(SIGTERM, function() use ($server) {
+    $success = $server->shutdown(30); // 30 second timeout
+    exit($success ? 0 : 1);
+});
+
+while (true) {
+    if ($server->hasRequest()) {
+        $request = $server->getRequest();
+        $response = new Response(200, [], 'OK');
+        $server->respond($response);
+    }
+}
+```
+
+### Server Metrics
+
+```php
+$server = new Server(new ServerConfig());
+$server->start();
+
+// Get metrics periodically
+$metrics = $server->getMetrics();
+// [
+//     'uptime_seconds' => 3600,
+//     'total_requests' => 10000,
+//     'successful_requests' => 9850,
+//     'failed_requests' => 150,
+//     'active_connections' => 5,
+//     'total_connections' => 10050,
+//     'closed_connections' => 10045,
+//     'timed_out_connections' => 10,
+//     'cache_hits' => 8500,
+//     'cache_misses' => 1500,
+//     'cache_hit_rate' => 85.0,
+//     'avg_request_duration_ms' => 12.3,
+//     'min_request_duration_ms' => 1.2,
+//     'max_request_duration_ms' => 450.5,
+//     'requests_per_second' => 2.78,
+// ]
+```
+
 ## API Reference
 
 ### Server
 
 #### Methods
 
-- `start(): void` - Start the server
+- `start(): bool` - Start the server (returns false on failure)
 - `stop(): void` - Stop the server
+- `shutdown(int $timeout): bool` - Graceful shutdown with timeout
 - `reset(): void` - Reset the server state
 - `restart(): void` - Restart the server
 - `hasRequest(): bool` - Check if there's a pending request (non-blocking)
-- `getRequest(): ServerRequestInterface` - Get the next request
+- `getRequest(): ?ServerRequestInterface` - Get the next request (null if unavailable)
 - `hasPendingResponse(): bool` - Check needs respond
 - `respond(ResponseInterface): void` - Send response for the current request
+- `getMetrics(): array` - Get server performance metrics
 - `setLogger(LoggerInterface)` - Set external Logger
 
 ### StaticFileHandler
@@ -250,7 +336,6 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 
 ## Support
 
-- 📖 [Documentation](docs/)
 - 🐛 [Issue Tracker](https://github.com/duyler/http-server/issues)
 - 💬 [Discussions](https://github.com/duyler/http-server/discussions)
 - 🌟 [Duyler Framework](https://github.com/duyler)

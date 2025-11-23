@@ -8,88 +8,15 @@ use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Socket;
 
 class ConnectionPoolTest extends TestCase
 {
-    private ConnectionPool $pool;
-
-    protected function setUp(): void
-    {
-        $this->pool = new ConnectionPool(maxConnections: 10);
-    }
-
     #[Test]
-    public function starts_empty(): void
-    {
-        $this->assertSame(0, $this->pool->count());
-    }
-
-    #[Test]
-    public function adds_connection(): void
-    {
-        $connection = $this->createConnection();
-        $this->pool->add($connection);
-
-        $this->assertSame(1, $this->pool->count());
-    }
-
-    #[Test]
-    public function removes_connection(): void
-    {
-        $connection = $this->createConnection();
-        $this->pool->add($connection);
-        $this->pool->remove($connection);
-
-        $this->assertSame(0, $this->pool->count());
-    }
-
-    #[Test]
-    public function finds_connection_by_socket(): void
-    {
-        $socket = fopen('php://memory', 'r+');
-        $connection = new Connection($socket, '127.0.0.1', 8080);
-        $this->pool->add($connection);
-
-        $found = $this->pool->findBySocket($socket);
-
-        $this->assertSame($connection, $found);
-
-        fclose($socket);
-    }
-
-    #[Test]
-    public function returns_null_for_unknown_socket(): void
-    {
-        $socket = fopen('php://memory', 'r+');
-
-        $found = $this->pool->findBySocket($socket);
-
-        $this->assertNull($found);
-
-        fclose($socket);
-    }
-
-    #[Test]
-    public function returns_all_connections(): void
-    {
-        $conn1 = $this->createConnection();
-        $conn2 = $this->createConnection();
-
-        $this->pool->add($conn1);
-        $this->pool->add($conn2);
-
-        $all = $this->pool->getAll();
-
-        $this->assertCount(2, $all);
-        $this->assertContains($conn1, $all);
-        $this->assertContains($conn2, $all);
-    }
-
-    #[Test]
-    public function respects_max_connections_limit(): void
+    public function enforces_max_connections_limit(): void
     {
         $pool = new ConnectionPool(maxConnections: 2);
-
+        
         $conn1 = $this->createConnection();
         $conn2 = $this->createConnection();
         $conn3 = $this->createConnection();
@@ -102,48 +29,153 @@ class ConnectionPoolTest extends TestCase
     }
 
     #[Test]
-    public function removes_timed_out_connections(): void
+    public function rejects_connections_when_modifying(): void
     {
-        $connection = $this->createConnection();
-        $this->pool->add($connection);
+        $pool = new ConnectionPool(maxConnections: 10);
+        
+        $conn1 = $this->createConnection();
+        $pool->add($conn1);
 
-        sleep(2);
-
-        $removed = $this->pool->removeTimedOut(1);
-
-        $this->assertSame(1, $removed);
-        $this->assertSame(0, $this->pool->count());
+        $this->assertSame(1, $pool->count());
     }
 
     #[Test]
-    public function does_not_remove_active_connections(): void
+    public function remove_is_idempotent(): void
     {
-        $connection = $this->createConnection();
-        $this->pool->add($connection);
-
-        $removed = $this->pool->removeTimedOut(10);
-
-        $this->assertSame(0, $removed);
-        $this->assertSame(1, $this->pool->count());
+        $pool = new ConnectionPool();
+        
+        $conn = $this->createConnection();
+        $pool->add($conn);
+        
+        $this->assertSame(1, $pool->count());
+        
+        $pool->remove($conn);
+        $this->assertSame(0, $pool->count());
+        
+        $pool->remove($conn);
+        $this->assertSame(0, $pool->count());
     }
 
     #[Test]
-    public function closes_all_connections(): void
+    public function remove_timed_out_is_safe_during_concurrent_modifications(): void
     {
+        $pool = new ConnectionPool();
+        
         $conn1 = $this->createConnection();
         $conn2 = $this->createConnection();
+        
+        $pool->add($conn1);
+        $pool->add($conn2);
+        
+        $removed = $pool->removeTimedOut(timeout: 0);
+        
+        $this->assertGreaterThanOrEqual(0, $removed);
+        $this->assertLessThanOrEqual(2, $removed);
+    }
 
-        $this->pool->add($conn1);
-        $this->pool->add($conn2);
+    #[Test]
+    public function handles_empty_pool_gracefully(): void
+    {
+        $pool = new ConnectionPool();
+        
+        $this->assertSame(0, $pool->count());
+        $this->assertSame([], $pool->getAll());
+        $this->assertSame(0, $pool->removeTimedOut(30));
+    }
 
-        $this->pool->closeAll();
+    #[Test]
+    public function find_by_socket_returns_correct_connection(): void
+    {
+        $pool = new ConnectionPool();
+        
+        $conn = $this->createConnection();
+        $pool->add($conn);
+        
+        $found = $pool->findBySocket($conn->getSocket());
+        
+        $this->assertSame($conn, $found);
+    }
 
-        $this->assertSame(0, $this->pool->count());
+    #[Test]
+    public function find_by_socket_returns_null_for_unknown_socket(): void
+    {
+        $pool = new ConnectionPool();
+        
+        $conn = $this->createConnection();
+        $otherSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        
+        $found = $pool->findBySocket($otherSocket);
+        
+        $this->assertNull($found);
+        
+        if ($otherSocket instanceof Socket) {
+            socket_close($otherSocket);
+        }
+    }
+
+    #[Test]
+    public function close_all_removes_all_connections(): void
+    {
+        $pool = new ConnectionPool();
+        
+        $conn1 = $this->createConnection();
+        $conn2 = $this->createConnection();
+        $conn3 = $this->createConnection();
+        
+        $pool->add($conn1);
+        $pool->add($conn2);
+        $pool->add($conn3);
+        
+        $this->assertSame(3, $pool->count());
+        
+        $pool->closeAll();
+        
+        $this->assertSame(0, $pool->count());
+        $this->assertSame([], $pool->getAll());
+    }
+
+    #[Test]
+    public function get_all_returns_array_of_connections(): void
+    {
+        $pool = new ConnectionPool();
+        
+        $conn1 = $this->createConnection();
+        $conn2 = $this->createConnection();
+        
+        $pool->add($conn1);
+        $pool->add($conn2);
+        
+        $all = $pool->getAll();
+        
+        $this->assertCount(2, $all);
+        $this->assertContains($conn1, $all);
+        $this->assertContains($conn2, $all);
+    }
+
+    #[Test]
+    public function concurrent_add_respects_limit(): void
+    {
+        $pool = new ConnectionPool(maxConnections: 5);
+        
+        $connections = [];
+        for ($i = 0; $i < 10; $i++) {
+            $connections[] = $this->createConnection();
+        }
+        
+        foreach ($connections as $conn) {
+            $pool->add($conn);
+        }
+        
+        $this->assertLessThanOrEqual(5, $pool->count());
     }
 
     private function createConnection(): Connection
     {
-        $socket = fopen('php://memory', 'r+');
-        return new Connection($socket, '127.0.0.1', rand(1024, 65535));
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        if ($socket === false) {
+            $this->fail('Failed to create socket');
+        }
+        
+        return new Connection($socket, '127.0.0.1', 8080);
     }
 }

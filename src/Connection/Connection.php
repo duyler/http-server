@@ -161,11 +161,14 @@ class Connection
         }
 
         if (is_resource($this->socket)) {
-            @fclose($this->socket);
+            try {
+                fclose($this->socket);
+            } catch (Throwable) {
+            }
             $this->closed = true;
         } elseif ($this->socket instanceof Socket) {
             try {
-                @socket_close($this->socket);
+                socket_close($this->socket);
                 $this->closed = true;
             } catch (Throwable) {
                 $this->closed = true;
@@ -182,12 +185,13 @@ class Connection
         $this->updateActivity();
 
         if ($this->socket instanceof Socket) {
-            return @socket_write($this->socket, $data, strlen($data));
+            $result = socket_write($this->socket, $data, strlen($data));
+            return $result === false ? false : $result;
         }
 
-        $written = @fwrite($this->socket, $data);
+        $written = fwrite($this->socket, $data);
         if ($written !== false) {
-            @fflush($this->socket);
+            fflush($this->socket);
         }
         return $written;
     }
@@ -201,7 +205,7 @@ class Connection
         $this->updateActivity();
 
         if ($this->socket instanceof Socket) {
-            $data = @socket_read($this->socket, $length, PHP_BINARY_READ);
+            $data = socket_read($this->socket, $length, PHP_BINARY_READ);
             return $data === false ? false : $data;
         }
 
@@ -209,7 +213,8 @@ class Connection
             return false;
         }
 
-        return @fread($this->socket, $length);
+        $data = fread($this->socket, $length);
+        return $data === false ? false : $data;
     }
 
     public function isValid(): bool

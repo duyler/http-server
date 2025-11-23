@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Socket;
 
+use Duyler\HttpServer\Constants;
 use Duyler\HttpServer\Exception\SocketException;
 use Socket;
 
@@ -22,7 +23,7 @@ class StreamSocket implements SocketInterface
     {
         $domain = $this->ipv6 ? AF_INET6 : AF_INET;
 
-        $socket = @socket_create($domain, SOCK_STREAM, SOL_TCP);
+        $socket = socket_create($domain, SOCK_STREAM, SOL_TCP);
 
         if ($socket === false) {
             throw new SocketException(
@@ -32,13 +33,13 @@ class StreamSocket implements SocketInterface
 
         $this->socket = $socket;
 
-        if (!@socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1)) {
+        if (!socket_set_option($this->socket, SOL_SOCKET, SO_REUSEADDR, 1)) {
             throw new SocketException(
                 sprintf('Failed to set socket option SO_REUSEADDR: %s', socket_strerror(socket_last_error($this->socket))),
             );
         }
 
-        if (!@socket_bind($this->socket, $address, $port)) {
+        if (!socket_bind($this->socket, $address, $port)) {
             $error = socket_strerror(socket_last_error($this->socket));
             $this->close();
             throw new SocketException(sprintf('Failed to bind socket to %s:%d - %s', $address, $port, $error));
@@ -47,13 +48,13 @@ class StreamSocket implements SocketInterface
         $this->isBound = true;
     }
 
-    public function listen(int $backlog = 511): void
+    public function listen(int $backlog = Constants::DEFAULT_LISTEN_BACKLOG): void
     {
         if (!$this->isBound) {
             throw new SocketException('Socket must be bound before listening');
         }
 
-        if (!@socket_listen($this->socket, $backlog)) {
+        if (!socket_listen($this->socket, $backlog)) {
             throw new SocketException(
                 sprintf('Failed to listen on socket: %s', socket_strerror(socket_last_error($this->socket))),
             );
@@ -68,7 +69,7 @@ class StreamSocket implements SocketInterface
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
-        $client = @socket_accept($this->socket);
+        $client = socket_accept($this->socket);
 
         if ($client === false) {
             $error = socket_last_error($this->socket);
@@ -94,8 +95,8 @@ class StreamSocket implements SocketInterface
         }
 
         $result = $blocking
-            ? @socket_set_block($this->socket)
-            : @socket_set_nonblock($this->socket);
+            ? socket_set_block($this->socket)
+            : socket_set_nonblock($this->socket);
 
         if (!$result) {
             throw new SocketException(
@@ -107,7 +108,7 @@ class StreamSocket implements SocketInterface
     public function close(): void
     {
         if ($this->isValid()) {
-            @socket_close($this->socket);
+            socket_close($this->socket);
             $this->socket = null;
             $this->isBound = false;
             $this->isListening = false;

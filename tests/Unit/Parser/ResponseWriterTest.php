@@ -114,4 +114,114 @@ class ResponseWriterTest extends TestCase
 
         $this->assertStringStartsWith('HTTP/1.0', $output);
     }
+
+    #[Test]
+    public function write_buffered_small_response_single_call(): void
+    {
+        $response = new Response(200, [], 'Small body');
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, 8192);
+
+        $this->assertCount(1, $chunks);
+        $this->assertStringContainsString('HTTP/1.1 200 OK', $chunks[0]);
+        $this->assertStringContainsString('Small body', $chunks[0]);
+    }
+
+    #[Test]
+    public function write_buffered_large_response_multiple_calls(): void
+    {
+        $largeBody = str_repeat('X', 20000);
+        $response = new Response(200, [], $largeBody);
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, 8192);
+
+        $this->assertGreaterThan(1, count($chunks));
+
+        $fullOutput = implode('', $chunks);
+        $this->assertStringContainsString('HTTP/1.1 200 OK', $fullOutput);
+        $this->assertStringContainsString($largeBody, $fullOutput);
+    }
+
+    #[Test]
+    public function write_buffered_respects_buffer_size(): void
+    {
+        $body = str_repeat('A', 10000);
+        $response = new Response(200, [], $body);
+
+        $chunks = [];
+        $bufferSize = 4096;
+
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, $bufferSize);
+
+        foreach ($chunks as $index => $chunk) {
+            if ($index < count($chunks) - 1) {
+                $this->assertLessThanOrEqual($bufferSize, strlen($chunk));
+            }
+        }
+    }
+
+    #[Test]
+    public function write_buffered_empty_body(): void
+    {
+        $response = new Response(204);
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        });
+
+        $this->assertCount(1, $chunks);
+        $this->assertStringContainsString('HTTP/1.1 204 No Content', $chunks[0]);
+    }
+
+    #[Test]
+    public function write_buffered_with_headers(): void
+    {
+        $response = (new Response(200, ['Content-Type' => 'text/plain'], str_repeat('X', 10000)));
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, 4096);
+
+        $fullOutput = implode('', $chunks);
+        $this->assertStringContainsString('Content-Type: text/plain', $fullOutput);
+    }
+
+    #[Test]
+    public function write_buffered_minimizes_chunks(): void
+    {
+        $body = str_repeat('B', 16000);
+        $response = new Response(200, [], $body);
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, 8192);
+
+        $this->assertLessThanOrEqual(3, count($chunks), 'Should minimize number of chunks');
+    }
+
+    #[Test]
+    public function write_buffered_exact_buffer_size(): void
+    {
+        $body = str_repeat('C', 8000);
+        $response = new Response(200, [], $body);
+
+        $chunks = [];
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $chunks[] = $chunk;
+        }, 8192);
+
+        $fullOutput = implode('', $chunks);
+        $this->assertStringContainsString($body, $fullOutput);
+    }
 }

@@ -9,13 +9,17 @@ use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Exception\HttpServerException;
 use Duyler\HttpServer\Handler\StaticFileHandler;
+use Duyler\HttpServer\Metrics\ServerMetrics;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
+use Duyler\HttpServer\RateLimit\RateLimiter;
 use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
+use Duyler\HttpServer\Upload\TempFileManager;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -32,7 +36,10 @@ class Server implements ServerInterface
     private ResponseWriter $responseWriter;
     private HttpParser $httpParser;
     private LoggerInterface $logger;
+    private TempFileManager $tempFileManager;
     private ?StaticFileHandler $staticFileHandler = null;
+    private ?RateLimiter $rateLimiter = null;
+    private ServerMetrics $metrics;
 
     /** @var SplQueue<array{request: ServerRequestInterface, connection: Connection}> */
     private SplQueue $requestQueue;
@@ -41,6 +48,7 @@ class Server implements ServerInterface
     private array $pendingResponses = [];
 
     private bool $isRunning = false;
+    private bool $isShuttingDown = false;
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -48,17 +56,26 @@ class Server implements ServerInterface
     ) {
         $this->httpParser = new HttpParser();
         $psr17Factory = new Psr17Factory();
-        $this->requestParser = new RequestParser($this->httpParser, $psr17Factory);
+        $this->tempFileManager = new TempFileManager();
+        $this->requestParser = new RequestParser($this->httpParser, $psr17Factory, $this->tempFileManager);
         $this->responseWriter = new ResponseWriter();
         $this->connectionPool = new ConnectionPool($this->config->maxConnections);
         $this->requestQueue = new SplQueue();
         $this->logger = $logger ?? new NullLogger();
+        $this->metrics = new ServerMetrics();
 
         if ($this->config->publicPath !== null) {
             $this->staticFileHandler = new StaticFileHandler(
                 $this->config->publicPath,
                 $this->config->enableStaticCache,
                 $this->config->staticCacheSize,
+            );
+        }
+
+        if ($this->config->enableRateLimit) {
+            $this->rateLimiter = new RateLimiter(
+                $this->config->rateLimitRequests,
+                $this->config->rateLimitWindow,
             );
         }
 
@@ -76,11 +93,11 @@ class Server implements ServerInterface
         );
     }
 
-    public function start(): void
+    public function start(): bool
     {
         if ($this->isRunning) {
             $this->logger->warning('Server is already running');
-            return;
+            return true;
         }
 
         try {
@@ -95,12 +112,13 @@ class Server implements ServerInterface
                 'port' => $this->config->port,
                 'ssl' => $this->config->ssl,
             ]);
+            return true;
         } catch (Throwable $e) {
             $this->logger->error('Failed to start server', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
-            throw $e;
+            return false;
         }
     }
 
@@ -117,8 +135,73 @@ class Server implements ServerInterface
         }
 
         $this->isRunning = false;
+        $this->isShuttingDown = false;
 
         $this->logger->info('HTTP Server stopped');
+    }
+
+    public function shutdown(int $timeout = 30): bool
+    {
+        if (!$this->isRunning) {
+            $this->logger->warning('Cannot shutdown: server is not running');
+            return true;
+        }
+
+        if ($this->isShuttingDown) {
+            $this->logger->warning('Server is already shutting down');
+            return false;
+        }
+
+        $this->isShuttingDown = true;
+        $this->logger->info('Graceful shutdown initiated', ['timeout' => $timeout]);
+
+        $startTime = time();
+        $activeCount = $this->getActiveConnectionCount();
+
+        while (($activeCount > 0 || !$this->requestQueue->isEmpty() || count($this->pendingResponses) > 0) 
+               && (time() - $startTime) < $timeout) {
+            usleep(Constants::SHUTDOWN_POLL_INTERVAL_MICROSECONDS);
+
+            try {
+                $this->readFromConnections();
+                $this->cleanupTimedOutConnections();
+            } catch (Throwable $e) {
+                $this->logger->debug('Error during shutdown processing', [
+                    'error' => $e->getMessage(),
+                ]);
+            }
+
+            $activeCount = $this->getActiveConnectionCount();
+
+            if ($this->config->debugMode && $activeCount > 0) {
+                $this->logger->debug('Waiting for connections to finish', [
+                    'active' => $activeCount,
+                    'pending_responses' => count($this->pendingResponses),
+                    'queued_requests' => $this->requestQueue->count(),
+                    'elapsed' => time() - $startTime,
+                ]);
+            }
+        }
+
+        $elapsed = time() - $startTime;
+        $graceful = $activeCount === 0 && $this->requestQueue->isEmpty() && count($this->pendingResponses) === 0;
+
+        if ($graceful) {
+            $this->logger->info('Graceful shutdown completed successfully', [
+                'elapsed' => $elapsed,
+            ]);
+        } else {
+            $this->logger->warning('Graceful shutdown timeout reached, forcing shutdown', [
+                'remaining_active' => $activeCount,
+                'remaining_pending' => count($this->pendingResponses),
+                'remaining_queued' => $this->requestQueue->count(),
+                'elapsed' => $elapsed,
+            ]);
+        }
+
+        $this->stop();
+
+        return $graceful;
     }
 
     public function reset(): void
@@ -128,6 +211,7 @@ class Server implements ServerInterface
         $this->connectionPool->closeAll();
         $this->requestQueue = new SplQueue();
         $this->pendingResponses = [];
+        $this->tempFileManager->cleanup();
 
         if ($this->staticFileHandler !== null) {
             $this->staticFileHandler->clearCache();
@@ -170,37 +254,57 @@ class Server implements ServerInterface
 
     public function hasRequest(): bool
     {
-        if (!$this->isRunning) {
-            throw new HttpServerException('Server is not running');
+        try {
+            if (!$this->isRunning) {
+                $this->logger->warning('hasRequest() called but server is not running');
+                return false;
+            }
+
+            if (!$this->isShuttingDown) {
+                $this->acceptNewConnections();
+            }
+
+            $this->readFromConnections();
+            $this->cleanupTimedOutConnections();
+
+            return !$this->requestQueue->isEmpty();
+        } catch (Throwable $e) {
+            $this->logger->error('Error in hasRequest()', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return false;
         }
-
-        $this->acceptNewConnections();
-        $this->readFromConnections();
-        $this->cleanupTimedOutConnections();
-
-        return !$this->requestQueue->isEmpty();
     }
 
-    public function getRequest(): ServerRequestInterface
+    public function getRequest(): ?ServerRequestInterface
     {
-        if ($this->requestQueue->isEmpty()) {
-            $this->logger->warning('getRequest() called but no requests available');
-            throw new HttpServerException('No requests available');
-        }
+        try {
+            if ($this->requestQueue->isEmpty()) {
+                $this->logger->warning('getRequest() called but no requests available');
+                return null;
+            }
 
-        $item = $this->requestQueue->dequeue();
-        $connectionId = $this->getSocketId($item['connection']->getSocket());
-        $this->pendingResponses[$connectionId] = $item['connection'];
+            $item = $this->requestQueue->dequeue();
+            $connectionId = $this->getSocketId($item['connection']->getSocket());
+            $this->pendingResponses[$connectionId] = $item['connection'];
 
-        if ($this->config->debugMode) {
-            $this->logger->debug('Request retrieved', [
-                'method' => $item['request']->getMethod(),
-                'uri' => (string) $item['request']->getUri(),
-                'connection_id' => $connectionId,
+            if ($this->config->debugMode) {
+                $this->logger->debug('Request retrieved', [
+                    'method' => $item['request']->getMethod(),
+                    'uri' => (string) $item['request']->getUri(),
+                    'connection_id' => $connectionId,
+                ]);
+            }
+
+            return $item['request'];
+        } catch (Throwable $e) {
+            $this->logger->error('Error in getRequest()', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+            return null;
         }
-
-        return $item['request'];
     }
 
     public function respond(ResponseInterface $response): void
@@ -227,7 +331,13 @@ class Server implements ServerInterface
 
         try {
             $this->sendResponse($connection, $response);
+            if ($response->getStatusCode() < 400) {
+                $this->metrics->incrementSuccessfulRequests();
+            } else {
+                $this->metrics->incrementFailedRequests();
+            }
         } catch (Throwable $e) {
+            $this->metrics->incrementFailedRequests();
             $this->logger->error('Failed to send response', [
                 'error' => $e->getMessage(),
                 'status' => $response->getStatusCode(),
@@ -244,6 +354,15 @@ class Server implements ServerInterface
     public function setLogger(?LoggerInterface $logger): void
     {
         $this->logger = $logger ?? new NullLogger();
+    }
+
+    /**
+     * @return array<string, int|float|string>
+     */
+    public function getMetrics(): array
+    {
+        $this->metrics->setActiveConnections($this->connectionPool->count());
+        return $this->metrics->getMetrics();
     }
 
     /**
@@ -278,12 +397,16 @@ class Server implements ServerInterface
 
     private function acceptNewConnections(): void
     {
-        while (true) {
+        $acceptedCount = 0;
+
+        while ($acceptedCount < $this->config->maxAcceptsPerCycle) {
             $clientSocket = $this->socket->accept();
 
             if ($clientSocket === false) {
                 break;
             }
+
+            $acceptedCount++;
 
             $remoteAddr = '0.0.0.0';
             $remotePort = 0;
@@ -302,13 +425,22 @@ class Server implements ServerInterface
 
             $connection = new Connection($clientSocket, $remoteAddr, $remotePort);
             $this->connectionPool->add($connection);
+            $this->metrics->incrementTotalConnections();
 
             if ($this->config->debugMode) {
                 $this->logger->debug('New connection accepted', [
                     'remote' => "$remoteAddr:$remotePort",
                     'total_connections' => $this->connectionPool->count(),
+                    'accepts_this_cycle' => $acceptedCount,
                 ]);
             }
+        }
+
+        if ($acceptedCount >= $this->config->maxAcceptsPerCycle && $this->config->debugMode) {
+            $this->logger->debug('Max accepts per cycle reached', [
+                'limit' => $this->config->maxAcceptsPerCycle,
+                'note' => 'Deferring remaining connections to next cycle',
+            ]);
         }
     }
 
@@ -337,7 +469,7 @@ class Server implements ServerInterface
                 $read = [$socket];
                 $write = null;
                 $except = null;
-                $changed = @socket_select($read, $write, $except, 0);
+                $changed = socket_select($read, $write, $except, 0);
 
                 if ($changed === false || $changed === 0) {
                     continue;
@@ -346,7 +478,7 @@ class Server implements ServerInterface
                 $read = [$socket];
                 $write = null;
                 $except = null;
-                $changed = @stream_select($read, $write, $except, 0);
+                $changed = stream_select($read, $write, $except, 0);
 
                 if ($changed === false || $changed === 0) {
                     continue;
@@ -418,6 +550,24 @@ class Server implements ServerInterface
                 $connection->getRemotePort(),
             );
 
+            if ($this->rateLimiter !== null && !$this->rateLimiter->isAllowed($connection->getRemoteAddress())) {
+                $this->logger->warning('Rate limit exceeded', [
+                    'remote' => $connection->getRemoteAddress(),
+                ]);
+
+                $resetTime = $this->rateLimiter->getResetTime($connection->getRemoteAddress());
+                $response = new Response(429, [
+                    'Content-Type' => 'text/plain',
+                    'Retry-After' => (string) $resetTime,
+                    'X-RateLimit-Limit' => (string) $this->config->rateLimitRequests,
+                    'X-RateLimit-Remaining' => '0',
+                    'X-RateLimit-Reset' => (string) (time() + $resetTime),
+                ], 'Too Many Requests');
+
+                $this->sendResponse($connection, $response);
+                return;
+            }
+
             if ($this->staticFileHandler !== null && $this->staticFileHandler->isStaticFile($request)) {
                 $connection->incrementRequestCount();
 
@@ -439,6 +589,7 @@ class Server implements ServerInterface
                 return;
             }
 
+            $this->metrics->incrementRequests();
             $this->requestQueue->enqueue([
                 'request' => $request,
                 'connection' => $connection,
@@ -539,11 +690,15 @@ class Server implements ServerInterface
 
         $connection->close();
         $this->connectionPool->remove($connection);
+        $this->metrics->incrementClosedConnections();
     }
 
     private function cleanupTimedOutConnections(): void
     {
-        $this->connectionPool->removeTimedOut($this->config->connectionTimeout);
+        $removed = $this->connectionPool->removeTimedOut($this->config->connectionTimeout);
+        for ($i = 0; $i < $removed; $i++) {
+            $this->metrics->incrementTimedOutConnections();
+        }
     }
 
     /**
@@ -560,6 +715,11 @@ class Server implements ServerInterface
         }
 
         return 0;
+    }
+
+    private function getActiveConnectionCount(): int
+    {
+        return $this->connectionPool->count();
     }
 
     /**

@@ -15,6 +15,8 @@ class ConnectionPool
     /** @var array<int, Connection> */
     private array $connectionsByResourceId = [];
 
+    private bool $isModifying = false;
+
     public function __construct(
         private readonly int $maxConnections = 1000,
     ) {
@@ -23,22 +25,43 @@ class ConnectionPool
 
     public function add(Connection $connection): void
     {
-        if ($this->connections->count() >= $this->maxConnections) {
+        if ($this->isModifying) {
             $connection->close();
             return;
         }
 
-        $this->connections->attach($connection);
-        $resourceId = $this->getSocketId($connection->getSocket());
-        $this->connectionsByResourceId[$resourceId] = $connection;
+        $this->isModifying = true;
+
+        try {
+            if ($this->connections->count() >= $this->maxConnections) {
+                $connection->close();
+                return;
+            }
+
+            $this->connections->attach($connection);
+            $resourceId = $this->getSocketId($connection->getSocket());
+            $this->connectionsByResourceId[$resourceId] = $connection;
+        } finally {
+            $this->isModifying = false;
+        }
     }
 
     public function remove(Connection $connection): void
     {
-        if ($this->connections->contains($connection)) {
-            $this->connections->detach($connection);
-            $resourceId = $this->getSocketId($connection->getSocket());
-            unset($this->connectionsByResourceId[$resourceId]);
+        if ($this->isModifying) {
+            return;
+        }
+
+        $this->isModifying = true;
+
+        try {
+            if ($this->connections->contains($connection)) {
+                $this->connections->detach($connection);
+                $resourceId = $this->getSocketId($connection->getSocket());
+                unset($this->connectionsByResourceId[$resourceId]);
+            }
+        } finally {
+            $this->isModifying = false;
         }
     }
 
@@ -86,22 +109,37 @@ class ConnectionPool
 
     public function removeTimedOut(int $timeout): int
     {
-        $removed = 0;
-        $toRemove = [];
+        if ($this->isModifying) {
+            return 0;
+        }
 
-        foreach ($this->connections as $connection) {
-            if ($connection->isTimedOut($timeout)) {
-                $toRemove[] = $connection;
+        $this->isModifying = true;
+
+        try {
+            $removed = 0;
+            $toRemove = [];
+
+            foreach ($this->connections as $connection) {
+                if ($connection->isTimedOut($timeout)) {
+                    $toRemove[] = $connection;
+                }
             }
-        }
 
-        foreach ($toRemove as $connection) {
-            $connection->close();
-            $this->remove($connection);
-            ++$removed;
-        }
+            foreach ($toRemove as $connection) {
+                $connection->close();
+                
+                if ($this->connections->contains($connection)) {
+                    $this->connections->detach($connection);
+                    $resourceId = $this->getSocketId($connection->getSocket());
+                    unset($this->connectionsByResourceId[$resourceId]);
+                    ++$removed;
+                }
+            }
 
-        return $removed;
+            return $removed;
+        } finally {
+            $this->isModifying = false;
+        }
     }
 
     public function closeAll(): void

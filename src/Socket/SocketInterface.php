@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Socket;
 
+use Duyler\HttpServer\Constants;
+
 interface SocketInterface
 {
     public function bind(string $address, int $port): void;
 
-    public function listen(int $backlog = 511): void;
+    public function listen(int $backlog = Constants::DEFAULT_LISTEN_BACKLOG): void;
 
     /**
      * @return resource|false

@@ -32,7 +32,7 @@ class StaticFileHandler
         'otf' => 'font/otf',
     ];
 
-    /** @var array<string, array{content: string, mtime: int, etag: string}> */
+    /** @var array<string, array{content: string, mtime: int, etag: string, lastAccessTime: float, size: int}> */
     private array $cache = [];
     private int $cacheSize = 0;
 
@@ -40,6 +40,7 @@ class StaticFileHandler
         private readonly string $publicPath,
         private readonly bool $enableCache = true,
         private readonly int $maxCacheSize = 52428800,
+        private readonly int $maxCacheFiles = 1000,
     ) {}
 
     public function isStaticFile(ServerRequestInterface $request): bool
@@ -113,12 +114,16 @@ class StaticFileHandler
             return new Response(304);
         }
 
-        $content = $this->getFileContent($realPath, $mtime, $etag);
+        $mimeType = $this->getMimeType($realPath);
+
+        if ($filesize > $this->maxCacheSize) {
+            return $this->streamFile($realPath, $mimeType, $mtime, $etag, $filesize);
+        }
+
+        $content = $this->getFileContent($realPath, $mtime, $etag, $filesize);
         if ($content === null) {
             return new Response(500, [], 'Internal Server Error');
         }
-
-        $mimeType = $this->getMimeType($realPath);
 
         return new Response(
             200,
@@ -133,7 +138,29 @@ class StaticFileHandler
         );
     }
 
-    private function getFileContent(string $filePath, int $mtime, string $etag): ?string
+    private function streamFile(
+        string $filePath,
+        string $mimeType,
+        int $mtime,
+        string $etag,
+        int $filesize
+    ): ResponseInterface {
+        $stream = \Nyholm\Psr7\Stream::create(fopen($filePath, 'r'));
+
+        return new Response(
+            200,
+            [
+                'Content-Type' => $mimeType,
+                'Content-Length' => (string) $filesize,
+                'Last-Modified' => gmdate('D, d M Y H:i:s', $mtime) . ' GMT',
+                'ETag' => $etag,
+                'Cache-Control' => 'public, max-age=3600',
+            ],
+            $stream,
+        );
+    }
+
+    private function getFileContent(string $filePath, int $mtime, string $etag, int $filesize): ?string
     {
         if (!$this->enableCache) {
             $content = file_get_contents($filePath);
@@ -144,11 +171,17 @@ class StaticFileHandler
             $cached = $this->cache[$filePath];
 
             if ($cached['mtime'] === $mtime && $cached['etag'] === $etag) {
+                $this->cache[$filePath]['lastAccessTime'] = microtime(true);
                 return $cached['content'];
             }
 
-            $this->cacheSize -= strlen($cached['content']);
+            $this->cacheSize -= $cached['size'];
             unset($this->cache[$filePath]);
+        }
+
+        if ($this->cacheSize + $filesize > $this->maxCacheSize) {
+            $content = file_get_contents($filePath);
+            return $content !== false ? $content : null;
         }
 
         $content = file_get_contents($filePath);
@@ -156,18 +189,47 @@ class StaticFileHandler
             return null;
         }
 
-        $size = strlen($content);
+        $this->evictIfNeeded($filesize);
 
-        if ($this->cacheSize + $size <= $this->maxCacheSize) {
-            $this->cache[$filePath] = [
-                'content' => $content,
-                'mtime' => $mtime,
-                'etag' => $etag,
-            ];
-            $this->cacheSize += $size;
-        }
+        $this->cache[$filePath] = [
+            'content' => $content,
+            'mtime' => $mtime,
+            'etag' => $etag,
+            'lastAccessTime' => microtime(true),
+            'size' => $filesize,
+        ];
+        $this->cacheSize += $filesize;
 
         return $content;
+    }
+
+    private function evictIfNeeded(int $newFileSize): void
+    {
+        while (
+            (count($this->cache) >= $this->maxCacheFiles || 
+             $this->cacheSize + $newFileSize > $this->maxCacheSize) &&
+            count($this->cache) > 0
+        ) {
+            $this->evictLeastRecentlyUsed();
+        }
+    }
+
+    private function evictLeastRecentlyUsed(): void
+    {
+        $oldestPath = null;
+        $oldestTime = PHP_FLOAT_MAX;
+
+        foreach ($this->cache as $path => $entry) {
+            if ($entry['lastAccessTime'] < $oldestTime) {
+                $oldestTime = $entry['lastAccessTime'];
+                $oldestPath = $path;
+            }
+        }
+
+        if ($oldestPath !== null) {
+            $this->cacheSize -= $this->cache[$oldestPath]['size'];
+            unset($this->cache[$oldestPath]);
+        }
     }
 
     private function getMimeType(string $filePath): string
@@ -186,6 +248,7 @@ class StaticFileHandler
             'entries' => count($this->cache),
             'size' => $this->cacheSize,
             'max_size' => $this->maxCacheSize,
+            'max_files' => $this->maxCacheFiles,
         ];
     }
 
