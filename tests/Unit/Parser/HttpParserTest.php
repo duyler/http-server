@@ -194,4 +194,84 @@ class HttpParserTest extends TestCase
 
         $this->assertFalse($this->parser->isChunked($headers));
     }
+
+    #[Test]
+    public function throws_exception_on_duplicate_content_length(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Content-Length');
+
+        $headerBlock = "Content-Length: 100\r\nContent-Length: 200\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
+
+    #[Test]
+    public function throws_exception_on_duplicate_content_type(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Content-Type');
+
+        $headerBlock = "Content-Type: text/html\r\nContent-Type: application/json\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
+
+    #[Test]
+    public function throws_exception_on_duplicate_host(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Host');
+
+        $headerBlock = "Host: example.com\r\nHost: another.com\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
+
+    #[Test]
+    public function throws_exception_on_duplicate_authorization(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Authorization');
+
+        $headerBlock = "Authorization: Bearer token1\r\nAuthorization: Bearer token2\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
+
+    #[Test]
+    public function throws_exception_on_duplicate_transfer_encoding(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Transfer-Encoding');
+
+        $headerBlock = "Transfer-Encoding: chunked\r\nTransfer-Encoding: gzip\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
+
+    #[Test]
+    public function allows_multiple_cookie_headers(): void
+    {
+        $headerBlock = "Cookie: session=abc\r\nCookie: user=john\r\n";
+        $headers = $this->parser->parseHeaders($headerBlock);
+
+        $this->assertCount(2, $headers['Cookie']);
+        $this->assertSame('session=abc', $headers['Cookie'][0]);
+        $this->assertSame('user=john', $headers['Cookie'][1]);
+    }
+
+    #[Test]
+    public function allows_multiple_accept_headers(): void
+    {
+        $headerBlock = "Accept: text/html\r\nAccept: application/json\r\n";
+        $headers = $this->parser->parseHeaders($headerBlock);
+
+        $this->assertCount(2, $headers['Accept']);
+    }
+
+    #[Test]
+    public function case_insensitive_duplicate_detection(): void
+    {
+        $this->expectException(ParseException::class);
+        $this->expectExceptionMessage('Duplicate header not allowed: Content-Length');
+
+        $headerBlock = "content-length: 100\r\nCONTENT-LENGTH: 200\r\n";
+        $this->parser->parseHeaders($headerBlock);
+    }
 }

@@ -10,6 +10,14 @@ class HttpParser
 {
     private const HTTP_VERSION_PATTERN = '/^HTTP\/(\d+\.\d+)$/';
 
+    private const SINGULAR_HEADERS = [
+        'Content-Length',
+        'Content-Type',
+        'Host',
+        'Authorization',
+        'Transfer-Encoding',
+    ];
+
     /**
      * @return array{method: string, uri: string, version: string}
      */
@@ -81,6 +89,14 @@ class HttpParser
 
             $normalizedName = $this->normalizeHeaderName($name);
             $currentHeader = $normalizedName;
+
+            if (in_array($normalizedName, self::SINGULAR_HEADERS, true)) {
+                if (isset($headers[$normalizedName])) {
+                    throw new ParseException(
+                        sprintf('Duplicate header not allowed: %s', $normalizedName),
+                    );
+                }
+            }
 
             if (!isset($headers[$normalizedName])) {
                 $headers[$normalizedName] = [];

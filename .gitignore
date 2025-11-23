@@ -9,4 +9,5 @@
 /build/
 /.php-cs-fixer.cache
 /.phpstan.cache
-/.php-cs-fixer.cache
+/docs/
+/examples/

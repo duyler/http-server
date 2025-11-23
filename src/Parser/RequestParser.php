@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Parser;
 
+use Duyler\HttpServer\Upload\TempFileManager;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\ServerRequest;
@@ -15,6 +16,7 @@ class RequestParser
     public function __construct(
         private readonly HttpParser $httpParser,
         private readonly Psr17Factory $psr17Factory,
+        private readonly TempFileManager $tempFileManager,
     ) {}
 
     public function parse(string $rawRequest, string $remoteAddr, int $remotePort): ServerRequestInterface
@@ -127,13 +129,19 @@ class RequestParser
 
     private function parseMultipart(ServerRequestInterface $request, string $contentType, string $body): ServerRequestInterface
     {
-        preg_match('/boundary=(.+)$/', $contentType, $matches);
+        preg_match('/boundary=(?:"([^"]+)"|([^\s;]+))/', $contentType, $matches);
 
-        if (!isset($matches[1])) {
+        if (!isset($matches[1]) && !isset($matches[2])) {
             return $request;
         }
 
-        $boundary = '--' . trim($matches[1]);
+        $rawBoundary = ($matches[1] !== '') ? $matches[1] : ($matches[2] ?? '');
+
+        if (!$this->isValidBoundary($rawBoundary)) {
+            throw new InvalidArgumentException('Invalid multipart boundary');
+        }
+
+        $boundary = '--' . $rawBoundary;
         $parts = explode($boundary, $body);
 
         array_shift($parts);
@@ -164,7 +172,7 @@ class RequestParser
             preg_match('/filename="([^"]+)"/', $partHeaders['Content-Disposition'][0], $fileMatch);
 
             if (isset($fileMatch[1])) {
-                $tmpFile = tempnam(sys_get_temp_dir(), 'upload_');
+                $tmpFile = $this->tempFileManager->create('upload_');
                 file_put_contents($tmpFile, $partBody);
 
                 $uploadedFiles[$name] = new UploadedFile(
@@ -182,5 +190,24 @@ class RequestParser
         return $request
             ->withParsedBody($parsedBody)
             ->withUploadedFiles($uploadedFiles);
+    }
+
+    private function isValidBoundary(string $boundary): bool
+    {
+        $length = strlen($boundary);
+
+        if ($length < 1 || $length > 70) {
+            return false;
+        }
+
+        if (!preg_match('/^[a-zA-Z0-9\'()+_,.\/:=? -]+$/', $boundary)) {
+            return false;
+        }
+
+        if (str_ends_with($boundary, ' ')) {
+            return false;
+        }
+
+        return true;
     }
 }

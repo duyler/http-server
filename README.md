@@ -7,10 +7,14 @@ Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 suppor
 - ✅ **Non-blocking I/O** - Works seamlessly with Duyler Event Bus MainCyclic state
 - ✅ **PSR-7 Compatible** - Full support for PSR-7 HTTP messages
 - ✅ **HTTP & HTTPS** - Support for both HTTP and HTTPS protocols
+- ✅ **WebSocket Support** - RFC 6455 compliant WebSocket implementation with zero-cost abstraction
 - ✅ **File Upload/Download** - Complete multipart form-data and file streaming support
-- ✅ **Static Files** - Built-in static file serving with in-memory caching
+- ✅ **Static Files** - Built-in static file serving with LRU caching
 - ✅ **Keep-Alive** - HTTP persistent connections support
 - ✅ **Range Requests** - Partial content support for large file downloads
+- ✅ **Rate Limiting** - Sliding window rate limiter with configurable limits
+- ✅ **Graceful Shutdown** - Clean server termination with timeout
+- ✅ **Server Metrics** - Built-in performance and health monitoring
 - ✅ **High Performance** - Optimized for long-running worker processes
 
 ## Requirements
@@ -39,12 +43,21 @@ $config = new ServerConfig(
 );
 
 $server = new Server($config);
-$server->start();
+
+// Check if server started successfully
+if (!$server->start()) {
+    die('Failed to start HTTP server');
+}
 
 // In your event loop
 while (true) {
     if ($server->hasRequest()) {
         $request = $server->getRequest();
+        
+        // Check for null (race condition or error)
+        if ($request === null) {
+            continue;
+        }
         
         // Process request
         $response = new Response(200, [], 'Hello World!');
@@ -94,6 +107,14 @@ $config = new ServerConfig(
     enableStaticCache: true,       // Enable in-memory static file cache
     staticCacheSize: 52428800,     // Max cache size (50MB)
     
+    // Rate Limiting
+    enableRateLimit: false,        // Enable rate limiting
+    rateLimitRequests: 100,        // Max requests per window
+    rateLimitWindow: 60,           // Rate limit window in seconds
+    
+    // Performance
+    maxAcceptsPerCycle: 10,        // Max new connections per cycle
+    
     // Debug
     debugMode: false,              // Enable debug logging mode
 );
@@ -115,6 +136,58 @@ $config = new ServerConfig(
 $server = new Server($config);
 $server->start();
 ```
+
+### WebSocket Server
+
+```php
+use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Duyler\HttpServer\WebSocket\WebSocketConfig;
+use Duyler\HttpServer\WebSocket\Connection;
+use Duyler\HttpServer\WebSocket\Message;
+
+$wsConfig = new WebSocketConfig(
+    maxMessageSize: 1048576,
+    pingInterval: 30,
+    validateOrigin: false,
+);
+
+$ws = new WebSocketServer($wsConfig);
+
+$ws->on('connect', function (Connection $conn) {
+    echo "New connection: {$conn->getId()}\n";
+});
+
+$ws->on('message', function (Connection $conn, Message $message) {
+    $data = $message->getJson();
+    
+    $conn->send([
+        'type' => 'echo',
+        'data' => $data,
+    ]);
+});
+
+$ws->on('close', function (Connection $conn, int $code, string $reason) {
+    echo "Connection closed: $code\n";
+});
+
+$server->attachWebSocket('/ws', $ws);
+$server->start();
+
+while (true) {
+    if ($server->hasRequest()) {
+        $request = $server->getRequest();
+        
+        if ($request !== null) {
+            $response = new Response(200, [], 'Hello');
+            $server->respond($response);
+        }
+    }
+    
+    usleep(1000);
+}
+```
+
+See `examples/websocket-chat.php` for a complete chat application example.
 
 ### Static File Serving
 
@@ -177,21 +250,88 @@ foreach ($uploadedFiles as $field => $file) {
 }
 ```
 
+### Rate Limiting
+
+```php
+$config = new ServerConfig(
+    enableRateLimit: true,
+    rateLimitRequests: 100,     // Max 100 requests
+    rateLimitWindow: 60,        // Per 60 seconds (per IP)
+);
+
+$server = new Server($config);
+$server->start();
+
+// Rate limiting is applied automatically
+// Clients exceeding limits receive 429 Too Many Requests
+```
+
+### Graceful Shutdown
+
+```php
+$server = new Server(new ServerConfig());
+$server->start();
+
+// Register shutdown handler
+pcntl_signal(SIGTERM, function() use ($server) {
+    $success = $server->shutdown(30); // 30 second timeout
+    exit($success ? 0 : 1);
+});
+
+while (true) {
+    if ($server->hasRequest()) {
+        $request = $server->getRequest();
+        $response = new Response(200, [], 'OK');
+        $server->respond($response);
+    }
+}
+```
+
+### Server Metrics
+
+```php
+$server = new Server(new ServerConfig());
+$server->start();
+
+// Get metrics periodically
+$metrics = $server->getMetrics();
+// [
+//     'uptime_seconds' => 3600,
+//     'total_requests' => 10000,
+//     'successful_requests' => 9850,
+//     'failed_requests' => 150,
+//     'active_connections' => 5,
+//     'total_connections' => 10050,
+//     'closed_connections' => 10045,
+//     'timed_out_connections' => 10,
+//     'cache_hits' => 8500,
+//     'cache_misses' => 1500,
+//     'cache_hit_rate' => 85.0,
+//     'avg_request_duration_ms' => 12.3,
+//     'min_request_duration_ms' => 1.2,
+//     'max_request_duration_ms' => 450.5,
+//     'requests_per_second' => 2.78,
+// ]
+```
+
 ## API Reference
 
 ### Server
 
 #### Methods
 
-- `start(): void` - Start the server
+- `start(): bool` - Start the server (returns false on failure)
 - `stop(): void` - Stop the server
+- `shutdown(int $timeout): bool` - Graceful shutdown with timeout
 - `reset(): void` - Reset the server state
 - `restart(): void` - Restart the server
 - `hasRequest(): bool` - Check if there's a pending request (non-blocking)
-- `getRequest(): ServerRequestInterface` - Get the next request
+- `getRequest(): ?ServerRequestInterface` - Get the next request (null if unavailable)
 - `hasPendingResponse(): bool` - Check needs respond
 - `respond(ResponseInterface): void` - Send response for the current request
+- `getMetrics(): array` - Get server performance metrics
 - `setLogger(LoggerInterface)` - Set external Logger
+- `attachWebSocket(string $path, WebSocketServer $ws): void` - attach WebSocketServer
 
 ### StaticFileHandler
 
@@ -232,13 +372,8 @@ composer phpstan
 
 ## Roadmap
 
-- [ ] HTTP/2 support
-- [ ] WebSocket support
-- [ ] Built-in middleware system
-- [ ] Request/Response logging
-- [ ] Metrics and monitoring
-- [ ] Graceful shutdown
-- [ ] Worker pool management
+ - [ ] HTTP/2 support
+ - [ ] Worker pool management
 
 ## Contributing
 
@@ -250,8 +385,7 @@ The MIT License (MIT). Please see [License File](LICENSE) for more information.
 
 ## Support
 
-- 📖 [Documentation](docs/)
-- 🐛 [Issue Tracker](https://github.com/duyler/http-server/issues)
-- 💬 [Discussions](https://github.com/duyler/http-server/discussions)
-- 🌟 [Duyler Framework](https://github.com/duyler)
+-  [Issue Tracker](https://github.com/duyler/http-server/issues)
+-  [Discussions](https://github.com/duyler/http-server/discussions)
+-  [Duyler Framework](https://github.com/duyler)
 

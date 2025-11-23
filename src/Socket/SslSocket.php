@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Socket;
 
+use Duyler\HttpServer\Constants;
 use Duyler\HttpServer\Exception\SocketException;
 
 class SslSocket implements SocketInterface
@@ -34,7 +35,7 @@ class SslSocket implements SocketInterface
             ],
         ]);
 
-        $socket = @stream_socket_server(
+        $socket = stream_socket_server(
             $uri,
             $errno,
             $errstr,
@@ -53,7 +54,7 @@ class SslSocket implements SocketInterface
         $this->isListening = true;
     }
 
-    public function listen(int $backlog = 511): void
+    public function listen(int $backlog = Constants::DEFAULT_LISTEN_BACKLOG): void
     {
         if (!$this->isBound) {
             throw new SocketException('SSL socket is already listening after bind');
@@ -66,7 +67,7 @@ class SslSocket implements SocketInterface
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
-        $client = @stream_socket_accept($this->socket, 0);
+        $client = stream_socket_accept($this->socket, 0);
 
         if ($client === false) {
             return false;
@@ -83,7 +84,7 @@ class SslSocket implements SocketInterface
             throw new SocketException('Socket is not valid');
         }
 
-        if (!@stream_set_blocking($this->socket, $blocking)) {
+        if (!stream_set_blocking($this->socket, $blocking)) {
             throw new SocketException('Failed to set blocking mode on SSL socket');
         }
     }
@@ -91,7 +92,7 @@ class SslSocket implements SocketInterface
     public function close(): void
     {
         if ($this->isValid()) {
-            @fclose($this->socket);
+            fclose($this->socket);
             $this->socket = null;
             $this->isBound = false;
             $this->isListening = false;

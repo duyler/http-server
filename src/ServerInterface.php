@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer;
 
+use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 
 interface ServerInterface
 {
-    public function start(): void;
+    public function start(): bool;
 
     public function stop(): void;
 
@@ -20,11 +21,20 @@ interface ServerInterface
 
     public function hasRequest(): bool;
 
-    public function getRequest(): ServerRequestInterface;
+    public function getRequest(): ?ServerRequestInterface;
 
     public function respond(ResponseInterface $response): void;
 
     public function hasPendingResponse(): bool;
 
+    public function shutdown(int $timeout): bool;
+
     public function setLogger(?LoggerInterface $logger): void;
+
+    public function attachWebSocket(string $path, WebSocketServer $ws): void;
+
+    /**
+     * @return array<string, int|float|string>
+     */
+    public function getMetrics(): array;
 }

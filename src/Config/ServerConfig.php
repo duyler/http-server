@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Config;
 
+use Duyler\HttpServer\Constants;
 use Duyler\HttpServer\Exception\InvalidConfigException;
 
 readonly class ServerConfig
@@ -25,6 +26,10 @@ readonly class ServerConfig
         public int $keepAliveMaxRequests = 100,
         public bool $enableStaticCache = true,
         public int $staticCacheSize = 52428800,
+        public bool $enableRateLimit = false,
+        public int $rateLimitRequests = 100,
+        public int $rateLimitWindow = 60,
+        public int $maxAcceptsPerCycle = 10,
         public bool $debugMode = false,
     ) {
         $this->validate();
@@ -32,8 +37,12 @@ readonly class ServerConfig
 
     private function validate(): void
     {
-        if ($this->port < 1 || $this->port > 65535) {
-            throw new InvalidConfigException('Port must be between 1 and 65535');
+        if ($this->port < Constants::MIN_PORT || $this->port > Constants::MAX_PORT) {
+            throw new InvalidConfigException(sprintf(
+                'Port must be between %d and %d',
+                Constants::MIN_PORT,
+                Constants::MAX_PORT,
+            ));
         }
 
         if ($this->requestTimeout < 1) {
@@ -88,6 +97,18 @@ readonly class ServerConfig
 
         if ($this->staticCacheSize < 0) {
             throw new InvalidConfigException('Static cache size must be non-negative');
+        }
+
+        if ($this->rateLimitRequests < 1) {
+            throw new InvalidConfigException('Rate limit requests must be positive');
+        }
+
+        if ($this->rateLimitWindow < 1) {
+            throw new InvalidConfigException('Rate limit window must be positive');
+        }
+
+        if ($this->maxAcceptsPerCycle < 1) {
+            throw new InvalidConfigException('Max accepts per cycle must be positive');
         }
     }
 }
