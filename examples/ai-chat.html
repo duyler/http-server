@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat - WebSocket Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .chat-container {
+            max-width: 800px;
+            width: 100%;
+            height: 90vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .chat-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .chat-header h4 {
+            margin: 0;
+            font-weight: 600;
+        }
+        
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.connected {
+            background: #00ff00;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .message.user {
+            align-items: flex-end;
+        }
+        
+        .message.ai {
+            align-items: flex-start;
+        }
+        
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+            position: relative;
+        }
+        
+        .message.user .message-content {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+        
+        .message.ai .message-content {
+            background: white;
+            color: #333;
+            border: 1px solid #e0e0e0;
+            border-bottom-left-radius: 4px;
+        }
+        
+        .message.ai .message-content.streaming {
+            border-color: #667eea;
+            animation: borderPulse 1.5s infinite;
+        }
+        
+        @keyframes borderPulse {
+            0%, 100% { border-color: #667eea; }
+            50% { border-color: #764ba2; }
+        }
+        
+        .message-meta {
+            font-size: 11px;
+            color: #999;
+            margin-top: 4px;
+            padding: 0 8px;
+        }
+        
+        .typing-indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 18px;
+            max-width: fit-content;
+        }
+        
+        .typing-indicator.active {
+            display: flex;
+        }
+        
+        .typing-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #999;
+            animation: typing 1.4s infinite;
+        }
+        
+        .typing-dot:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-dot:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes typing {
+            0%, 60%, 100% { transform: translateY(0); opacity: 0.7; }
+            30% { transform: translateY(-10px); opacity: 1; }
+        }
+        
+        .chat-input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e0e0e0;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .chat-input {
+            flex: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 25px;
+            padding: 12px 20px;
+            font-size: 15px;
+            transition: all 0.3s;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .send-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .send-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .send-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .welcome-message {
+            text-align: center;
+            color: #999;
+            padding: 40px 20px;
+        }
+        
+        .welcome-message i {
+            font-size: 48px;
+            color: #667eea;
+            margin-bottom: 20px;
+        }
+        
+        .example-prompts {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        
+        .example-prompt {
+            padding: 8px 16px;
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 13px;
+        }
+        
+        .example-prompt:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .error-toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #ff4444;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .error-toast.show {
+            display: block;
+            animation: slideIn 0.3s;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <div>
+                <h4><i class="bi bi-robot"></i> AI Assistant</h4>
+                <small>Powered by WebSocket</small>
+            </div>
+            <div class="connection-status">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">Connecting...</span>
+            </div>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message" id="welcomeMessage">
+                <i class="bi bi-chat-dots"></i>
+                <h5>Welcome to AI Chat!</h5>
+                <p>Start a conversation with your AI assistant</p>
+                <div class="example-prompts">
+                    <div class="example-prompt" onclick="sendExample('Hello! Who are you?')">
+                        <i class="bi bi-chat"></i> Say Hello
+                    </div>
+                    <div class="example-prompt" onclick="sendExample('Tell me a short story')">
+                        <i class="bi bi-book"></i> Tell a Story
+                    </div>
+                    <div class="example-prompt" onclick="sendExample('What can you help me with?')">
+                        <i class="bi bi-question-circle"></i> Get Help
+                    </div>
+                </div>
+            </div>
+            
+            <div class="typing-indicator" id="typingIndicator">
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <span style="color: #999; font-size: 13px; margin-left: 8px;">AI is thinking...</span>
+            </div>
+        </div>
+        
+        <div class="chat-input-area">
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    class="chat-input" 
+                    id="messageInput" 
+                    placeholder="Type your message..."
+                    autocomplete="off"
+                />
+                <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+                    <i class="bi bi-send-fill"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="error-toast" id="errorToast">
+        <i class="bi bi-exclamation-triangle"></i>
+        <span id="errorMessage"></span>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentStreamId = null;
+        let currentStreamElement = null;
+        let isStreaming = false;
+        
+        const chatMessages = document.getElementById('chatMessages');
+        const messageInput = document.getElementById('messageInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const statusDot = document.getElementById('statusDot');
+        const statusText = document.getElementById('statusText');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const welcomeMessage = document.getElementById('welcomeMessage');
+        const errorToast = document.getElementById('errorToast');
+        const errorMessage = document.getElementById('errorMessage');
+        
+        function connect() {
+            ws = new WebSocket('ws://localhost:8080/ws');
+            
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                statusDot.classList.add('connected');
+                statusText.textContent = 'Connected';
+                sendBtn.disabled = false;
+            };
+            
+            ws.onclose = () => {
+                console.log('WebSocket disconnected');
+                statusDot.classList.remove('connected');
+                statusText.textContent = 'Disconnected';
+                sendBtn.disabled = true;
+                
+                // Reconnect after 3 seconds
+                setTimeout(() => {
+                    statusText.textContent = 'Reconnecting...';
+                    connect();
+                }, 3000);
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showError('Connection error. Please check if server is running.');
+            };
+            
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+                
+                switch (data.type) {
+                    case 'welcome':
+                        // Server welcome message
+                        break;
+                        
+                    case 'stream_start':
+                        handleStreamStart(data);
+                        break;
+                        
+                    case 'stream_chunk':
+                        handleStreamChunk(data);
+                        break;
+                        
+                    case 'stream_end':
+                        handleStreamEnd(data);
+                        break;
+                        
+                    case 'stream_error':
+                        handleStreamError(data);
+                        break;
+                        
+                    case 'error':
+                        showError(data.message || 'An error occurred');
+                        break;
+                        
+                    default:
+                        console.log('Unknown message type:', data.type);
+                }
+            };
+        }
+        
+        function handleStreamStart(data) {
+            welcomeMessage.style.display = 'none';
+            typingIndicator.classList.remove('active');
+            
+            currentStreamId = data.stream_id;
+            isStreaming = true;
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ai';
+            messageDiv.dataset.streamId = data.stream_id;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content streaming';
+            contentDiv.textContent = '';
+            
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'message-meta';
+            metaDiv.textContent = 'AI Assistant • streaming...';
+            
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(metaDiv);
+            
+            chatMessages.insertBefore(messageDiv, typingIndicator);
+            currentStreamElement = contentDiv;
+            
+            scrollToBottom();
+        }
+        
+        function handleStreamChunk(data) {
+            if (data.stream_id === currentStreamId && currentStreamElement) {
+                currentStreamElement.textContent += data.chunk;
+                scrollToBottom();
+            }
+        }
+        
+        function handleStreamEnd(data) {
+            if (data.stream_id === currentStreamId && currentStreamElement) {
+                currentStreamElement.classList.remove('streaming');
+                
+                const messageDiv = currentStreamElement.parentElement;
+                const metaDiv = messageDiv.querySelector('.message-meta');
+                metaDiv.textContent = 'AI Assistant • ' + new Date().toLocaleTimeString();
+                
+                currentStreamId = null;
+                currentStreamElement = null;
+                isStreaming = false;
+                
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+            }
+        }
+        
+        function handleStreamError(data) {
+            showError(data.error || 'Stream error occurred');
+            
+            if (currentStreamElement) {
+                currentStreamElement.classList.remove('streaming');
+                currentStreamElement.classList.add('error');
+                currentStreamElement.textContent += '\n\n[Error: ' + (data.error || 'Unknown error') + ']';
+            }
+            
+            currentStreamId = null;
+            currentStreamElement = null;
+            isStreaming = false;
+            
+            sendBtn.disabled = false;
+            messageInput.disabled = false;
+        }
+        
+        function sendMessage() {
+            const text = messageInput.value.trim();
+            if (!text || !ws || ws.readyState !== WebSocket.OPEN || isStreaming) {
+                return;
+            }
+            
+            // Add user message to chat
+            addUserMessage(text);
+            
+            // Show typing indicator
+            typingIndicator.classList.add('active');
+            scrollToBottom();
+            
+            // Send to server
+            ws.send(JSON.stringify({
+                type: 'ai_request',
+                prompt: text
+            }));
+            
+            // Clear input and disable while streaming
+            messageInput.value = '';
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
+            
+            // Re-enable after timeout (fallback)
+            setTimeout(() => {
+                if (isStreaming) {
+                    sendBtn.disabled = false;
+                    messageInput.disabled = false;
+                }
+            }, 30000);
+        }
+        
+        function addUserMessage(text) {
+            welcomeMessage.style.display = 'none';
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message user';
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.textContent = text;
+            
+            const metaDiv = document.createElement('div');
+            metaDiv.className = 'message-meta';
+            metaDiv.textContent = 'You • ' + new Date().toLocaleTimeString();
+            
+            messageDiv.appendChild(contentDiv);
+            messageDiv.appendChild(metaDiv);
+            
+            chatMessages.insertBefore(messageDiv, typingIndicator);
+            scrollToBottom();
+        }
+        
+        function sendExample(text) {
+            messageInput.value = text;
+            sendMessage();
+        }
+        
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+        
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorToast.classList.add('show');
+            
+            setTimeout(() => {
+                errorToast.classList.remove('show');
+            }, 5000);
+        }
+        
+        // Enter to send
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+        
+        // Connect on load
+        connect();
+    </script>
+</body>
+</html>
+
