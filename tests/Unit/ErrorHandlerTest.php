@@ -12,6 +12,18 @@ use RuntimeException;
 
 class ErrorHandlerTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        ErrorHandler::reset();
+    }
+
+    protected function tearDown(): void
+    {
+        ErrorHandler::reset();
+        parent::tearDown();
+    }
+
     #[Test]
     public function can_be_registered(): void
     {
@@ -22,7 +34,7 @@ class ErrorHandlerTest extends TestCase
 
         ErrorHandler::register($logger);
 
-        $this->assertTrue(true); // If we got here, registration succeeded
+        $this->assertTrue(true);
     }
 
     #[Test]
@@ -106,11 +118,17 @@ class ErrorHandlerTest extends TestCase
     public function does_not_register_twice(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->never())
+        $logger->expects($this->once())
+            ->method('info')
+            ->with('Error handler registered', $this->isType('array'));
+
+        ErrorHandler::register($logger);
+
+        $logger2 = $this->createMock(LoggerInterface::class);
+        $logger2->expects($this->never())
             ->method('info');
 
-        // Уже зарегистрирован в предыдущих тестах
-        ErrorHandler::register($logger);
+        ErrorHandler::register($logger2);
 
         $this->assertTrue(true);
     }

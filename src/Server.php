@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Exception\HttpServerException;
@@ -55,6 +56,11 @@ class Server implements ServerInterface
     private bool $isShuttingDown = false;
 
     private bool $hasWebSocket = false;
+
+    private ServerMode $mode = ServerMode::Standalone;
+
+    private ?int $workerId = null;
+    private ?int $workerPid = null;
 
     /** @var array<string, WebSocketServer> */
     private array $wsServers = [];
@@ -380,9 +386,9 @@ class Server implements ServerInterface
         return count($this->pendingResponses) > 0;
     }
 
-    public function setLogger(?LoggerInterface $logger): void
+    public function setLogger(LoggerInterface $logger): void
     {
-        $this->logger = $logger ?? new NullLogger();
+        $this->logger = $logger;
     }
 
     /**
@@ -931,5 +937,112 @@ class Server implements ServerInterface
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Add external connection from Worker Pool Master
+     *
+     * @param array{client_ip?: string, worker_id: int, worker_pid?: int} $metadata
+     */
+    public function addExternalConnection(Socket $clientSocket, array $metadata): void
+    {
+        if (!isset($metadata['worker_id'])) {
+            throw new HttpServerException('worker_id is required in metadata for addExternalConnection()');
+        }
+
+        $this->setWorkerContext($metadata);
+
+        $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
+        $clientPort = 0;
+
+        if (socket_getpeername($clientSocket, $clientIp, $clientPort) === false) {
+            $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
+            $clientPort = 0;
+
+            $this->logger->warning('Failed to get peer name', [
+                'error' => socket_strerror(socket_last_error($clientSocket)),
+                'fallback_ip' => $clientIp,
+            ]);
+        }
+
+        $connection = new Connection($clientSocket, $clientIp, $clientPort);
+
+        $this->connectionPool->add($connection);
+
+        $this->logger->debug('External connection added', [
+            'client_ip' => $clientIp,
+            'client_port' => $clientPort,
+            'worker_id' => $this->workerId,
+        ]);
+
+        $this->handleIncomingData($connection);
+    }
+
+    /**
+     * @param array{worker_id: int, worker_pid?: int} $context
+     */
+    private function setWorkerContext(array $context): void
+    {
+        if ($this->mode === ServerMode::WorkerPool) {
+            return;
+        }
+
+        $this->mode = ServerMode::WorkerPool;
+        $this->workerId = $context['worker_id'];
+        $this->workerPid = $context['worker_pid'] ?? null;
+
+        $this->logger->info('Worker context set', [
+            'worker_id' => $this->workerId,
+            'worker_pid' => $this->workerPid,
+            'mode' => $this->mode->value,
+        ]);
+    }
+
+    private function handleIncomingData(Connection $connection): void
+    {
+        try {
+            $data = $connection->read(8192);
+
+            if ($data === false || $data === '') {
+                $this->connectionPool->remove($connection);
+                $connection->close();
+                return;
+            }
+
+            $connection->appendToBuffer($data);
+
+            $buffer = $connection->getBuffer();
+
+            if (!str_contains($buffer, "\r\n\r\n")) {
+                return;
+            }
+
+            $request = $this->requestParser->parse($buffer, $connection->getRemoteAddress(), $connection->getRemotePort());
+
+            $this->requestQueue->enqueue([
+                'request' => $request,
+                'connection' => $connection,
+            ]);
+
+            $this->pendingResponses[spl_object_id($connection)] = $connection;
+
+            $connection->clearBuffer();
+        } catch (Throwable $e) {
+            $this->logger->error('Error processing connection', [
+                'error' => $e->getMessage(),
+            ]);
+            $this->connectionPool->remove($connection);
+            $connection->close();
+        }
+    }
+
+    public function getMode(): ServerMode
+    {
+        return $this->mode;
+    }
+
+    public function getWorkerId(): ?int
+    {
+        return $this->workerId;
     }
 }

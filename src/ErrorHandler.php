@@ -236,4 +236,16 @@ class ErrorHandler
             default => "SIGNAL_$signal",
         };
     }
+
+    public static function reset(): void
+    {
+        self::$logger = null;
+        self::$registered = false;
+        self::$isShuttingDown = false;
+        self::$onFatalError = null;
+        self::$onSignal = null;
+
+        restore_error_handler();
+        restore_exception_handler();
+    }
 }

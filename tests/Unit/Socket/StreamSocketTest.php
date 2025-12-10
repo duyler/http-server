@@ -43,13 +43,42 @@ class StreamSocketTest extends TestCase
     {
         $socket1 = new StreamSocket();
         $socket1->bind('127.0.0.1', 0);
+        $socket1->listen();
+
+        $port = $this->getSocketPort($socket1);
 
         $this->expectException(SocketException::class);
 
         $socket2 = new StreamSocket();
-        $socket2->bind('127.0.0.1', 1);
+        try {
+            $socket2->bind('127.0.0.1', $port);
+        } finally {
+            $socket1->close();
+            $socket2->close();
+        }
+    }
 
-        $socket1->close();
+    private function getSocketPort(StreamSocket $socket): int
+    {
+        $reflection = new \ReflectionClass($socket);
+        $property = $reflection->getProperty('socket');
+        $property->setAccessible(true);
+        $socketResource = $property->getValue($socket);
+
+        if ($socketResource instanceof Socket) {
+            $address = '';
+            $port = 0;
+            socket_getsockname($socketResource, $address, $port);
+            return $port;
+        }
+
+        if (is_resource($socketResource)) {
+            $name = stream_socket_get_name($socketResource, false);
+            $parts = explode(':', $name);
+            return (int) end($parts);
+        }
+
+        return 0;
     }
 
     #[Test]
