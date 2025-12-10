@@ -44,44 +44,67 @@ composer require duyler/http-server
 
 ### Worker Pool HTTP Server (Recommended for Production)
 
+**✨ New: Event-Driven Worker Mode** (Recommended for full applications)
+
+For event-driven applications with Event Bus (like Duyler Framework):
+
 ```php
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\SharedSocketMaster;
-use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
-use Duyler\HttpServer\Server;
-use Socket;
+use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
+use Nyholm\Psr7\Response;
 
-$serverConfig = new ServerConfig(
-    host: '0.0.0.0',
-    port: 8080,
-);
-
-$workerPoolConfig = WorkerPoolConfig::auto();
-
-$callback = new class implements WorkerCallbackInterface {
-    public function handle(Socket $clientSocket, array $metadata): void
+class MyApp implements EventDrivenWorkerInterface
+{
+    public function run(int $workerId, Server $server): void
     {
-        $server = new Server(new ServerConfig(host: '0.0.0.0', port: 8080));
+        // IMPORTANT: DO NOT call $server->start()!
+        // Master manages the socket and passes connections to Server.
+        // Server is automatically running in Worker Pool mode.
         
-        $server->addExternalConnection($clientSocket, $metadata);
+        // Initialize your application ONCE
+        $eventBus = new EventBus();
+        $db = new Database();
         
-        if ($server->hasRequest()) {
-            $request = $server->getRequest();
-            $response = new Response(200, [], 'Hello from Worker Pool!');
-            $server->respond($response);
+        // Event loop
+        while (true) {
+            // Get requests from Worker Pool
+            if ($server->hasRequest()) {
+                $request = $server->getRequest();
+                $eventBus->dispatch('http.request', $request);
+            }
+            
+            // Process events
+            $eventBus->tick();
+            
+            // Send responses
+            if ($server->hasPendingResponse()) {
+                $response = $eventBus->getResponse();
+                $server->respond($response);
+            }
+            
+            usleep(1000);
         }
     }
-};
+}
+
+$serverConfig = new ServerConfig(host: '0.0.0.0', port: 8080);
+$workerPoolConfig = WorkerPoolConfig::auto($serverConfig);
+
+$app = new MyApp();
 
 $master = new SharedSocketMaster(
     config: $workerPoolConfig,
     serverConfig: $serverConfig,
-    workerCallback: $callback,
+    eventDrivenWorker: $app, // ← Event-Driven mode
 );
 
 $master->start();
 ```
+
+See `examples/event-driven-worker.php` for complete example.
 
 ### Basic HTTP Server (Standalone)
 

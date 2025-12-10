@@ -23,6 +23,7 @@ use Duyler\HttpServer\WebSocket\Connection as WebSocketConnection;
 use Duyler\HttpServer\WebSocket\Frame;
 use Duyler\HttpServer\WebSocket\Handshake;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Fiber;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
@@ -61,6 +62,11 @@ class Server implements ServerInterface
 
     private ?int $workerId = null;
     private ?int $workerPid = null;
+
+    /**
+     * @var array<Fiber<mixed, mixed, mixed, void>>
+     */
+    private array $fibers = [];
 
     /** @var array<string, WebSocketServer> */
     private array $wsServers = [];
@@ -113,6 +119,13 @@ class Server implements ServerInterface
 
     public function start(): bool
     {
+        if ($this->mode === ServerMode::WorkerPool) {
+            $this->logger->warning('start() should not be called in Worker Pool mode', [
+                'worker_id' => $this->workerId,
+            ]);
+            return $this->isRunning;
+        }
+
         if ($this->isRunning) {
             $this->logger->warning('Server is already running');
             return true;
@@ -286,12 +299,30 @@ class Server implements ServerInterface
     public function hasRequest(): bool
     {
         try {
+            // Resume all registered Fibers before processing
+            // This is used in Event-Driven Worker Pool mode to accept
+            // connections from Master in background
+            foreach ($this->fibers as $fiber) {
+                if ($fiber->isSuspended()) {
+                    try {
+                        $fiber->resume();
+                    } catch (Throwable $e) {
+                        $this->logger->error('Error resuming Fiber', [
+                            'error' => $e->getMessage(),
+                            'worker_id' => $this->workerId,
+                        ]);
+                    }
+                }
+            }
+
             if (!$this->isRunning) {
                 $this->logger->warning('hasRequest() called but server is not running');
                 return false;
             }
 
-            if (!$this->isShuttingDown) {
+            // Only accept new connections in Standalone mode
+            // In Worker Pool mode, connections come via addExternalConnection()
+            if (!$this->isShuttingDown && $this->mode === ServerMode::Standalone) {
                 $this->acceptNewConnections();
             }
 
@@ -974,8 +1005,6 @@ class Server implements ServerInterface
             'client_port' => $clientPort,
             'worker_id' => $this->workerId,
         ]);
-
-        $this->handleIncomingData($connection);
     }
 
     /**
@@ -998,44 +1027,6 @@ class Server implements ServerInterface
         ]);
     }
 
-    private function handleIncomingData(Connection $connection): void
-    {
-        try {
-            $data = $connection->read(8192);
-
-            if ($data === false || $data === '') {
-                $this->connectionPool->remove($connection);
-                $connection->close();
-                return;
-            }
-
-            $connection->appendToBuffer($data);
-
-            $buffer = $connection->getBuffer();
-
-            if (!str_contains($buffer, "\r\n\r\n")) {
-                return;
-            }
-
-            $request = $this->requestParser->parse($buffer, $connection->getRemoteAddress(), $connection->getRemotePort());
-
-            $this->requestQueue->enqueue([
-                'request' => $request,
-                'connection' => $connection,
-            ]);
-
-            $this->pendingResponses[spl_object_id($connection)] = $connection;
-
-            $connection->clearBuffer();
-        } catch (Throwable $e) {
-            $this->logger->error('Error processing connection', [
-                'error' => $e->getMessage(),
-            ]);
-            $this->connectionPool->remove($connection);
-            $connection->close();
-        }
-    }
-
     public function getMode(): ServerMode
     {
         return $this->mode;
@@ -1044,5 +1035,30 @@ class Server implements ServerInterface
     public function getWorkerId(): ?int
     {
         return $this->workerId;
+    }
+
+    public function setWorkerId(int $workerId): void
+    {
+        $this->workerId = $workerId;
+        $this->mode = ServerMode::WorkerPool;
+        $this->isRunning = true; // Mark as running in Worker Pool mode
+
+        $this->logger->info('Worker ID set', [
+            'worker_id' => $workerId,
+            'mode' => $this->mode->value,
+        ]);
+    }
+
+    /**
+     * @param Fiber<mixed, mixed, mixed, void> $fiber
+     */
+    public function registerFiber(Fiber $fiber): void
+    {
+        $this->fibers[] = $fiber;
+
+        $this->logger->debug('Fiber registered', [
+            'total_fibers' => count($this->fibers),
+            'worker_id' => $this->workerId,
+        ]);
     }
 }

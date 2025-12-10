@@ -5,13 +5,17 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\WorkerPool\Master;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Balancer\BalancerInterface;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Exception\WorkerPoolException;
 use Duyler\HttpServer\WorkerPool\IPC\FdPasser;
 use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
 use Duyler\HttpServer\WorkerPool\Process\ProcessState;
+use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use Fiber;
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 use Socket;
 
@@ -54,9 +58,17 @@ class CentralizedMaster extends AbstractMaster
         private readonly BalancerInterface $balancer,
         private readonly ?ServerConfig $serverConfig = null,
         private readonly ?WorkerCallbackInterface $workerCallback = null,
+        private readonly ?EventDrivenWorkerInterface $eventDrivenWorker = null,
         ?LoggerInterface $logger = null,
     ) {
         parent::__construct($config, $logger);
+
+        // Validate: at least one interface must be provided
+        if ($this->workerCallback === null && $this->eventDrivenWorker === null) {
+            throw new InvalidArgumentException(
+                'Either workerCallback or eventDrivenWorker must be provided',
+            );
+        }
 
         $this->fdPasser = new FdPasser($this->logger);
         $this->workerManager = new WorkerManager($this->logger);
@@ -233,7 +245,14 @@ class CentralizedMaster extends AbstractMaster
                 'worker_id' => $workerId,
                 'pid' => getmypid(),
             ]);
-            $this->runWorkerProcess($workerId, $workerSocket);
+
+            // Choose worker mode based on provided interface
+            if ($this->eventDrivenWorker !== null) {
+                $this->runEventDrivenWorker($workerId, $workerSocket);
+            } elseif ($this->workerCallback !== null) {
+                $this->runCallbackWorker($workerId, $workerSocket);
+            }
+
             $this->logger->info('Worker process exiting', ['worker_id' => $workerId]);
             exit(0);
         }
@@ -250,7 +269,61 @@ class CentralizedMaster extends AbstractMaster
         $this->logger->info('Worker spawned', ['worker_id' => $workerId, 'pid' => $pid]);
     }
 
-    private function runWorkerProcess(int $workerId, Socket $workerSocket): void
+    /**
+     * Event-Driven Worker mode with FD Passing
+     *
+     * Runs a full application with its own event loop.
+     * Master passes FDs via IPC, application polls hasRequest().
+     */
+    private function runEventDrivenWorker(int $workerId, Socket $workerSocket): void
+    {
+        assert($this->eventDrivenWorker !== null);
+
+        // 1. Create Server
+        $server = new Server($this->serverConfig ?? new ServerConfig());
+        $server->setWorkerId($workerId);
+
+        // 2. Start background Fiber to receive FDs from master
+        $fiber = new Fiber(function () use ($workerSocket, $server, $workerId): void {
+            while (true) { // @phpstan-ignore while.alwaysTrue
+                $result = $this->fdPasser->receiveFd($workerSocket);
+
+                if ($result !== null) {
+                    $this->logger->debug('Worker received FD from master', [
+                        'worker_id' => $workerId,
+                    ]);
+
+                    $clientSocket = $result['fd'];
+                    /** @var array{client_ip?: string, worker_id: int, worker_pid?: int} $metadata */
+                    $metadata = $result['metadata'];
+
+                    // CRITICAL: Set client socket to non-blocking mode!
+                    // Without this, read operations will block the worker
+                    socket_set_nonblock($clientSocket);
+
+                    // Add to Server queue for hasRequest()
+                    $server->addExternalConnection($clientSocket, $metadata);
+                }
+
+                // Suspend and give control back to application
+                Fiber::suspend();
+            }
+        });
+
+        $fiber->start();
+        $server->registerFiber($fiber);
+
+        // 3. Run application (NEVER returns)
+        $this->logger->info('Starting event-driven worker', ['worker_id' => $workerId]);
+        $this->eventDrivenWorker->run($workerId, $server);
+    }
+
+    /**
+     * Callback Worker mode (legacy, for backward compatibility)
+     *
+     * Synchronous handling via callback for each received FD.
+     */
+    private function runCallbackWorker(int $workerId, Socket $workerSocket): void
     {
         $running = true;
         $this->logger->info('Worker entering receive loop', ['worker_id' => $workerId]);

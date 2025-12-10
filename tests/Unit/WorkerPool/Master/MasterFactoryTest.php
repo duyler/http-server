@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Master;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use Duyler\HttpServer\WorkerPool\Master\MasterFactory;
 use Duyler\HttpServer\WorkerPool\Master\MasterInterface;
 use Duyler\HttpServer\WorkerPool\Master\SharedSocketMaster;
+use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
@@ -148,5 +151,122 @@ final class MasterFactoryTest extends TestCase
 
         $this->assertStringContainsString('Centralized', $centralized['architecture']);
         $this->assertStringContainsString('Custom', $centralized['load_balancing']);
+    }
+
+    #[Test]
+    public function creates_master_with_event_driven_worker(): void
+    {
+        $worker = new class implements EventDrivenWorkerInterface {
+            public function run(int $workerId, Server $server): void {}
+        };
+
+        $master = MasterFactory::create(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+            eventDrivenWorker: $worker,
+        );
+
+        $this->assertInstanceOf(MasterInterface::class, $master);
+    }
+
+    #[Test]
+    public function creates_recommended_master_with_event_driven_worker(): void
+    {
+        $worker = new class implements EventDrivenWorkerInterface {
+            public function run(int $workerId, Server $server): void {}
+        };
+
+        $master = MasterFactory::createRecommended(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+            eventDrivenWorker: $worker,
+        );
+
+        $this->assertInstanceOf(MasterInterface::class, $master);
+    }
+
+    #[Test]
+    public function throws_exception_when_no_worker_interface_provided_in_create(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either workerCallback or eventDrivenWorker must be provided');
+
+        MasterFactory::create(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+        );
+    }
+
+    #[Test]
+    public function throws_exception_when_no_worker_interface_provided_in_create_recommended(): void
+    {
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Either workerCallback or eventDrivenWorker must be provided');
+
+        MasterFactory::createRecommended(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+        );
+    }
+
+    #[Test]
+    public function accepts_both_worker_callback_and_event_driven_worker(): void
+    {
+        $worker = new class implements EventDrivenWorkerInterface {
+            public function run(int $workerId, Server $server): void {}
+        };
+
+        $master = MasterFactory::create(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+            workerCallback: $this->callback,
+            eventDrivenWorker: $worker,
+        );
+
+        $this->assertInstanceOf(MasterInterface::class, $master);
+    }
+
+    #[Test]
+    public function creates_shared_socket_master_with_event_driven_worker_when_no_balancer(): void
+    {
+        $worker = new class implements EventDrivenWorkerInterface {
+            public function run(int $workerId, Server $server): void {}
+        };
+
+        $master = MasterFactory::create(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+            eventDrivenWorker: $worker,
+            balancer: null,
+        );
+
+        $this->assertInstanceOf(SharedSocketMaster::class, $master);
+    }
+
+    #[Test]
+    public function creates_centralized_master_with_event_driven_worker_when_fd_passing_supported(): void
+    {
+        if (PHP_OS_FAMILY !== 'Linux') {
+            $this->markTestSkipped('FD Passing only supported on Linux');
+        }
+
+        if (!function_exists('socket_sendmsg') || !defined('SCM_RIGHTS')) {
+            $this->markTestSkipped('FD Passing not available');
+        }
+
+        $worker = new class implements EventDrivenWorkerInterface {
+            public function run(int $workerId, Server $server): void {}
+        };
+
+        $balancer = new LeastConnectionsBalancer();
+
+        $master = MasterFactory::create(
+            config: $this->config,
+            serverConfig: $this->serverConfig,
+            eventDrivenWorker: $worker,
+            balancer: $balancer,
+        );
+
+        $this->assertInstanceOf(CentralizedMaster::class, $master);
     }
 }

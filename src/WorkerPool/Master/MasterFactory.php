@@ -9,7 +9,9 @@ use Duyler\HttpServer\WorkerPool\Balancer\BalancerInterface;
 use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Util\SystemInfo;
+use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use InvalidArgumentException;
 use Psr\Log\LoggerInterface;
 
 final class MasterFactory
@@ -17,10 +19,17 @@ final class MasterFactory
     public static function create(
         WorkerPoolConfig $config,
         ServerConfig $serverConfig,
-        WorkerCallbackInterface $workerCallback,
+        ?WorkerCallbackInterface $workerCallback = null,
+        ?EventDrivenWorkerInterface $eventDrivenWorker = null,
         ?BalancerInterface $balancer = null,
         ?LoggerInterface $logger = null,
     ): MasterInterface {
+        if ($workerCallback === null && $eventDrivenWorker === null) {
+            throw new InvalidArgumentException(
+                'Either workerCallback or eventDrivenWorker must be provided',
+            );
+        }
+
         $systemInfo = new SystemInfo();
 
         if ($systemInfo->supportsFdPassing() && $balancer !== null) {
@@ -29,6 +38,7 @@ final class MasterFactory
                 balancer: $balancer,
                 serverConfig: $serverConfig,
                 workerCallback: $workerCallback,
+                eventDrivenWorker: $eventDrivenWorker,
                 logger: $logger ?? new \Psr\Log\NullLogger(),
             );
         }
@@ -37,6 +47,7 @@ final class MasterFactory
             config: $config,
             serverConfig: $serverConfig,
             workerCallback: $workerCallback,
+            eventDrivenWorker: $eventDrivenWorker,
             logger: $logger ?? new \Psr\Log\NullLogger(),
         );
     }
@@ -44,9 +55,16 @@ final class MasterFactory
     public static function createRecommended(
         WorkerPoolConfig $config,
         ServerConfig $serverConfig,
-        WorkerCallbackInterface $workerCallback,
+        ?WorkerCallbackInterface $workerCallback = null,
+        ?EventDrivenWorkerInterface $eventDrivenWorker = null,
         ?LoggerInterface $logger = null,
     ): MasterInterface {
+        if ($workerCallback === null && $eventDrivenWorker === null) {
+            throw new InvalidArgumentException(
+                'Either workerCallback or eventDrivenWorker must be provided',
+            );
+        }
+
         $systemInfo = new SystemInfo();
 
         if ($systemInfo->supportsFdPassing()) {
@@ -57,6 +75,7 @@ final class MasterFactory
                 balancer: $balancer,
                 serverConfig: $serverConfig,
                 workerCallback: $workerCallback,
+                eventDrivenWorker: $eventDrivenWorker,
                 logger: $logger ?? new \Psr\Log\NullLogger(),
             );
         }
@@ -65,6 +84,7 @@ final class MasterFactory
             config: $config,
             serverConfig: $serverConfig,
             workerCallback: $workerCallback,
+            eventDrivenWorker: $eventDrivenWorker,
             logger: $logger ?? new \Psr\Log\NullLogger(),
         );
     }
