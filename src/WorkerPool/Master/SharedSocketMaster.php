@@ -9,50 +9,50 @@ use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Exception\WorkerPoolException;
 use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
 use Duyler\HttpServer\WorkerPool\Process\ProcessState;
-use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use Psr\Log\LoggerInterface;
 use Socket;
 
 /**
- * Shared Socket Master - использует SO_REUSEPORT
- * 
- * Все worker процессы слушают на одном порту.
- * Kernel автоматически балансирует нагрузку.
- * 
- * Преимущества:
- * - Работает везде (Docker, macOS, Linux)
- * - Не требует SCM_RIGHTS
- * - Простая реализация
- * 
- * Недостатки:
- * - Нет Least Connections балансировки
- * - Нет Sticky Sessions
- * - Нет централизованной очереди
+ * Shared Socket Master with kernel load balancing
+ *
+ * Architecture:
+ * - Each worker has its own socket on same port (SO_REUSEPORT)
+ * - Kernel automatically distributes connections
+ * - No IPC overhead
+ * - Simple and reliable
+ *
+ * Requirements:
+ * - SO_REUSEPORT support (Linux, Docker, macOS via Docker)
+ *
+ * Use when:
+ * - Want simple architecture
+ * - Kernel load balancing is sufficient
+ * - Maximum compatibility needed
+ * - Running in Docker or need macOS support
+ *
+ * @see CentralizedMaster For centralized architecture with custom load balancing
  */
-class SharedSocketMaster
+class SharedSocketMaster extends AbstractMaster
 {
-    private bool $shouldStop = false;
-
-    /**
-     * @var array<int, ProcessInfo>
-     */
-    private array $workers = [];
-
-    private SignalHandler $signalHandler;
+    private WorkerManager $workerManager;
 
     public function __construct(
-        private readonly WorkerPoolConfig $config,
+        WorkerPoolConfig $config,
         private readonly ServerConfig $serverConfig,
         private readonly WorkerCallbackInterface $workerCallback,
+        ?LoggerInterface $logger = null,
     ) {
-        $this->signalHandler = new SignalHandler();
-        $this->setupSignals();
+        parent::__construct($config, $logger);
+
+        $this->workerManager = new WorkerManager($this->logger);
     }
 
     public function start(): void
     {
-        error_log("[SharedSocketMaster] Starting with SO_REUSEPORT architecture");
-        error_log("[SharedSocketMaster] Workers: {$this->config->workerCount}");
+        $this->logger->info('Starting with SO_REUSEPORT architecture', [
+            'workers' => $this->config->workerCount,
+        ]);
 
         for ($i = 1; $i <= $this->config->workerCount; $i++) {
             $this->spawnWorker($i);
@@ -63,38 +63,25 @@ class SharedSocketMaster
 
     public function stop(): void
     {
-        $this->shouldStop = true;
-
-        foreach ($this->workers as $worker) {
-            if ($worker->pid > 0) {
-                posix_kill($worker->pid, SIGTERM);
-            }
-        }
+        parent::stop();
+        $this->workerManager->stopAll();
     }
 
-    /**
-     * @return array<int, ProcessInfo>
-     */
-    public function getWorkers(): array
+    protected function run(): void
     {
-        return $this->workers;
-    }
-
-    private function run(): void
-    {
-        error_log("[SharedSocketMaster] Entering main loop...");
+        $this->logger->info('Entering main loop');
 
         while (!$this->shouldStop) {
             $this->signalHandler->dispatch();
             $this->checkWorkers();
-            usleep(100000); // 100ms
+            usleep($this->config->pollInterval);
         }
 
-        error_log("[SharedSocketMaster] Exiting main loop, waiting for workers...");
+        $this->logger->info('Exiting main loop, waiting for workers');
         $this->waitForWorkers();
     }
 
-    private function spawnWorker(int $workerId): void
+    protected function spawnWorker(int $workerId): void
     {
         $pid = pcntl_fork();
 
@@ -103,9 +90,12 @@ class SharedSocketMaster
         }
 
         if ($pid === 0) {
-            error_log("[Worker $workerId] Process started, PID: " . getmypid());
+            $this->logger->info('Worker process started', [
+                'worker_id' => $workerId,
+                'pid' => getmypid(),
+            ]);
             $this->runWorkerProcess($workerId);
-            error_log("[Worker $workerId] Process exiting");
+            $this->logger->info('Worker process exiting', ['worker_id' => $workerId]);
             exit(0);
         }
 
@@ -115,7 +105,7 @@ class SharedSocketMaster
             state: ProcessState::Ready,
         );
 
-        error_log("[SharedSocketMaster] Worker $workerId spawned with PID: $pid");
+        $this->logger->info('Worker spawned', ['worker_id' => $workerId, 'pid' => $pid]);
     }
 
     private function runWorkerProcess(int $workerId): void
@@ -123,14 +113,18 @@ class SharedSocketMaster
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 
         if ($socket === false) {
-            error_log("[Worker $workerId] Failed to create socket");
+            $this->logger->error('Failed to create socket', ['worker_id' => $workerId]);
             exit(1);
         }
 
-        socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1);
+        if (!socket_set_option($socket, SOL_SOCKET, SO_REUSEADDR, 1)) {
+            $this->logger->error('Failed to set SO_REUSEADDR', ['worker_id' => $workerId]);
+            exit(1);
+        }
 
-        if (defined('SO_REUSEPORT')) {
-            socket_set_option($socket, SOL_SOCKET, SO_REUSEPORT, 1);
+        if (!socket_set_option($socket, SOL_SOCKET, SO_REUSEPORT, 1)) {
+            $this->logger->error('Failed to set SO_REUSEPORT', ['worker_id' => $workerId]);
+            exit(1);
         }
 
         $host = $this->serverConfig->host;
@@ -138,90 +132,72 @@ class SharedSocketMaster
 
         if (socket_bind($socket, $host, $port) === false) {
             $error = socket_strerror(socket_last_error($socket));
-            error_log("[Worker $workerId] Failed to bind to $host:$port: $error");
+            $this->logger->error('Failed to bind socket', [
+                'worker_id' => $workerId,
+                'host' => $host,
+                'port' => $port,
+                'error' => $error,
+            ]);
             exit(1);
         }
 
         if (!socket_listen($socket, 128)) {
-            error_log("[Worker $workerId] Failed to listen: " . socket_strerror(socket_last_error($socket)));
+            $this->logger->error('Failed to listen', [
+                'worker_id' => $workerId,
+                'error' => socket_strerror(socket_last_error($socket)),
+            ]);
             exit(1);
         }
 
-        error_log("[Worker $workerId] ✅ Listening on $host:$port");
+        $this->logger->info('Worker listening', [
+            'worker_id' => $workerId,
+            'host' => $host,
+            'port' => $port,
+        ]);
 
         socket_set_nonblock($socket);
 
-        $running = true;
-
-        pcntl_signal(SIGTERM, function () use (&$running): void {
-            $running = false;
-        });
-
-        pcntl_signal(SIGINT, function () use (&$running): void {
-            $running = false;
-        });
-
-        while ($running) {
-            pcntl_signal_dispatch();
-
+        /** @phpstan-ignore-next-line */
+        while (true) {
             $clientSocket = socket_accept($socket);
 
             if ($clientSocket !== false) {
-                error_log("[Worker $workerId] ✅ Accepted connection");
+                $this->logger->debug('Worker accepted connection', ['worker_id' => $workerId]);
 
                 $clientIp = '';
                 socket_getpeername($clientSocket, $clientIp);
 
                 $this->workerCallback->handle($clientSocket, [
                     'worker_id' => $workerId,
-                    'worker_pid' => getmypid(),
                     'client_ip' => $clientIp,
                 ]);
             }
 
             usleep(1000);
         }
-
-        error_log("[Worker $workerId] Shutting down gracefully");
     }
 
-    private function checkWorkers(): void
+    /**
+     * @return array<string, mixed>
+     */
+    public function getMetrics(): array
     {
-        foreach ($this->workers as $workerId => $worker) {
-            $result = pcntl_waitpid($worker->pid, $status, WNOHANG);
+        $activeWorkers = 0;
+        $totalConnections = 0;
 
-            if ($result === $worker->pid) {
-                error_log("[SharedSocketMaster] Worker $workerId (PID {$worker->pid}) died");
-
-                unset($this->workers[$workerId]);
-
-                if ($this->config->autoRestart && !$this->shouldStop) {
-                    error_log("[SharedSocketMaster] Respawning worker $workerId...");
-                    sleep($this->config->restartDelay);
-                    $this->spawnWorker($workerId);
-                }
+        foreach ($this->workers as $worker) {
+            if ($worker->isAlive()) {
+                $activeWorkers++;
+                $totalConnections += $worker->connections;
             }
         }
-    }
 
-    private function waitForWorkers(): void
-    {
-        foreach ($this->workers as $worker) {
-            pcntl_waitpid($worker->pid, $status);
-        }
-    }
-
-    private function setupSignals(): void
-    {
-        $this->signalHandler->register(SIGTERM, function (): void {
-            error_log("[SharedSocketMaster] Received SIGTERM");
-            $this->stop();
-        });
-
-        $this->signalHandler->register(SIGINT, function (): void {
-            error_log("[SharedSocketMaster] Received SIGINT");
-            $this->stop();
-        });
+        return [
+            'architecture' => 'shared_socket',
+            'total_workers' => count($this->workers),
+            'active_workers' => $activeWorkers,
+            'total_connections' => $totalConnections,
+            'is_running' => $this->isRunning(),
+        ];
     }
 }
-

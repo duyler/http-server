@@ -8,6 +8,7 @@ use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocket;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use Socket;
 
 class StreamSocketTest extends TestCase
@@ -60,7 +61,7 @@ class StreamSocketTest extends TestCase
 
     private function getSocketPort(StreamSocket $socket): int
     {
-        $reflection = new \ReflectionClass($socket);
+        $reflection = new ReflectionClass($socket);
         $property = $reflection->getProperty('socket');
         $property->setAccessible(true);
         $socketResource = $property->getValue($socket);

@@ -171,4 +171,3 @@ class SocketManagerTest extends TestCase
         $this->assertTrue(true);
     }
 }
-

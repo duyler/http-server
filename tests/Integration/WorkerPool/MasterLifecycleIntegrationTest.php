@@ -6,19 +6,18 @@ namespace Duyler\HttpServer\Tests\Integration\WorkerPool;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Tests\Support\PlatformHelper;
-use Duyler\HttpServer\WorkerPool\Balancer\RoundRobinBalancer;
+use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
-use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 
-class MasterHttpIntegrationTest extends TestCase
+final class MasterLifecycleIntegrationTest extends TestCase
 {
     #[Test]
-    public function master_accepts_and_distributes_http_requests(): void
+    public function starts_workers_and_accepts_connections(): void
     {
         if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
@@ -34,17 +33,29 @@ class MasterHttpIntegrationTest extends TestCase
         $workerPoolConfig = new WorkerPoolConfig(
             serverConfig: $serverConfig,
             workerCount: 2,
+            autoRestart: false,
         );
 
-        $callback = new class implements WorkerCallbackInterface {
+        $handledRequests = 0;
+
+        $callback = new class ($handledRequests) implements WorkerCallbackInterface {
+            public function __construct(private int &$handledRequests) {}
+
             public function handle(Socket $clientSocket, array $metadata): void
             {
-                $adapter = new HttpWorkerAdapter();
-                $adapter->handleConnection($clientSocket, $metadata);
+                ++$this->handledRequests;
+
+                $response = "HTTP/1.1 200 OK\r\n";
+                $response .= "Content-Type: text/plain\r\n";
+                $response .= "Connection: close\r\n\r\n";
+                $response .= "Hello from Worker {$metadata['worker_id']}";
+
+                socket_write($clientSocket, $response);
+                socket_close($clientSocket);
             }
         };
 
-        $balancer = new RoundRobinBalancer();
+        $balancer = new LeastConnectionsBalancer();
 
         $master = new CentralizedMaster(
             config: $workerPoolConfig,
@@ -82,8 +93,8 @@ class MasterHttpIntegrationTest extends TestCase
 
             socket_close($client);
 
-            $this->assertStringContainsString('HTTP/', $response);
-            $this->assertStringContainsString('Hello from Worker Pool', $response);
+            $this->assertStringContainsString('HTTP/1.1 200 OK', $response);
+            $this->assertStringContainsString('Hello from Worker', $response);
         }
 
         posix_kill($pid, SIGTERM);
@@ -95,7 +106,7 @@ class MasterHttpIntegrationTest extends TestCase
     }
 
     #[Test]
-    public function master_handles_multiple_concurrent_requests(): void
+    public function gracefully_stops_all_workers(): void
     {
         if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
@@ -111,17 +122,18 @@ class MasterHttpIntegrationTest extends TestCase
         $workerPoolConfig = new WorkerPoolConfig(
             serverConfig: $serverConfig,
             workerCount: 2,
+            autoRestart: false,
         );
 
         $callback = new class implements WorkerCallbackInterface {
             public function handle(Socket $clientSocket, array $metadata): void
             {
-                $adapter = new HttpWorkerAdapter();
-                $adapter->handleConnection($clientSocket, $metadata);
+                socket_write($clientSocket, "HTTP/1.1 200 OK\r\n\r\nOK");
+                socket_close($clientSocket);
             }
         };
 
-        $balancer = new RoundRobinBalancer();
+        $balancer = new LeastConnectionsBalancer();
 
         $master = new CentralizedMaster(
             config: $workerPoolConfig,
@@ -139,40 +151,68 @@ class MasterHttpIntegrationTest extends TestCase
 
         sleep(1);
 
-        $responses = [];
-
-        for ($i = 0; $i < 3; $i++) {
-            $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            $this->assertNotFalse($client);
-
-            if (@socket_connect($client, '127.0.0.1', $port)) {
-                $request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
-                socket_write($client, $request);
-
-                $response = '';
-                while (true) {
-                    $chunk = @socket_read($client, 1024);
-                    if ($chunk === false || $chunk === '') {
-                        break;
-                    }
-                    $response .= $chunk;
-                }
-
-                socket_close($client);
-                $responses[] = $response;
-            }
-        }
+        $this->assertTrue(posix_kill($pid, 0), 'Master process should be running');
 
         posix_kill($pid, SIGTERM);
+
+        $timeout = 5;
+        $start = time();
+        while (time() - $start < $timeout) {
+            if (!posix_kill($pid, 0)) {
+                break;
+            }
+            usleep(100000);
+        }
+
         pcntl_waitpid($pid, $status);
 
-        if (count($responses) === 0) {
-            $this->markTestSkipped('No successful connections');
+        $this->assertTrue(pcntl_wifexited($status), 'Process should exit normally');
+    }
+
+    #[Test]
+    public function returns_correct_metrics(): void
+    {
+        if (!PlatformHelper::supportsSCMRights()) {
+            $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
         }
 
-        foreach ($responses as $response) {
-            $this->assertStringContainsString('HTTP/', $response);
-        }
+        $serverConfig = new ServerConfig(
+            host: '127.0.0.1',
+            port: 9999,
+        );
+
+        $workerPoolConfig = new WorkerPoolConfig(
+            serverConfig: $serverConfig,
+            workerCount: 3,
+            autoRestart: false,
+        );
+
+        $callback = new class implements WorkerCallbackInterface {
+            public function handle(Socket $clientSocket, array $metadata): void
+            {
+                socket_close($clientSocket);
+            }
+        };
+
+        $balancer = new LeastConnectionsBalancer();
+
+        $master = new CentralizedMaster(
+            config: $workerPoolConfig,
+            balancer: $balancer,
+        );
+
+        $metrics = $master->getMetrics();
+
+        $this->assertIsArray($metrics);
+        $this->assertArrayHasKey('total_workers', $metrics);
+        $this->assertArrayHasKey('alive_workers', $metrics);
+        $this->assertArrayHasKey('total_connections', $metrics);
+        $this->assertArrayHasKey('total_requests', $metrics);
+        $this->assertArrayHasKey('queue_size', $metrics);
+        $this->assertArrayHasKey('is_running', $metrics);
+
+        $this->assertSame(3, $metrics['total_workers']);
+        $this->assertTrue($metrics['is_running']);
     }
 
     private function findFreePort(): int

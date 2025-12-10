@@ -30,6 +30,7 @@ readonly class WorkerPoolConfig
         public bool $autoRestart = true,
         public int $restartDelay = 1,
         public int $fallbackCpuCores = 4,
+        public int $pollInterval = 1000,
     ) {
         if ($workerCount === 0) {
             $systemInfo = new SystemInfo();
@@ -69,6 +70,10 @@ readonly class WorkerPoolConfig
 
         if ($this->fallbackCpuCores < 1) {
             throw new InvalidArgumentException('Fallback CPU cores must be positive');
+        }
+
+        if ($this->pollInterval < 100) {
+            throw new InvalidArgumentException('Poll interval must be at least 100 microseconds');
         }
     }
 

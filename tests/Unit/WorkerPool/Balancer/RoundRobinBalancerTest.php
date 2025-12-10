@@ -184,4 +184,3 @@ class RoundRobinBalancerTest extends TestCase
         $this->assertSame(1, $result, 'Should restart from beginning with new worker list');
     }
 }
-

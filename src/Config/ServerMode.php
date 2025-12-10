@@ -9,4 +9,3 @@ enum ServerMode: string
     case Standalone = 'standalone';
     case WorkerPool = 'worker_pool';
 }
-

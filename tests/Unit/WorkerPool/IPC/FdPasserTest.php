@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\IPC;
 
-use Duyler\HttpServer\WorkerPool\Exception\IPCException;
 use Duyler\HttpServer\WorkerPool\IPC\FdPasser;
+use Exception;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Socket;
 
 class FdPasserTest extends TestCase
 {
@@ -16,28 +17,21 @@ class FdPasserTest extends TestCase
     {
         $passer = new FdPasser();
 
-        $this->assertIsBool($passer->isSupported());
+        $isSupported = $passer->isSupported();
 
-        if (PHP_OS_FAMILY === 'Windows') {
-            $this->assertFalse($passer->isSupported());
-        } else {
-            $this->assertTrue($passer->isSupported());
-        }
+        $this->assertIsBool($isSupported);
     }
 
     #[Test]
     public function sends_and_receives_fd(): void
     {
-        $this->markTestSkipped('SCM_RIGHTS not fully supported in default Docker environment');
-
-        if (PHP_OS_FAMILY === 'Windows') {
-            $this->markTestSkipped('SCM_RIGHTS not supported on Windows');
-        }
-
         $passer = new FdPasser();
 
         if (!$passer->isSupported()) {
-            $this->markTestSkipped('socket_sendmsg/recvmsg not available');
+            $this->markTestSkipped(
+                'SCM_RIGHTS not supported on this platform. '
+                . 'Requires Linux with socket_sendmsg/recvmsg and proper seccomp configuration.',
+            );
         }
 
         $sockets = socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair);
@@ -46,7 +40,7 @@ class FdPasserTest extends TestCase
         [$socket1, $socket2] = $pair;
 
         $testSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        $this->assertInstanceOf(\Socket::class, $testSocket);
+        $this->assertInstanceOf(Socket::class, $testSocket);
 
         $metadata = [
             'connection_id' => 42,
@@ -55,10 +49,10 @@ class FdPasserTest extends TestCase
 
         try {
             $sent = $passer->sendFd($socket1, $testSocket, $metadata);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->fail("Exception during sendFd: " . $e->getMessage());
         }
-        
+
         if (!$sent) {
             $error = socket_strerror(socket_last_error($socket1));
             $this->fail("Failed to send FD: $error (sent result: " . var_export($sent, true) . ")");
@@ -71,7 +65,7 @@ class FdPasserTest extends TestCase
         $this->assertNotNull($received);
         $this->assertArrayHasKey('fd', $received);
         $this->assertArrayHasKey('metadata', $received);
-        $this->assertInstanceOf(\Socket::class, $received['fd']);
+        $this->assertInstanceOf(Socket::class, $received['fd']);
         $this->assertSame($metadata, $received['metadata']);
 
         socket_close($received['fd']);
@@ -83,14 +77,13 @@ class FdPasserTest extends TestCase
     #[Test]
     public function returns_null_when_no_fd_to_receive(): void
     {
-        if (PHP_OS_FAMILY === 'Windows') {
-            $this->markTestSkipped('SCM_RIGHTS not supported on Windows');
-        }
-
         $passer = new FdPasser();
 
         if (!$passer->isSupported()) {
-            $this->markTestSkipped('socket_sendmsg/recvmsg not available');
+            $this->markTestSkipped(
+                'SCM_RIGHTS not supported on this platform. '
+                . 'Requires Linux with socket_sendmsg/recvmsg and proper seccomp configuration.',
+            );
         }
 
         $sockets = socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair);
@@ -110,16 +103,13 @@ class FdPasserTest extends TestCase
     #[Test]
     public function sends_fd_with_empty_metadata(): void
     {
-        $this->markTestSkipped('SCM_RIGHTS not fully supported in default Docker environment');
-
-        if (PHP_OS_FAMILY === 'Windows') {
-            $this->markTestSkipped('SCM_RIGHTS not supported on Windows');
-        }
-
         $passer = new FdPasser();
 
         if (!$passer->isSupported()) {
-            $this->markTestSkipped('socket_sendmsg/recvmsg not available');
+            $this->markTestSkipped(
+                'SCM_RIGHTS not supported on this platform. '
+                . 'Requires Linux with socket_sendmsg/recvmsg and proper seccomp configuration.',
+            );
         }
 
         $sockets = socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair);
@@ -128,7 +118,7 @@ class FdPasserTest extends TestCase
         [$socket1, $socket2] = $pair;
 
         $testSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        $this->assertInstanceOf(\Socket::class, $testSocket);
+        $this->assertInstanceOf(Socket::class, $testSocket);
 
         $sent = $passer->sendFd($socket1, $testSocket);
         $this->assertTrue($sent);
@@ -145,4 +135,3 @@ class FdPasserTest extends TestCase
         socket_close($socket2);
     }
 }
-

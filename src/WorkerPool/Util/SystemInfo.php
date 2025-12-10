@@ -179,4 +179,27 @@ class SystemInfo
     {
         self::$cachedCpuCores = null;
     }
+
+    public function isContainerEnvironment(): bool
+    {
+        return file_exists('/.dockerenv') || file_exists('/run/.containerenv');
+    }
+
+    public function supportsFdPassing(): bool
+    {
+        if (PHP_OS_FAMILY !== 'Linux') {
+            return false;
+        }
+
+        if (!function_exists('socket_sendmsg') || !function_exists('socket_recvmsg')) {
+            return false;
+        }
+
+        return defined('SCM_RIGHTS');
+    }
+
+    public function supportsReusePort(): bool
+    {
+        return defined('SO_REUSEPORT');
+    }
 }

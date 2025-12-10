@@ -6,7 +6,6 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\IPC;
 
 use Duyler\HttpServer\WorkerPool\Exception\IPCException;
 use Duyler\HttpServer\WorkerPool\IPC\Message;
-use Duyler\HttpServer\WorkerPool\IPC\MessageType;
 use Duyler\HttpServer\WorkerPool\IPC\UnixSocketChannel;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -199,4 +198,3 @@ class UnixSocketChannelTest extends TestCase
         $server->close();
     }
 }
-

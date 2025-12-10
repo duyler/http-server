@@ -384,7 +384,8 @@ $metrics = $server->getMetrics();
 - `respond(ResponseInterface): void` - Send response for the current request
 - `getMetrics(): array` - Get server performance metrics
 - `setLogger(LoggerInterface)` - Set external Logger
-- `attachWebSocket(string $path, WebSocketServer $ws): void` - attach WebSocketServer
+- `attachWebSocket(string $path, WebSocketServer $ws): void` - Attach WebSocketServer
+- `addExternalConnection(Socket $clientSocket, array $metadata): void` - Add external connection from Worker Pool
 
 ### StaticFileHandler
 
@@ -425,8 +426,17 @@ composer phpstan
 
 ## Roadmap
 
- - [ ] HTTP/2 support
- - [ ] Worker pool management
+### Version 1.2.0 (In Progress)
+- [x] Worker Pool - Dual architecture (FD Passing + Shared Socket)
+- [x] WebSocket - RFC 6455 compliant implementation
+- [x] MasterFactory with auto-detection
+- [x] PSR-3 Logger integration
+- [x] Worker Pool metrics and monitoring
+- [ ] Enhanced documentation
+
+### Future Versions
+- [ ] HTTP/2 support (planned for 2.0.0)
+- [ ] Advanced Worker Pool features
 
 ## Contributing
 

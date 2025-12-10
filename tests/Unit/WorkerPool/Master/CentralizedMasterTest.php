@@ -7,12 +7,11 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Master;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
-use Duyler\HttpServer\WorkerPool\Master\Master;
-use Duyler\HttpServer\WorkerPool\Process\ProcessState;
+use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
-class MasterTest extends TestCase
+class CentralizedMasterTest extends TestCase
 {
     private WorkerPoolConfig $config;
     private LeastConnectionsBalancer $balancer;
@@ -36,9 +35,9 @@ class MasterTest extends TestCase
     }
 
     #[Test]
-    public function creates_master_with_config(): void
+    public function creates_centralized_master_with_config(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $this->assertSame(0, $master->getWorkerCount());
     }
@@ -50,7 +49,7 @@ class MasterTest extends TestCase
             $this->markTestSkipped('pcntl_fork not available');
         }
 
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $pid = pcntl_fork();
 
@@ -71,7 +70,7 @@ class MasterTest extends TestCase
     #[Test]
     public function tracks_worker_processes(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $workers = $master->getWorkers();
 
@@ -82,7 +81,7 @@ class MasterTest extends TestCase
     #[Test]
     public function stops_all_workers_on_stop(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $master->stop();
 
@@ -92,7 +91,7 @@ class MasterTest extends TestCase
     #[Test]
     public function collects_metrics_from_workers(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $metrics = $master->getMetrics();
 
@@ -108,7 +107,7 @@ class MasterTest extends TestCase
     #[Test]
     public function returns_worker_count(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $count = $master->getWorkerCount();
 
@@ -130,7 +129,7 @@ class MasterTest extends TestCase
             restartDelay: 0,
         );
 
-        $master = new Master($config, $this->balancer);
+        $master = new CentralizedMaster($config, $this->balancer);
 
         $this->assertSame(0, $master->getWorkerCount());
     }
@@ -138,11 +137,10 @@ class MasterTest extends TestCase
     #[Test]
     public function gets_empty_workers_list_initially(): void
     {
-        $master = new Master($this->config, $this->balancer);
+        $master = new CentralizedMaster($this->config, $this->balancer);
 
         $workers = $master->getWorkers();
 
         $this->assertEmpty($workers);
     }
 }
-

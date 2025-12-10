@@ -7,7 +7,6 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Master;
 use Duyler\HttpServer\WorkerPool\Master\ConnectionQueue;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Socket;
 
 class ConnectionQueueTest extends TestCase
 {
@@ -185,4 +184,3 @@ class ConnectionQueueTest extends TestCase
         $this->assertTrue($queue->isEmpty());
     }
 }
-

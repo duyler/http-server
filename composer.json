@@ -50,5 +50,13 @@
         "optimize-autoloader": true
     },
     "minimum-stability": "stable",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "scripts": {
+        "test": "phpunit",
+        "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-html build/coverage",
+        "phpstan": "phpstan analyze --memory-limit=256M --no-progress",
+        "phpstan:baseline": "phpstan analyze --memory-limit=256M --generate-baseline",
+        "cs-fix": "php-cs-fixer fix",
+        "cs-check": "php-cs-fixer fix --dry-run --diff"
+    }
 }

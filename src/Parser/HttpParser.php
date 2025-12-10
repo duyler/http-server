@@ -9,14 +9,30 @@ use Duyler\HttpServer\Exception\ParseException;
 class HttpParser
 {
     private const HTTP_VERSION_PATTERN = '/^HTTP\/(\d+\.\d+)$/';
+    private const HEADER_PATTERN = '/^([^:\s]+):\s*(.+)$/m';
 
     private const SINGULAR_HEADERS = [
-        'Content-Length',
-        'Content-Type',
-        'Host',
-        'Authorization',
-        'Transfer-Encoding',
+        'Content-Length' => true,
+        'Content-Type' => true,
+        'Host' => true,
+        'Authorization' => true,
+        'Transfer-Encoding' => true,
     ];
+
+    private const VALID_METHODS = [
+        'GET' => true,
+        'POST' => true,
+        'PUT' => true,
+        'DELETE' => true,
+        'PATCH' => true,
+        'HEAD' => true,
+        'OPTIONS' => true,
+        'TRACE' => true,
+        'CONNECT' => true,
+    ];
+
+    /** @var array<string, string> */
+    private static array $headerNameCache = [];
 
     /**
      * @return array{method: string, uri: string, version: string}
@@ -41,7 +57,9 @@ class HttpParser
             throw new ParseException('Empty URI in request line');
         }
 
-        if (!$this->isValidMethod($method)) {
+        $methodUpper = strtoupper($method);
+
+        if (!isset(self::VALID_METHODS[$methodUpper])) {
             throw new ParseException(sprintf('Invalid HTTP method: %s', $method));
         }
 
@@ -50,7 +68,7 @@ class HttpParser
         }
 
         return [
-            'method' => strtoupper($method),
+            'method' => $methodUpper,
             'uri' => $uri,
             'version' => $matches[1],
         ];
@@ -62,8 +80,39 @@ class HttpParser
     public function parseHeaders(string $headerBlock): array
     {
         $headers = [];
-        $lines = explode("\r\n", trim($headerBlock));
+        $headerBlock = trim($headerBlock);
 
+        if ($headerBlock === '') {
+            return [];
+        }
+
+        // Fast path: use regex for simple headers without continuation
+        if (!str_contains($headerBlock, "\r\n ") && !str_contains($headerBlock, "\r\n\t")) {
+            $matchCount = preg_match_all(self::HEADER_PATTERN, $headerBlock, $matches, PREG_SET_ORDER);
+
+            if ($matchCount > 0) {
+                foreach ($matches as $match) {
+                    $normalizedName = $this->normalizeHeaderName($match[1]);
+
+                    if (isset(self::SINGULAR_HEADERS[$normalizedName]) && isset($headers[$normalizedName])) {
+                        throw new ParseException(
+                            sprintf('Duplicate header not allowed: %s', $normalizedName),
+                        );
+                    }
+
+                    if (!isset($headers[$normalizedName])) {
+                        $headers[$normalizedName] = [];
+                    }
+
+                    $headers[$normalizedName][] = trim($match[2]);
+                }
+
+                return $headers;
+            }
+        }
+
+        // Slow path: handle header continuation
+        $lines = explode("\r\n", $headerBlock);
         $currentHeader = null;
 
         foreach ($lines as $line) {
@@ -71,7 +120,7 @@ class HttpParser
                 continue;
             }
 
-            if (str_starts_with($line, ' ') || str_starts_with($line, "\t")) {
+            if ($line[0] === ' ' || $line[0] === "\t") {
                 if ($currentHeader === null) {
                     throw new ParseException('Invalid header continuation');
                 }
@@ -85,17 +134,15 @@ class HttpParser
             }
 
             $name = substr($line, 0, $colonPos);
-            $value = trim(substr($line, $colonPos + 1));
+            $value = ltrim(substr($line, $colonPos + 1));
 
             $normalizedName = $this->normalizeHeaderName($name);
             $currentHeader = $normalizedName;
 
-            if (in_array($normalizedName, self::SINGULAR_HEADERS, true)) {
-                if (isset($headers[$normalizedName])) {
-                    throw new ParseException(
-                        sprintf('Duplicate header not allowed: %s', $normalizedName),
-                    );
-                }
+            if (isset(self::SINGULAR_HEADERS[$normalizedName]) && isset($headers[$normalizedName])) {
+                throw new ParseException(
+                    sprintf('Duplicate header not allowed: %s', $normalizedName),
+                );
             }
 
             if (!isset($headers[$normalizedName])) {
@@ -124,10 +171,10 @@ class HttpParser
             return [$buffer, ''];
         }
 
-        $headers = substr($buffer, 0, $pos);
-        $body = substr($buffer, $pos + 4);
-
-        return [$headers, $body];
+        return [
+            substr($buffer, 0, $pos),
+            substr($buffer, $pos + 4),
+        ];
     }
 
     /**
@@ -135,11 +182,11 @@ class HttpParser
      */
     public function getContentLength(array $headers): int
     {
-        if (!isset($headers['Content-Length'])) {
+        if (!isset($headers['Content-Length'][0])) {
             return 0;
         }
 
-        $value = $headers['Content-Length'][0] ?? '0';
+        $value = $headers['Content-Length'][0];
         $length = (int) $value;
 
         if ($length < 0) {
@@ -167,18 +214,24 @@ class HttpParser
         return false;
     }
 
-    private function isValidMethod(string $method): bool
-    {
-        $validMethods = [
-            'GET', 'POST', 'PUT', 'DELETE', 'PATCH',
-            'HEAD', 'OPTIONS', 'TRACE', 'CONNECT',
-        ];
-
-        return in_array(strtoupper($method), $validMethods, true);
-    }
-
     private function normalizeHeaderName(string $name): string
     {
-        return str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower($name))));
+        if (isset(self::$headerNameCache[$name])) {
+            return self::$headerNameCache[$name];
+        }
+
+        $normalized = str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower($name))));
+
+        // Limit cache size to prevent memory leaks
+        if (count(self::$headerNameCache) < 100) {
+            self::$headerNameCache[$name] = $normalized;
+        }
+
+        return $normalized;
+    }
+
+    public static function clearHeaderCache(): void
+    {
+        self::$headerNameCache = [];
     }
 }

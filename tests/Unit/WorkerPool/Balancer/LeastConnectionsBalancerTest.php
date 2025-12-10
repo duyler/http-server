@@ -235,4 +235,3 @@ class LeastConnectionsBalancerTest extends TestCase
         $this->assertSame(3, $result2, 'Should now select worker 3');
     }
 }
-

@@ -9,11 +9,14 @@ use SplObjectStorage;
 
 class ConnectionPool
 {
-    /** @var SplObjectStorage<Connection, true> */
+    /** @var SplObjectStorage<Connection, int> */
     private SplObjectStorage $connections;
 
     /** @var array<int, Connection> */
     private array $connectionsByResourceId = [];
+
+    /** @var array<string, Connection> */
+    private array $connectionsByAddress = [];
 
     private bool $isModifying = false;
 
@@ -38,9 +41,15 @@ class ConnectionPool
                 return;
             }
 
-            $this->connections->attach($connection);
+            $this->connections->attach($connection, time());
+
             $resourceId = $this->getSocketId($connection->getSocket());
             $this->connectionsByResourceId[$resourceId] = $connection;
+
+            $address = $connection->getRemoteAddress();
+            if ($address !== '') {
+                $this->connectionsByAddress[$address] = $connection;
+            }
         } finally {
             $this->isModifying = false;
         }
@@ -57,8 +66,14 @@ class ConnectionPool
         try {
             if ($this->connections->contains($connection)) {
                 $this->connections->detach($connection);
+
                 $resourceId = $this->getSocketId($connection->getSocket());
                 unset($this->connectionsByResourceId[$resourceId]);
+
+                $address = $connection->getRemoteAddress();
+                if (isset($this->connectionsByAddress[$address])) {
+                    unset($this->connectionsByAddress[$address]);
+                }
             }
         } finally {
             $this->isModifying = false;
@@ -72,6 +87,11 @@ class ConnectionPool
     {
         $resourceId = $this->getSocketId($socket);
         return $this->connectionsByResourceId[$resourceId] ?? null;
+    }
+
+    public function findByAddress(string $address): ?Connection
+    {
+        return $this->connectionsByAddress[$address] ?? null;
     }
 
     /**
@@ -117,10 +137,13 @@ class ConnectionPool
 
         try {
             $removed = 0;
+            $now = time();
             $toRemove = [];
 
             foreach ($this->connections as $connection) {
-                if ($connection->isTimedOut($timeout)) {
+                $addedAt = $this->connections[$connection];
+
+                if ($connection->isTimedOut($timeout) || ($now - $addedAt) > $timeout) {
                     $toRemove[] = $connection;
                 }
             }
@@ -130,8 +153,15 @@ class ConnectionPool
 
                 if ($this->connections->contains($connection)) {
                     $this->connections->detach($connection);
+
                     $resourceId = $this->getSocketId($connection->getSocket());
                     unset($this->connectionsByResourceId[$resourceId]);
+
+                    $address = $connection->getRemoteAddress();
+                    if (isset($this->connectionsByAddress[$address])) {
+                        unset($this->connectionsByAddress[$address]);
+                    }
+
                     ++$removed;
                 }
             }
@@ -149,5 +179,21 @@ class ConnectionPool
         }
         $this->connections->removeAll($this->connections);
         $this->connectionsByResourceId = [];
+        $this->connectionsByAddress = [];
+    }
+
+    public function has(Connection $connection): bool
+    {
+        return $this->connections->contains($connection);
+    }
+
+    public function isFull(): bool
+    {
+        return $this->connections->count() >= $this->maxConnections;
+    }
+
+    public function getMaxConnections(): int
+    {
+        return $this->maxConnections;
     }
 }

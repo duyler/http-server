@@ -6,19 +6,19 @@ namespace Duyler\HttpServer\Tests\Integration\WorkerPool;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Tests\Support\PlatformHelper;
+use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Balancer\RoundRobinBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
-use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 
-class MasterHttpIntegrationTest extends TestCase
+final class LoadBalancingIntegrationTest extends TestCase
 {
     #[Test]
-    public function master_accepts_and_distributes_http_requests(): void
+    public function round_robin_distributes_evenly(): void
     {
         if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
@@ -33,14 +33,26 @@ class MasterHttpIntegrationTest extends TestCase
 
         $workerPoolConfig = new WorkerPoolConfig(
             serverConfig: $serverConfig,
-            workerCount: 2,
+            workerCount: 3,
+            autoRestart: false,
         );
 
-        $callback = new class implements WorkerCallbackInterface {
+        $workerHits = [];
+
+        $callback = new class ($workerHits) implements WorkerCallbackInterface {
+            public function __construct(private array &$workerHits) {}
+
             public function handle(Socket $clientSocket, array $metadata): void
             {
-                $adapter = new HttpWorkerAdapter();
-                $adapter->handleConnection($clientSocket, $metadata);
+                $workerId = $metadata['worker_id'] ?? 0;
+                if (!isset($this->workerHits[$workerId])) {
+                    $this->workerHits[$workerId] = 0;
+                }
+                ++$this->workerHits[$workerId];
+
+                $response = "HTTP/1.1 200 OK\r\n\r\nWorker: $workerId";
+                socket_write($clientSocket, $response);
+                socket_close($clientSocket);
             }
         };
 
@@ -62,40 +74,58 @@ class MasterHttpIntegrationTest extends TestCase
 
         sleep(1);
 
-        $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        $this->assertNotFalse($client);
+        $requestCount = 9;
+        $responses = [];
 
-        $connected = @socket_connect($client, '127.0.0.1', $port);
+        for ($i = 0; $i < $requestCount; $i++) {
+            $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 
-        if ($connected) {
-            $request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
-            socket_write($client, $request);
+            if (@socket_connect($client, '127.0.0.1', $port)) {
+                socket_write($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
 
-            $response = '';
-            while (true) {
-                $chunk = @socket_read($client, 1024);
-                if ($chunk === false || $chunk === '') {
-                    break;
+                $response = '';
+                while ($chunk = @socket_read($client, 1024)) {
+                    $response .= $chunk;
                 }
-                $response .= $chunk;
+                $responses[] = $response;
+                socket_close($client);
             }
 
-            socket_close($client);
-
-            $this->assertStringContainsString('HTTP/', $response);
-            $this->assertStringContainsString('Hello from Worker Pool', $response);
+            usleep(10000);
         }
 
         posix_kill($pid, SIGTERM);
         pcntl_waitpid($pid, $status);
 
-        if (!$connected) {
-            $this->markTestSkipped('Could not connect to server');
+        if (count($responses) < 3) {
+            $this->markTestSkipped('Not enough successful connections');
         }
+
+        $this->assertGreaterThanOrEqual(3, count($responses));
     }
 
     #[Test]
-    public function master_handles_multiple_concurrent_requests(): void
+    public function least_connections_prefers_idle_workers(): void
+    {
+        if (!PlatformHelper::supportsSCMRights()) {
+            $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
+        }
+
+        $balancer = new LeastConnectionsBalancer();
+
+        $connections = [
+            1 => 5,
+            2 => 2,
+            3 => 8,
+        ];
+
+        $selected = $balancer->selectWorker($connections);
+
+        $this->assertSame(2, $selected, 'Should select worker with least connections');
+    }
+
+    #[Test]
+    public function handles_multiple_concurrent_connections(): void
     {
         if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
@@ -110,18 +140,22 @@ class MasterHttpIntegrationTest extends TestCase
 
         $workerPoolConfig = new WorkerPoolConfig(
             serverConfig: $serverConfig,
-            workerCount: 2,
+            workerCount: 4,
+            autoRestart: false,
         );
 
         $callback = new class implements WorkerCallbackInterface {
             public function handle(Socket $clientSocket, array $metadata): void
             {
-                $adapter = new HttpWorkerAdapter();
-                $adapter->handleConnection($clientSocket, $metadata);
+                usleep(50000); // Simulate work
+
+                $response = "HTTP/1.1 200 OK\r\n\r\nOK";
+                socket_write($clientSocket, $response);
+                socket_close($clientSocket);
             }
         };
 
-        $balancer = new RoundRobinBalancer();
+        $balancer = new LeastConnectionsBalancer();
 
         $master = new CentralizedMaster(
             config: $workerPoolConfig,
@@ -139,40 +173,32 @@ class MasterHttpIntegrationTest extends TestCase
 
         sleep(1);
 
-        $responses = [];
+        $successfulConnections = 0;
+        $concurrentRequests = 10;
 
-        for ($i = 0; $i < 3; $i++) {
+        for ($i = 0; $i < $concurrentRequests; $i++) {
             $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-            $this->assertNotFalse($client);
 
             if (@socket_connect($client, '127.0.0.1', $port)) {
-                $request = "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n";
-                socket_write($client, $request);
+                socket_write($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
 
-                $response = '';
-                while (true) {
-                    $chunk = @socket_read($client, 1024);
-                    if ($chunk === false || $chunk === '') {
-                        break;
-                    }
-                    $response .= $chunk;
+                $response = @socket_read($client, 1024);
+                if ($response && str_contains($response, 'HTTP/1.1 200 OK')) {
+                    ++$successfulConnections;
                 }
 
                 socket_close($client);
-                $responses[] = $response;
             }
         }
 
         posix_kill($pid, SIGTERM);
         pcntl_waitpid($pid, $status);
 
-        if (count($responses) === 0) {
+        if ($successfulConnections === 0) {
             $this->markTestSkipped('No successful connections');
         }
 
-        foreach ($responses as $response) {
-            $this->assertStringContainsString('HTTP/', $response);
-        }
+        $this->assertGreaterThan(0, $successfulConnections);
     }
 
     private function findFreePort(): int

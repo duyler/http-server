@@ -76,10 +76,8 @@ class SignalManagerTest extends TestCase
         $this->assertFalse($this->manager->isShutdownRequested());
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {
-            },
-            onReload: function () {
-            },
+            onShutdown: function () {},
+            onReload: function () {},
         );
 
         $this->assertFalse($this->manager->isShutdownRequested());
@@ -91,10 +89,8 @@ class SignalManagerTest extends TestCase
         $this->assertFalse($this->manager->isReloadRequested());
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {
-            },
-            onReload: function () {
-            },
+            onShutdown: function () {},
+            onReload: function () {},
         );
 
         $this->assertFalse($this->manager->isReloadRequested());
@@ -108,10 +104,8 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {
-            },
-            onReload: function () {
-            },
+            onShutdown: function () {},
+            onReload: function () {},
         );
 
         $this->assertTrue($this->handler->hasHandlers(SIGTERM));
@@ -131,10 +125,8 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {
-            },
-            onReload: function () {
-            },
+            onShutdown: function () {},
+            onReload: function () {},
         );
 
         $this->manager->resetFlags();
@@ -160,19 +152,15 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {
-            },
-            onReload: function () {
-            },
+            onShutdown: function () {},
+            onReload: function () {},
         );
 
         $this->manager->setupWorkerSignals(
-            onShutdown: function () {
-            },
+            onShutdown: function () {},
         );
 
         $this->assertTrue($this->handler->hasHandlers(SIGTERM));
         $this->assertTrue($this->handler->hasHandlers(SIGINT));
     }
 }
-

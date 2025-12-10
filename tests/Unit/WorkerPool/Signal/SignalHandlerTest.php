@@ -42,12 +42,9 @@ class SignalHandlerTest extends TestCase
     #[Test]
     public function registers_multiple_handlers_for_same_signal(): void
     {
-        $this->handler->register(SIGUSR1, function (): void {
-        });
-        $this->handler->register(SIGUSR1, function (): void {
-        });
-        $this->handler->register(SIGUSR1, function (): void {
-        });
+        $this->handler->register(SIGUSR1, function (): void {});
+        $this->handler->register(SIGUSR1, function (): void {});
+        $this->handler->register(SIGUSR1, function (): void {});
 
         $signals = $this->handler->getRegisteredSignals();
 
@@ -57,12 +54,9 @@ class SignalHandlerTest extends TestCase
     #[Test]
     public function registers_different_signals(): void
     {
-        $this->handler->register(SIGUSR1, function (): void {
-        });
-        $this->handler->register(SIGUSR2, function (): void {
-        });
-        $this->handler->register(SIGTERM, function (): void {
-        });
+        $this->handler->register(SIGUSR1, function (): void {});
+        $this->handler->register(SIGUSR2, function (): void {});
+        $this->handler->register(SIGTERM, function (): void {});
 
         $signals = $this->handler->getRegisteredSignals();
 
@@ -75,8 +69,7 @@ class SignalHandlerTest extends TestCase
     #[Test]
     public function unregisters_signal_handler(): void
     {
-        $this->handler->register(SIGUSR1, function (): void {
-        });
+        $this->handler->register(SIGUSR1, function (): void {});
 
         $this->handler->unregister(SIGUSR1);
 
@@ -121,10 +114,8 @@ class SignalHandlerTest extends TestCase
     #[Test]
     public function resets_all_handlers(): void
     {
-        $this->handler->register(SIGUSR1, function (): void {
-        });
-        $this->handler->register(SIGUSR2, function (): void {
-        });
+        $this->handler->register(SIGUSR1, function (): void {});
+        $this->handler->register(SIGUSR2, function (): void {});
 
         $this->handler->reset();
 

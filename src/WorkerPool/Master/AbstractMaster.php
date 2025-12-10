@@ -1,0 +1,108 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Duyler\HttpServer\WorkerPool\Master;
+
+use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
+use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
+use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+
+abstract class AbstractMaster implements MasterInterface
+{
+    protected bool $shouldStop = false;
+
+    /**
+     * @var array<int, ProcessInfo>
+     */
+    protected array $workers = [];
+
+    protected SignalHandler $signalHandler;
+    protected LoggerInterface $logger;
+
+    public function __construct(
+        protected readonly WorkerPoolConfig $config,
+        ?LoggerInterface $logger = null,
+    ) {
+        $this->logger = $logger ?? new NullLogger();
+        $this->signalHandler = new SignalHandler();
+        $this->setupSignals();
+    }
+
+    public function stop(): void
+    {
+        $this->shouldStop = true;
+
+        foreach ($this->workers as $worker) {
+            if ($worker->pid > 0) {
+                posix_kill($worker->pid, SIGTERM);
+            }
+        }
+    }
+
+    /**
+     * @return array<int, ProcessInfo>
+     */
+    public function getWorkers(): array
+    {
+        return $this->workers;
+    }
+
+    public function getWorkerCount(): int
+    {
+        return count($this->workers);
+    }
+
+    public function isRunning(): bool
+    {
+        return !$this->shouldStop;
+    }
+
+    abstract protected function run(): void;
+
+    abstract protected function spawnWorker(int $workerId): void;
+
+    protected function checkWorkers(): void
+    {
+        foreach ($this->workers as $workerId => $worker) {
+            $result = pcntl_waitpid($worker->pid, $status, WNOHANG);
+
+            if ($result === $worker->pid) {
+                $this->logger->warning('Worker died', [
+                    'worker_id' => $workerId,
+                    'pid' => $worker->pid,
+                ]);
+
+                unset($this->workers[$workerId]);
+
+                if ($this->config->autoRestart && !$this->shouldStop) {
+                    $this->logger->info('Respawning worker', ['worker_id' => $workerId]);
+                    sleep($this->config->restartDelay);
+                    $this->spawnWorker($workerId);
+                }
+            }
+        }
+    }
+
+    protected function waitForWorkers(): void
+    {
+        foreach ($this->workers as $worker) {
+            pcntl_waitpid($worker->pid, $status);
+        }
+    }
+
+    protected function setupSignals(): void
+    {
+        $this->signalHandler->register(SIGTERM, function (): void {
+            $this->logger->info('Received SIGTERM');
+            $this->stop();
+        });
+
+        $this->signalHandler->register(SIGINT, function (): void {
+            $this->logger->info('Received SIGINT');
+            $this->stop();
+        });
+    }
+}

@@ -9,6 +9,7 @@ use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class HttpWorkerAdapterTest extends TestCase
 {
@@ -50,7 +51,7 @@ class HttpWorkerAdapterTest extends TestCase
 
             try {
                 $this->adapter->handleConnection($serverSocket, []);
-            } catch (\Throwable $e) {
+            } catch (Throwable $e) {
                 fwrite(STDERR, $e->getMessage());
             }
 
@@ -145,4 +146,3 @@ class HttpWorkerAdapterTest extends TestCase
         $this->assertTrue(true);
     }
 }
-

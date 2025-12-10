@@ -6,10 +6,15 @@ namespace Duyler\HttpServer\WorkerPool\IPC;
 
 use Duyler\HttpServer\WorkerPool\Exception\IPCException;
 use JsonException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Socket;
 
 class FdPasser
 {
+    public function __construct(
+        private readonly LoggerInterface $logger = new NullLogger(),
+    ) {}
     /**
      * Проверяет, поддерживается ли SCM_RIGHTS в текущей системе
      */
@@ -18,11 +23,11 @@ class FdPasser
         // SCM_RIGHTS хорошо работает на Linux
         // На macOS есть проблемы
         // В Docker зависит от конфигурации
-        
+
         if (PHP_OS_FAMILY !== 'Linux') {
             return false;
         }
-        
+
         // Проверяем, что socket_sendmsg/socket_recvmsg доступны
         return function_exists('socket_sendmsg') && function_exists('socket_recvmsg');
     }
@@ -40,7 +45,7 @@ class FdPasser
             throw new IPCException('SCM_RIGHTS is not defined');
         }
 
-        error_log("[FdPasser] Sending FD with metadata: " . json_encode($metadata));
+        $this->logger->debug('Sending FD with metadata', ['metadata' => $metadata]);
 
         $metadataJson = json_encode($metadata, JSON_THROW_ON_ERROR);
         if ($metadataJson === '[]' || $metadataJson === '') {
@@ -61,9 +66,11 @@ class FdPasser
         $result = socket_sendmsg($controlSocket, $message, 0);
 
         if ($result === false) {
-            error_log("[FdPasser] ERROR: sendmsg failed: " . socket_strerror(socket_last_error($controlSocket)));
+            $this->logger->error('sendmsg failed', [
+                'error' => socket_strerror(socket_last_error($controlSocket)),
+            ]);
         } else {
-            error_log("[FdPasser] ✅ FD sent, bytes: $result");
+            $this->logger->debug('FD sent', ['bytes' => $result]);
         }
 
         return $result !== false;
@@ -96,34 +103,37 @@ class FdPasser
         if ($result === false || $result === 0) {
             $errno = socket_last_error($controlSocket);
             if ($errno !== 11 && $errno !== 0 && $callCount % 1000 === 0) {
-                error_log("[FdPasser] recvmsg error (errno=$errno): " . socket_strerror($errno));
+                $this->logger->debug('recvmsg error', [
+                    'errno' => $errno,
+                    'error' => socket_strerror($errno),
+                ]);
             }
             return null;
         }
 
         if ($result === 0) {
             if ($callCount % 1000 === 0) {
-                error_log("[FdPasser] recvmsg returned 0 (no data)");
+                $this->logger->debug('recvmsg returned 0 (no data)');
             }
             return null;
         }
 
-        error_log("[FdPasser] recvmsg returned $result bytes");
-        error_log("[FdPasser] Message type: " . gettype($message));
-        
+        $this->logger->debug('recvmsg returned bytes', ['bytes' => $result]);
+        $this->logger->debug('Message type', ['type' => gettype($message)]);
+
         if (!is_array($message)) {
-            error_log("[FdPasser] ERROR: Message is not an array! Got: " . gettype($message));
+            $this->logger->error('Message is not an array', ['type' => gettype($message)]);
             return null;
         }
-        
-        error_log("[FdPasser] Message keys: " . implode(', ', array_keys($message)));
+
+        $this->logger->debug('Message keys', ['keys' => array_keys($message)]);
 
         if (!isset($message['control'][0]['data'][0])) {
-            error_log("[FdPasser] ERROR: No control data received!");
+            $this->logger->error('No control data received');
             if (isset($message['control'])) {
-                error_log("[FdPasser] Control array: " . json_encode($message['control']));
+                $this->logger->debug('Control array', ['control' => $message['control']]);
             } else {
-                error_log("[FdPasser] Control key does not exist");
+                $this->logger->debug('Control key does not exist');
             }
             return null;
         }
@@ -131,7 +141,7 @@ class FdPasser
         $receivedFd = $message['control'][0]['data'][0];
 
         if (!$receivedFd instanceof Socket) {
-            error_log("[FdPasser] ERROR: Received FD is not a Socket! Type: " . gettype($receivedFd));
+            $this->logger->error('Received FD is not a Socket', ['type' => gettype($receivedFd)]);
             return null;
         }
 
@@ -145,7 +155,7 @@ class FdPasser
         try {
             $metadata = json_decode($metadataJson, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            error_log("[FdPasser] ERROR: Failed to decode metadata: " . $e->getMessage());
+            $this->logger->error('Failed to decode metadata', ['error' => $e->getMessage()]);
             $metadata = [];
         }
 
@@ -153,7 +163,7 @@ class FdPasser
             $metadata = [];
         }
 
-        error_log("[FdPasser] ✅✅✅ FD received successfully! Metadata: " . json_encode($metadata));
+        $this->logger->debug('FD received successfully', ['metadata' => $metadata]);
 
         return [
             'fd' => $receivedFd,
