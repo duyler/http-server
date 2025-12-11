@@ -9,7 +9,6 @@ use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 class ErrorHandlerTest extends TestCase
 {
@@ -55,14 +54,19 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
-    public function handles_exceptions_correctly(): void
+    public function exception_handler_is_registered(): void
     {
-        $exception = new RuntimeException('Test exception');
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('info')
+            ->with('Error handler registered', $this->isType('array'));
 
-        // Просто проверяем, что handleException можно вызвать без ошибок
-        ErrorHandler::handleException($exception);
+        ErrorHandler::register($logger);
 
-        $this->assertTrue(true); // If we got here, it worked
+        $handlers = set_exception_handler(null);
+        restore_exception_handler();
+
+        $this->assertIsCallable($handlers);
     }
 
     #[Test]
