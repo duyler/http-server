@@ -20,7 +20,7 @@ class Frame
             throw new InvalidWebSocketFrameException('Masked frame must have masking key');
         }
 
-        if ($this->masked && strlen($this->maskingKey) !== 4) {
+        if ($this->masked && strlen((string) $this->maskingKey) !== 4) {
             throw new InvalidWebSocketFrameException('Masking key must be exactly 4 bytes');
         }
     }

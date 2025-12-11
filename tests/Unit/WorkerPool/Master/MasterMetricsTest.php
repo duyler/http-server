@@ -52,6 +52,7 @@ final class MasterMetricsTest extends TestCase
         $master = new CentralizedMaster(
             config: $this->config,
             balancer: $balancer,
+            workerCallback: $this->callback,
         );
 
         $metrics = $master->getMetrics();
@@ -104,6 +105,7 @@ final class MasterMetricsTest extends TestCase
         $centralizedMaster = new CentralizedMaster(
             config: $this->config,
             balancer: $balancer,
+            workerCallback: $this->callback,
         );
 
         $sharedSocketMaster = new SharedSocketMaster(
@@ -127,6 +129,7 @@ final class MasterMetricsTest extends TestCase
         $master = new CentralizedMaster(
             config: $this->config,
             balancer: $balancer,
+            workerCallback: $this->callback,
         );
 
         $this->assertTrue($master->isRunning());

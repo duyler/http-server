@@ -9,8 +9,18 @@ use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketConfigException;
 readonly class WebSocketConfig
 {
     /**
-     * @param array<string> $allowedOrigins
-     * @param array<string> $subProtocols
+     * @var array<string> $allowedOrigins
+     */
+    public readonly array $allowedOrigins;
+
+    /**
+     * @var array<string> $subProtocols
+     */
+    public readonly array $subProtocols;
+
+    /**
+     * @param array<mixed> $allowedOrigins
+     * @param array<mixed> $subProtocols
      */
     public function __construct(
         public int $maxMessageSize = 1048576,
@@ -20,53 +30,93 @@ readonly class WebSocketConfig
         public bool $autoPing = true,
         public int $handshakeTimeout = 5,
         public int $closeTimeout = 5,
-        public array $allowedOrigins = ['*'],
+        array $allowedOrigins = ['*'],
         public bool $validateOrigin = false,
         public bool $requireMasking = true,
         public bool $autoFragmentation = true,
         public int $writeBufferSize = 8192,
         public bool $enableCompression = false,
-        public array $subProtocols = [],
+        array $subProtocols = [],
     ) {
-        $this->validate();
+        $this->validate(
+            $this->maxMessageSize,
+            $this->maxFrameSize,
+            $this->pingInterval,
+            $this->pongTimeout,
+            $this->handshakeTimeout,
+            $this->closeTimeout,
+            $this->writeBufferSize,
+            $allowedOrigins,
+            $subProtocols,
+        );
+
+        /** @var array<string> $allowedOrigins */
+        $this->allowedOrigins = $allowedOrigins;
+        /** @var array<string> $subProtocols */
+        $this->subProtocols = $subProtocols;
     }
 
-    private function validate(): void
-    {
-        if ($this->maxMessageSize < 1) {
+    /**
+     * @param array<mixed> $allowedOrigins
+     * @param array<mixed> $subProtocols
+     */
+    private function validate(
+        int $maxMessageSize,
+        int $maxFrameSize,
+        int $pingInterval,
+        int $pongTimeout,
+        int $handshakeTimeout,
+        int $closeTimeout,
+        int $writeBufferSize,
+        array $allowedOrigins,
+        array $subProtocols,
+    ): void {
+        if ($maxMessageSize < 1) {
             throw new InvalidWebSocketConfigException('maxMessageSize must be positive');
         }
 
-        if ($this->maxFrameSize < 1) {
+        if ($maxFrameSize < 1) {
             throw new InvalidWebSocketConfigException('maxFrameSize must be positive');
         }
 
-        if ($this->maxFrameSize > $this->maxMessageSize) {
+        if ($maxFrameSize > $maxMessageSize) {
             throw new InvalidWebSocketConfigException('maxFrameSize cannot exceed maxMessageSize');
         }
 
-        if ($this->pingInterval < 1) {
+        if ($pingInterval < 1) {
             throw new InvalidWebSocketConfigException('pingInterval must be positive');
         }
 
-        if ($this->pongTimeout < 1) {
+        if ($pongTimeout < 1) {
             throw new InvalidWebSocketConfigException('pongTimeout must be positive');
         }
 
-        if ($this->handshakeTimeout < 1) {
+        if ($handshakeTimeout < 1) {
             throw new InvalidWebSocketConfigException('handshakeTimeout must be positive');
         }
 
-        if ($this->closeTimeout < 1) {
+        if ($closeTimeout < 1) {
             throw new InvalidWebSocketConfigException('closeTimeout must be positive');
         }
 
-        if ($this->writeBufferSize < 1) {
+        if ($writeBufferSize < 1) {
             throw new InvalidWebSocketConfigException('writeBufferSize must be positive');
         }
 
-        if ($this->allowedOrigins === []) {
+        if ($allowedOrigins === []) {
             throw new InvalidWebSocketConfigException('allowedOrigins cannot be empty');
+        }
+
+        foreach ($allowedOrigins as $origin) {
+            if (!is_string($origin)) {
+                throw new InvalidWebSocketConfigException('allowedOrigins must contain only strings');
+            }
+        }
+
+        foreach ($subProtocols as $protocol) {
+            if (!is_string($protocol)) {
+                throw new InvalidWebSocketConfigException('subProtocols must contain only strings');
+            }
         }
     }
 }

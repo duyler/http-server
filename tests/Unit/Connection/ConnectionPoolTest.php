@@ -6,9 +6,9 @@ namespace Duyler\HttpServer\Tests\Unit\Connection;
 
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
-use Socket;
 
 class ConnectionPoolTest extends TestCase
 {
@@ -103,14 +103,16 @@ class ConnectionPoolTest extends TestCase
 
         $conn = $this->createConnection();
         $otherSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        if ($otherSocket === false) {
+            $this->fail('Failed to create socket');
+        }
+        $otherSocketResource = new StreamSocketResource($otherSocket);
 
-        $found = $pool->findBySocket($otherSocket);
+        $found = $pool->findBySocket($otherSocketResource);
 
         $this->assertNull($found);
 
-        if ($otherSocket instanceof Socket) {
-            socket_close($otherSocket);
-        }
+        $otherSocketResource->close();
     }
 
     #[Test]
@@ -271,6 +273,6 @@ class ConnectionPoolTest extends TestCase
             $this->fail('Failed to create socket');
         }
 
-        return new Connection($socket, $address, 8080);
+        return new Connection(new StreamSocketResource($socket), $address, 8080);
     }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Connection;
 
 use Duyler\HttpServer\Connection\Connection;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -14,12 +15,14 @@ class ConnectionTest extends TestCase
     /** @var resource */
     private mixed $socket;
     private Connection $connection;
+    private StreamSocketResource $socketResource;
 
     #[Override]
     protected function setUp(): void
     {
         $this->socket = fopen('php://memory', 'r+');
-        $this->connection = new Connection($this->socket, '127.0.0.1', 12345);
+        $this->socketResource = new StreamSocketResource($this->socket);
+        $this->connection = new Connection($this->socketResource, '127.0.0.1', 12345);
     }
 
     #[Override]
@@ -33,7 +36,7 @@ class ConnectionTest extends TestCase
     #[Test]
     public function returns_socket_resource(): void
     {
-        $this->assertSame($this->socket, $this->connection->getSocket());
+        $this->assertSame($this->socketResource, $this->connection->getSocket());
     }
 
     #[Test]

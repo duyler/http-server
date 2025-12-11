@@ -144,7 +144,7 @@ class StreamSocketTest extends TestCase
     #[Test]
     public function returns_null_resource_when_not_bound(): void
     {
-        $resource = $this->socket->getResource();
+        $resource = $this->socket->getInternalResource();
 
         $this->assertNull($resource);
     }
@@ -153,7 +153,7 @@ class StreamSocketTest extends TestCase
     public function returns_resource_after_bind(): void
     {
         $this->socket->bind('127.0.0.1', 0);
-        $resource = $this->socket->getResource();
+        $resource = $this->socket->getInternalResource();
 
         $this->assertTrue(is_resource($resource) || $resource instanceof Socket);
     }

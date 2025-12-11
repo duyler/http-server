@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Connection;
 
 use Duyler\HttpServer\Connection\Connection;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -171,6 +172,6 @@ final class KeepAliveTest extends TestCase
             $this->fail('Failed to create socket');
         }
 
-        return new Connection($socket, '127.0.0.1', 8080);
+        return new Connection(new StreamSocketResource($socket), '127.0.0.1', 8080);
     }
 }
