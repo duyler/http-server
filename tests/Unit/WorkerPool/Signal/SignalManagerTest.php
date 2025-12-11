@@ -19,6 +19,11 @@ class SignalManagerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+
+        if (!function_exists('pcntl_signal') || !function_exists('posix_kill')) {
+            $this->markTestSkipped('pcntl extension not available');
+        }
+
         $this->handler = new SignalHandler();
         $this->manager = new SignalManager($this->handler);
     }
