@@ -1,3 +1,8 @@
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=duyler_di&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=duyler_http-server)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=duyler_di&metric=coverage)](https://sonarcloud.io/summary/new_code?id=duyler_http-server)
+[![type-coverage](https://shepherd.dev/github/duyler/http-server/coverage.svg)](https://shepherd.dev/github/duyler/http-server)
+[![psalm-level](https://shepherd.dev/github/duyler/http-server/level.svg)](https://shepherd.dev/github/duyler/http-server)
+
 # Duyler HTTP Server
 
 Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 support and integrated Worker Pool.
