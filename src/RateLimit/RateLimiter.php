@@ -17,7 +17,7 @@ class RateLimiter
     public function isAllowed(string $identifier): bool
     {
         $now = microtime(true);
-        $windowStart = $now - $this->windowSeconds;
+        $windowStart = $now - (float) $this->windowSeconds;
 
         if (!isset($this->requests[$identifier])) {
             $this->requests[$identifier] = [$now];
@@ -40,7 +40,7 @@ class RateLimiter
     public function getRemainingRequests(string $identifier): int
     {
         $now = microtime(true);
-        $windowStart = $now - $this->windowSeconds;
+        $windowStart = $now - (float) $this->windowSeconds;
 
         if (!isset($this->requests[$identifier])) {
             return $this->maxRequests;
@@ -61,7 +61,7 @@ class RateLimiter
         }
 
         $oldestRequest = min($this->requests[$identifier]);
-        return (int) ceil($oldestRequest + $this->windowSeconds - microtime(true));
+        return (int) ceil($oldestRequest + (float) $this->windowSeconds - microtime(true));
     }
 
     public function reset(string $identifier): void
@@ -72,7 +72,7 @@ class RateLimiter
     public function cleanup(): void
     {
         $now = microtime(true);
-        $windowStart = $now - $this->windowSeconds;
+        $windowStart = $now - (float) $this->windowSeconds;
 
         foreach ($this->requests as $identifier => $timestamps) {
             $this->requests[$identifier] = array_filter(

@@ -30,8 +30,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.90",
-        "phpstan/phpstan": "^1.11",
-        "phpstan/phpstan-strict-rules": "^1.6",
+        "vimeo/psalm": "^6.10",
         "phpunit/phpunit": "^10.5",
         "rector/rector": "^1.2"
     },

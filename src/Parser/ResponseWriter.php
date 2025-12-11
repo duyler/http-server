@@ -8,7 +8,8 @@ use Psr\Http\Message\ResponseInterface;
 
 class ResponseWriter
 {
-    private const HTTP_STATUS_PHRASES = [
+    /** @var array<int, string> */
+    private const array HTTP_STATUS_PHRASES = [
         100 => 'Continue',
         101 => 'Switching Protocols',
         200 => 'OK',

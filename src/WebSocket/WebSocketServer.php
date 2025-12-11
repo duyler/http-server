@@ -52,9 +52,6 @@ class WebSocketServer
         $this->eventListeners[$event][] = $callback;
     }
 
-    /**
-     * @param mixed ...$args
-     */
     public function emit(string $event, mixed ...$args): void
     {
         if (!isset($this->eventListeners[$event])) {

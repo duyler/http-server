@@ -13,7 +13,7 @@ use Throwable;
 
 class Connection
 {
-    private string $id;
+    private readonly string $id;
     private ConnectionState $state = ConnectionState::CONNECTING;
 
     /**
@@ -216,16 +216,12 @@ class Connection
         $this->server->broadcastToRoom($room, $data, $excludeSelf ? $this : null);
     }
 
-    /**
-     * @param mixed $value
-     */
     public function setData(string $key, mixed $value): void
     {
         $this->userData[$key] = $value;
     }
 
     /**
-     * @param mixed $default
      * @return mixed
      */
     public function getData(string $key, mixed $default = null): mixed

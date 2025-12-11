@@ -1,26 +1,38 @@
 # Duyler HTTP Server
 
-Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 support.
+Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 support and integrated Worker Pool.
 
 ## Features
 
-- ✅ **Non-blocking I/O** - Works seamlessly with Duyler Event Bus MainCyclic state
-- ✅ **PSR-7 Compatible** - Full support for PSR-7 HTTP messages
-- ✅ **HTTP & HTTPS** - Support for both HTTP and HTTPS protocols
-- ✅ **WebSocket Support** - RFC 6455 compliant WebSocket implementation with zero-cost abstraction
-- ✅ **File Upload/Download** - Complete multipart form-data and file streaming support
-- ✅ **Static Files** - Built-in static file serving with LRU caching
-- ✅ **Keep-Alive** - HTTP persistent connections support
-- ✅ **Range Requests** - Partial content support for large file downloads
-- ✅ **Rate Limiting** - Sliding window rate limiter with configurable limits
-- ✅ **Graceful Shutdown** - Clean server termination with timeout
-- ✅ **Server Metrics** - Built-in performance and health monitoring
-- ✅ **High Performance** - Optimized for long-running worker processes
+### Core Features
+- **Non-blocking I/O** - Works seamlessly with Duyler Event Bus MainCyclic state
+- **PSR-7 Compatible** - Full support for PSR-7 HTTP messages
+- **HTTP & HTTPS** - Support for both HTTP and HTTPS protocols
+- **WebSocket Support** - RFC 6455 compliant WebSocket implementation with zero-cost abstraction
+- **File Upload/Download** - Complete multipart form-data and file streaming support
+- **Static Files** - Built-in static file serving with LRU caching
+- **Keep-Alive** - HTTP persistent connections support
+- **Range Requests** - Partial content support for large file downloads
+- **Rate Limiting** - Sliding window rate limiter with configurable limits
+- **Graceful Shutdown** - Clean server termination with timeout
+- **Server Metrics** - Built-in performance and health monitoring
+- **High Performance** - Optimized for long-running worker processes
+
+### Worker Pool Features (New)
+- **Process Management** - Fork-based worker processes with auto-restart
+- **Load Balancing** - Least Connections and Round Robin algorithms
+- **IPC System** - Unix domain sockets with FD passing support
+- **Dual Architecture** - FD Passing (Linux) and Shared Socket (Docker/fallback)
+- **Auto CPU Detection** - Automatic worker count based on CPU cores
+- **Signal Handling** - Graceful shutdown via SIGTERM/SIGINT
+- **Cross-Platform** - Linux, Docker, with macOS support via Docker
 
 ## Requirements
 
 - PHP 8.4 or higher
 - ext-sockets (usually pre-installed)
+- ext-pcntl (for Worker Pool)
+- ext-posix (for Worker Pool)
 
 ## Installation
 
@@ -30,7 +42,71 @@ composer require duyler/http-server
 
 ## Quick Start
 
-### Basic HTTP Server
+### Worker Pool HTTP Server (Recommended for Production)
+
+**✨ New: Event-Driven Worker Mode** (Recommended for full applications)
+
+For event-driven applications with Event Bus (like Duyler Framework):
+
+```php
+use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Server;
+use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
+use Duyler\HttpServer\WorkerPool\Master\SharedSocketMaster;
+use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
+use Nyholm\Psr7\Response;
+
+class MyApp implements EventDrivenWorkerInterface
+{
+    public function run(int $workerId, Server $server): void
+    {
+        // IMPORTANT: DO NOT call $server->start()!
+        // Master manages the socket and passes connections to Server.
+        // Server is automatically running in Worker Pool mode.
+        
+        // Initialize your application ONCE
+        $eventBus = new EventBus();
+        $db = new Database();
+        
+        // Event loop
+        while (true) {
+            // Get requests from Worker Pool
+            if ($server->hasRequest()) {
+                $request = $server->getRequest();
+                $eventBus->dispatch('http.request', $request);
+            }
+            
+            // Process events
+            $eventBus->tick();
+            
+            // Send responses
+            if ($server->hasPendingResponse()) {
+                $response = $eventBus->getResponse();
+                $server->respond($response);
+            }
+            
+            usleep(1000);
+        }
+    }
+}
+
+$serverConfig = new ServerConfig(host: '0.0.0.0', port: 8080);
+$workerPoolConfig = WorkerPoolConfig::auto($serverConfig);
+
+$app = new MyApp();
+
+$master = new SharedSocketMaster(
+    config: $workerPoolConfig,
+    serverConfig: $serverConfig,
+    eventDrivenWorker: $app, // ← Event-Driven mode
+);
+
+$master->start();
+```
+
+See `examples/event-driven-worker.php` for complete example.
+
+### Basic HTTP Server (Standalone)
 
 ```php
 use Duyler\HttpServer\Server;
@@ -331,7 +407,8 @@ $metrics = $server->getMetrics();
 - `respond(ResponseInterface): void` - Send response for the current request
 - `getMetrics(): array` - Get server performance metrics
 - `setLogger(LoggerInterface)` - Set external Logger
-- `attachWebSocket(string $path, WebSocketServer $ws): void` - attach WebSocketServer
+- `attachWebSocket(string $path, WebSocketServer $ws): void` - Attach WebSocketServer
+- `addExternalConnection(Socket $clientSocket, array $metadata): void` - Add external connection from Worker Pool
 
 ### StaticFileHandler
 
@@ -372,8 +449,17 @@ composer phpstan
 
 ## Roadmap
 
- - [ ] HTTP/2 support
- - [ ] Worker pool management
+### Version 1.2.0 (In Progress)
+- [x] Worker Pool - Dual architecture (FD Passing + Shared Socket)
+- [x] WebSocket - RFC 6455 compliant implementation
+- [x] MasterFactory with auto-detection
+- [x] PSR-3 Logger integration
+- [x] Worker Pool metrics and monitoring
+- [ ] Enhanced documentation
+
+### Future Versions
+- [ ] HTTP/2 support (planned for 2.0.0)
+- [ ] Advanced Worker Pool features
 
 ## Contributing
 

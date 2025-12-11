@@ -10,7 +10,7 @@ use Psr\Http\Message\ResponseInterface;
 
 class FileDownloadHandler
 {
-    private const CHUNK_SIZE = 8192;
+    private const int CHUNK_SIZE = 8192;
 
     public function download(string $filePath, ?string $filename = null, ?string $mimeType = null): ResponseInterface
     {
@@ -23,12 +23,24 @@ class FileDownloadHandler
         }
 
         $fileSize = filesize($filePath);
+        if ($fileSize === false) {
+            return new Response(500, [], 'Failed to get file size');
+        }
+
         $mtime = filemtime($filePath);
+        if ($mtime === false) {
+            return new Response(500, [], 'Failed to get file modification time');
+        }
 
-        $filename = $filename ?? basename($filePath);
-        $mimeType = $mimeType ?? $this->guessMimeType($filePath);
+        $filename ??= basename($filePath);
+        $mimeType ??= $this->guessMimeType($filePath);
 
-        $stream = Stream::create(fopen($filePath, 'r'));
+        $handle = fopen($filePath, 'r');
+        if ($handle === false) {
+            return new Response(500, [], 'Failed to open file');
+        }
+
+        $stream = Stream::create($handle);
 
         return new Response(
             200,
@@ -59,18 +71,33 @@ class FileDownloadHandler
         }
 
         $fileSize = filesize($filePath);
+        if ($fileSize === false) {
+            return new Response(500, [], 'Failed to get file size');
+        }
 
         if ($start < 0 || $start >= $fileSize || $end < $start || $end >= $fileSize) {
             return new Response(416, ['Content-Range' => "bytes */$fileSize"], 'Range not satisfiable');
         }
 
-        $filename = $filename ?? basename($filePath);
-        $mimeType = $mimeType ?? $this->guessMimeType($filePath);
+        $filename ??= basename($filePath);
+        $mimeType ??= $this->guessMimeType($filePath);
 
         $handle = fopen($filePath, 'r');
-        fseek($handle, $start);
+        if ($handle === false) {
+            return new Response(500, [], 'Failed to open file');
+        }
+
+        if (fseek($handle, $start) === -1) {
+            fclose($handle);
+            return new Response(500, [], 'Failed to seek in file');
+        }
+
         $content = fread($handle, $end - $start + 1);
         fclose($handle);
+
+        if ($content === false) {
+            return new Response(500, [], 'Failed to read file');
+        }
 
         return new Response(
             206,

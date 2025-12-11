@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Nyholm\Psr7\Response;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,7 @@ class ResponseWriterPerformanceTest extends TestCase
 {
     private ResponseWriter $writer;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -48,7 +50,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $chunks = [];
         $startMemory = memory_get_usage(true);
 
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 8192);
 
@@ -65,7 +67,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $response = new Response(200, [], $body);
 
         $callCount = 0;
-        $this->writer->writeBuffered($response, function () use (&$callCount) {
+        $this->writer->writeBuffered($response, function () use (&$callCount): void {
             $callCount++;
         }, 32768);
 
@@ -85,7 +87,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $chunks = [];
         $startTime = microtime(true);
 
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         });
 
@@ -106,7 +108,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $outputDirect = $this->writer->write($response);
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         });
         $outputBuffered = implode('', $chunks);
@@ -126,7 +128,7 @@ class ResponseWriterPerformanceTest extends TestCase
             $startTime = microtime(true);
             $chunks = [];
 
-            $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+            $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
                 $chunks[] = $chunk;
             }, 8192);
 

@@ -5,13 +5,27 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit;
 
 use Duyler\HttpServer\ErrorHandler;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
-use RuntimeException;
 
 class ErrorHandlerTest extends TestCase
 {
+    #[Override]
+    protected function setUp(): void
+    {
+        parent::setUp();
+        ErrorHandler::reset();
+    }
+
+    #[Override]
+    protected function tearDown(): void
+    {
+        ErrorHandler::reset();
+        parent::tearDown();
+    }
+
     #[Test]
     public function can_be_registered(): void
     {
@@ -22,7 +36,7 @@ class ErrorHandlerTest extends TestCase
 
         ErrorHandler::register($logger);
 
-        $this->assertTrue(true); // If we got here, registration succeeded
+        $this->assertTrue(true);
     }
 
     #[Test]
@@ -40,14 +54,19 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
-    public function handles_exceptions_correctly(): void
+    public function exception_handler_is_registered(): void
     {
-        $exception = new RuntimeException('Test exception');
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())
+            ->method('info')
+            ->with('Error handler registered', $this->isType('array'));
 
-        // Просто проверяем, что handleException можно вызвать без ошибок
-        ErrorHandler::handleException($exception);
+        ErrorHandler::register($logger);
 
-        $this->assertTrue(true); // If we got here, it worked
+        $handlers = set_exception_handler(null);
+        restore_exception_handler();
+
+        $this->assertIsCallable($handlers);
     }
 
     #[Test]
@@ -106,11 +125,17 @@ class ErrorHandlerTest extends TestCase
     public function does_not_register_twice(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
-        $logger->expects($this->never())
+        $logger->expects($this->once())
+            ->method('info')
+            ->with('Error handler registered', $this->isType('array'));
+
+        ErrorHandler::register($logger);
+
+        $logger2 = $this->createMock(LoggerInterface::class);
+        $logger2->expects($this->never())
             ->method('info');
 
-        // Уже зарегистрирован в предыдущих тестах
-        ErrorHandler::register($logger);
+        ErrorHandler::register($logger2);
 
         $this->assertTrue(true);
     }

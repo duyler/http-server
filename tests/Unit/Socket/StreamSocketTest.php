@@ -6,19 +6,23 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocket;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionClass;
 use Socket;
 
 class StreamSocketTest extends TestCase
 {
     private StreamSocket $socket;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->socket = new StreamSocket();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->socket->close();
@@ -43,13 +47,42 @@ class StreamSocketTest extends TestCase
     {
         $socket1 = new StreamSocket();
         $socket1->bind('127.0.0.1', 0);
+        $socket1->listen();
+
+        $port = $this->getSocketPort($socket1);
 
         $this->expectException(SocketException::class);
 
         $socket2 = new StreamSocket();
-        $socket2->bind('127.0.0.1', 1);
+        try {
+            $socket2->bind('127.0.0.1', $port);
+        } finally {
+            $socket1->close();
+            $socket2->close();
+        }
+    }
 
-        $socket1->close();
+    private function getSocketPort(StreamSocket $socket): int
+    {
+        $reflection = new ReflectionClass($socket);
+        $property = $reflection->getProperty('socket');
+        $property->setAccessible(true);
+        $socketResource = $property->getValue($socket);
+
+        if ($socketResource instanceof Socket) {
+            $address = '';
+            $port = 0;
+            socket_getsockname($socketResource, $address, $port);
+            return $port;
+        }
+
+        if (is_resource($socketResource)) {
+            $name = stream_socket_get_name($socketResource, false);
+            $parts = explode(':', $name);
+            return (int) end($parts);
+        }
+
+        return 0;
     }
 
     #[Test]
@@ -111,7 +144,7 @@ class StreamSocketTest extends TestCase
     #[Test]
     public function returns_null_resource_when_not_bound(): void
     {
-        $resource = $this->socket->getResource();
+        $resource = $this->socket->getInternalResource();
 
         $this->assertNull($resource);
     }
@@ -120,7 +153,7 @@ class StreamSocketTest extends TestCase
     public function returns_resource_after_bind(): void
     {
         $this->socket->bind('127.0.0.1', 0);
-        $resource = $this->socket->getResource();
+        $resource = $this->socket->getInternalResource();
 
         $this->assertTrue(is_resource($resource) || $resource instanceof Socket);
     }

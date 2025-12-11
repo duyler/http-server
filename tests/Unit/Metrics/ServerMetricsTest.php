@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Metrics;
 
 use Duyler\HttpServer\Metrics\ServerMetrics;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -12,6 +13,7 @@ class ServerMetricsTest extends TestCase
 {
     private ServerMetrics $metrics;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

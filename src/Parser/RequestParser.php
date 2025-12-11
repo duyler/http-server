@@ -26,7 +26,7 @@ class RequestParser
         $lines = explode("\r\n", $headerBlock);
         $requestLine = array_shift($lines);
 
-        if ($requestLine === null || $requestLine === '') {
+        if ($requestLine === '') {
             throw new InvalidArgumentException('Empty request line');
         }
 
@@ -75,7 +75,7 @@ class RequestParser
     }
 
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param array<string, array<array-key, string>> $headers
      */
     private function parseCookies(ServerRequestInterface $request, array $headers): ServerRequestInterface
     {
@@ -98,7 +98,7 @@ class RequestParser
     }
 
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param array<string, array<array-key, string>> $headers
      */
     private function parseBody(ServerRequestInterface $request, array $headers, string $body): ServerRequestInterface
     {
@@ -115,7 +115,7 @@ class RequestParser
 
         if (str_starts_with($contentType, 'application/json')) {
             $parsedBody = json_decode($body, true);
-            if (json_last_error() === JSON_ERROR_NONE) {
+            if (json_last_error() === JSON_ERROR_NONE && is_array($parsedBody)) {
                 return $request->withParsedBody($parsedBody);
             }
         }

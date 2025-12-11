@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Handler;
 
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,7 @@ class StaticFileHandlerTest extends TestCase
     private string $tempDir;
     private StaticFileHandler $handler;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->tempDir = sys_get_temp_dir() . '/static_test_' . uniqid();
@@ -22,6 +24,7 @@ class StaticFileHandlerTest extends TestCase
         $this->handler = new StaticFileHandler($this->tempDir, true, 1048576);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->removeDirectory($this->tempDir);

@@ -28,7 +28,7 @@ final class TempFileManager
     {
         foreach ($this->files as $file) {
             if (file_exists($file)) {
-                @unlink($file);
+                unlink($file);
             }
         }
 

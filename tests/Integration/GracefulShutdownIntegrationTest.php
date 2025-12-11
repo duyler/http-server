@@ -7,15 +7,19 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
+use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
+#[Group('pcntl')]
 class GracefulShutdownIntegrationTest extends TestCase
 {
     private Server $server;
     private int $port;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -32,11 +36,12 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->server->start();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         try {
             $this->server->stop();
-        } catch (Throwable $e) {
+        } catch (Throwable) {
         }
         parent::tearDown();
     }

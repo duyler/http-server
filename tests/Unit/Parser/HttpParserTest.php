@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Parser;
 
 use Duyler\HttpServer\Exception\ParseException;
 use Duyler\HttpServer\Parser\HttpParser;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,7 @@ class HttpParserTest extends TestCase
 {
     private HttpParser $parser;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->parser = new HttpParser();

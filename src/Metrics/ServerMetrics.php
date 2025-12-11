@@ -92,7 +92,7 @@ class ServerMetrics
     {
         $uptime = time() - $this->startTime;
         $avgDuration = $this->totalRequests > 0
-            ? $this->totalRequestDuration / $this->totalRequests
+            ? $this->totalRequestDuration / (float) $this->totalRequests
             : 0.0;
 
         return [
@@ -107,10 +107,10 @@ class ServerMetrics
             'cache_hits' => $this->cacheHits,
             'cache_misses' => $this->cacheMisses,
             'cache_hit_rate' => $this->getCacheHitRate(),
-            'avg_request_duration_ms' => round($avgDuration * Constants::MILLISECONDS_PER_SECOND, 2),
-            'min_request_duration_ms' => round($this->minRequestDuration * Constants::MILLISECONDS_PER_SECOND, 2),
-            'max_request_duration_ms' => round($this->maxRequestDuration * Constants::MILLISECONDS_PER_SECOND, 2),
-            'requests_per_second' => $uptime > 0 ? round($this->totalRequests / $uptime, 2) : 0.0,
+            'avg_request_duration_ms' => round($avgDuration * (float) Constants::MILLISECONDS_PER_SECOND, 2),
+            'min_request_duration_ms' => round($this->minRequestDuration * (float) Constants::MILLISECONDS_PER_SECOND, 2),
+            'max_request_duration_ms' => round($this->maxRequestDuration * (float) Constants::MILLISECONDS_PER_SECOND, 2),
+            'requests_per_second' => $uptime > 0 ? round((float) $this->totalRequests / (float) $uptime, 2) : 0.0,
         ];
     }
 
@@ -137,6 +137,6 @@ class ServerMetrics
         if ($total === 0) {
             return 0.0;
         }
-        return round(($this->cacheHits / $total) * Constants::PERCENT_MULTIPLIER, 2);
+        return round(((float) $this->cacheHits / (float) $total) * (float) Constants::PERCENT_MULTIPLIER, 2);
     }
 }

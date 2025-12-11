@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -36,7 +37,7 @@ class ConnectionPoolIntegrationTest extends TestCase
         for ($i = 0; $i < 5; $i++) {
             $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
             if ($socket !== false) {
-                $connections[] = new Connection($socket, '127.0.0.1', 8000 + $i);
+                $connections[] = new Connection(new StreamSocketResource($socket), '127.0.0.1', 8000 + $i);
             }
         }
 
@@ -56,7 +57,7 @@ class ConnectionPoolIntegrationTest extends TestCase
         for ($i = 0; $i < 20; $i++) {
             $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
             if ($socket !== false) {
-                $conn = new Connection($socket, '127.0.0.1', 9000 + $i);
+                $conn = new Connection(new StreamSocketResource($socket), '127.0.0.1', 9000 + $i);
                 $connections[] = $conn;
                 $pool->add($conn);
             }
@@ -82,10 +83,11 @@ class ConnectionPoolIntegrationTest extends TestCase
             $this->fail('Failed to create socket');
         }
 
-        $conn = new Connection($socket, '192.168.1.100', 443);
+        $socketResource = new StreamSocketResource($socket);
+        $conn = new Connection($socketResource, '192.168.1.100', 443);
         $pool->add($conn);
 
-        $found = $pool->findBySocket($socket);
+        $found = $pool->findBySocket($socketResource);
 
         $this->assertNotNull($found);
         $this->assertSame($conn, $found);
@@ -100,7 +102,7 @@ class ConnectionPoolIntegrationTest extends TestCase
 
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if ($socket !== false) {
-            $conn = new Connection($socket, '127.0.0.1', 8080);
+            $conn = new Connection(new StreamSocketResource($socket), '127.0.0.1', 8080);
             $pool->add($conn);
         }
 

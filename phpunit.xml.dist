@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
-         bootstrap="vendor/autoload.php"
+         bootstrap="tests/bootstrap.php"
          colors="true"
          failOnRisky="true"
          failOnWarning="true"
@@ -33,6 +33,13 @@
         <ini name="error_reporting" value="-1"/>
         <ini name="display_errors" value="1"/>
         <ini name="display_startup_errors" value="1"/>
+        <env name="SKIP_PCNTL_TESTS" value="false"/>
     </php>
+
+    <groups>
+        <exclude>
+            <group>pcntl</group>
+        </exclude>
+    </groups>
 </phpunit>
 

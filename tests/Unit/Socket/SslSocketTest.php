@@ -72,7 +72,7 @@ class SslSocketTest extends TestCase
     {
         $socket = new SslSocket('/path/to/cert.pem', '/path/to/key.pem');
 
-        $this->assertNull($socket->getResource());
+        $this->assertNull($socket->getInternalResource());
     }
 
     #[Test]
