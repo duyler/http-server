@@ -8,10 +8,12 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
+#[Group('pcntl')]
 class HttpWorkerAdapterTest extends TestCase
 {
     private Server $server;

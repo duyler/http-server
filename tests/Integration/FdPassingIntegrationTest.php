@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Tests\Support\PlatformHelper;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[Group('pcntl')]
 class FdPassingIntegrationTest extends TestCase
 {
     #[Test]

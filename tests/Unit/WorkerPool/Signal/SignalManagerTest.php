@@ -7,9 +7,11 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Signal;
 use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
 use Duyler\HttpServer\WorkerPool\Signal\SignalManager;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
+#[Group('pcntl')]
 class SignalManagerTest extends TestCase
 {
     private SignalHandler $handler;

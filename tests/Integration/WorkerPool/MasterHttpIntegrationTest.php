@@ -11,10 +11,12 @@ use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 
+#[Group('pcntl')]
 class MasterHttpIntegrationTest extends TestCase
 {
     #[Test]

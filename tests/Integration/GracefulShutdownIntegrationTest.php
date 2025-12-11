@@ -8,10 +8,12 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
+#[Group('pcntl')]
 class GracefulShutdownIntegrationTest extends TestCase
 {
     private Server $server;

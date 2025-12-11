@@ -10,6 +10,7 @@ use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
@@ -52,6 +53,7 @@ class CentralizedMasterTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function spawns_configured_number_of_workers(): void
     {
         if (!function_exists('pcntl_fork')) {
