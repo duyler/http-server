@@ -18,14 +18,13 @@ Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 suppor
 - **Server Metrics** - Built-in performance and health monitoring
 - **High Performance** - Optimized for long-running worker processes
 
-### Worker Pool Features (New)
+### Worker Pool Features
 - **Process Management** - Fork-based worker processes with auto-restart
 - **Load Balancing** - Least Connections and Round Robin algorithms
 - **IPC System** - Unix domain sockets with FD passing support
 - **Dual Architecture** - FD Passing (Linux) and Shared Socket (Docker/fallback)
 - **Auto CPU Detection** - Automatic worker count based on CPU cores
 - **Signal Handling** - Graceful shutdown via SIGTERM/SIGINT
-- **Cross-Platform** - Linux, Docker, with macOS support via Docker
 
 ## Requirements
 
@@ -44,7 +43,7 @@ composer require duyler/http-server
 
 ### Worker Pool HTTP Server (Recommended for Production)
 
-**✨ Event-Driven Worker Mode**
+**Event-Driven Worker Mode**
 
 For long running applications with Event Bus (like Duyler Framework):
 
