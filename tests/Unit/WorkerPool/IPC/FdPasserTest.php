@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\IPC;
 
+use Duyler\HttpServer\Tests\Support\PlatformHelper;
 use Duyler\HttpServer\WorkerPool\IPC\FdPasser;
 use Exception;
 use PHPUnit\Framework\Attributes\Test;
@@ -27,7 +28,7 @@ class FdPasserTest extends TestCase
     {
         $passer = new FdPasser();
 
-        if (!$passer->isSupported()) {
+        if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(
                 'SCM_RIGHTS not supported on this platform. '
                 . 'Requires Linux with socket_sendmsg/recvmsg and proper seccomp configuration.',
@@ -105,7 +106,7 @@ class FdPasserTest extends TestCase
     {
         $passer = new FdPasser();
 
-        if (!$passer->isSupported()) {
+        if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(
                 'SCM_RIGHTS not supported on this platform. '
                 . 'Requires Linux with socket_sendmsg/recvmsg and proper seccomp configuration.',

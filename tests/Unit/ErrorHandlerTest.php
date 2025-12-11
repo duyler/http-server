@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit;
 
 use Duyler\HttpServer\ErrorHandler;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -12,12 +13,14 @@ use RuntimeException;
 
 class ErrorHandlerTest extends TestCase
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         ErrorHandler::reset();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         ErrorHandler::reset();

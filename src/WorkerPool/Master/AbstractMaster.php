@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\WorkerPool\Master;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
 use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
+use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
@@ -31,6 +32,7 @@ abstract class AbstractMaster implements MasterInterface
         $this->setupSignals();
     }
 
+    #[Override]
     public function stop(): void
     {
         $this->shouldStop = true;
@@ -55,6 +57,7 @@ abstract class AbstractMaster implements MasterInterface
         return count($this->workers);
     }
 
+    #[Override]
     public function isRunning(): bool
     {
         return !$this->shouldStop;

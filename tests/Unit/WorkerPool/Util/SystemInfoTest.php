@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Util;
 
 use Duyler\HttpServer\WorkerPool\Util\SystemInfo;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class SystemInfoTest extends TestCase
 {
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

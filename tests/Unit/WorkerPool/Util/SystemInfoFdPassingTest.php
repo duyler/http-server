@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Util;
 
 use Duyler\HttpServer\WorkerPool\Util\SystemInfo;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -12,6 +13,7 @@ final class SystemInfoFdPassingTest extends TestCase
 {
     private SystemInfo $systemInfo;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

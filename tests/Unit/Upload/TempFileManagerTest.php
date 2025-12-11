@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Upload;
 
 use Duyler\HttpServer\Upload\TempFileManager;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -12,11 +13,13 @@ class TempFileManagerTest extends TestCase
 {
     private TempFileManager $manager;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->manager = new TempFileManager();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         if (isset($this->manager)) {

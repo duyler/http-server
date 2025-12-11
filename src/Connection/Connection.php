@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Connection;
 
-use Socket;
-use Throwable;
+use Duyler\HttpServer\Socket\SocketResourceInterface;
 
 class Connection
 {
@@ -15,26 +14,22 @@ class Connection
     private bool $keepAlive = false;
     private bool $closed = false;
 
-    /** @var array<string, string|array<int, string>>|null */
+    /**
+     * @var array<string, string|array<int, string>>|null
+     */
     private ?array $cachedHeaders = null;
     private ?int $expectedContentLength = null;
     private ?float $requestStartTime = null;
 
-    /**
-     * @param resource $socket
-     */
     public function __construct(
-        private readonly mixed $socket,
+        private readonly SocketResourceInterface $socket,
         private readonly string $remoteAddress,
         private readonly int $remotePort,
     ) {
         $this->lastActivityTime = microtime(true);
     }
 
-    /**
-     * @return resource
-     */
-    public function getSocket(): mixed
+    public function getSocket(): SocketResourceInterface
     {
         return $this->socket;
     }
@@ -71,6 +66,7 @@ class Connection
      */
     public function getCachedHeaders(): ?array
     {
+        /** @var array<string, string|array<int, string>>|null */
         return $this->cachedHeaders;
     }
 
@@ -160,20 +156,8 @@ class Connection
             return;
         }
 
-        if (is_resource($this->socket)) {
-            try {
-                fclose($this->socket);
-            } catch (Throwable) {
-            }
-            $this->closed = true;
-        } elseif ($this->socket instanceof Socket) {
-            try {
-                socket_close($this->socket);
-                $this->closed = true;
-            } catch (Throwable) {
-                $this->closed = true;
-            }
-        }
+        $this->socket->close();
+        $this->closed = true;
     }
 
     public function write(string $data): int|false
@@ -183,17 +167,7 @@ class Connection
         }
 
         $this->updateActivity();
-
-        if ($this->socket instanceof Socket) {
-            $result = socket_write($this->socket, $data, strlen($data));
-            return $result === false ? false : $result;
-        }
-
-        $written = fwrite($this->socket, $data);
-        if ($written !== false) {
-            fflush($this->socket);
-        }
-        return $written;
+        return $this->socket->write($data);
     }
 
     public function read(int $length): string|false
@@ -203,18 +177,7 @@ class Connection
         }
 
         $this->updateActivity();
-
-        if ($this->socket instanceof Socket) {
-            $data = socket_read($this->socket, $length, PHP_BINARY_READ);
-            return $data === false ? false : $data;
-        }
-
-        if ($length < 1) {
-            return false;
-        }
-
-        $data = fread($this->socket, $length);
-        return $data === false ? false : $data;
+        return $this->socket->read($length);
     }
 
     public function isValid(): bool
@@ -223,7 +186,7 @@ class Connection
             return false;
         }
 
-        return is_resource($this->socket) || $this->socket instanceof Socket;
+        return $this->socket->isValid();
     }
 
     public function isClosed(): bool

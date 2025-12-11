@@ -29,11 +29,13 @@ class SocketManager
         }
 
         $this->logger->info('Creating socket');
-        $this->masterSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
 
-        if ($this->masterSocket === false) {
+        if ($socket === false) {
             throw new WorkerPoolException('Failed to create master socket: ' . socket_strerror(socket_last_error()));
         }
+
+        $this->masterSocket = $socket;
 
         $this->logger->debug('Setting SO_REUSEADDR');
         if (!socket_set_option($this->masterSocket, SOL_SOCKET, SO_REUSEADDR, 1)) {
@@ -73,6 +75,7 @@ class SocketManager
 
     public function accept(): ?Socket
     {
+        /** @var int $acceptCalls */
         static $acceptCalls = 0;
         $acceptCalls++;
 
@@ -90,7 +93,7 @@ class SocketManager
 
         $clientSocket = socket_accept($this->masterSocket);
 
-        if ($clientSocket === false || $clientSocket === null) {
+        if ($clientSocket === false) {
             $errno = socket_last_error($this->masterSocket);
             // EAGAIN (11) or EWOULDBLOCK (11) is normal for non-blocking socket
             if ($errno !== 11 && $errno !== 0) {
@@ -117,12 +120,6 @@ class SocketManager
     public function detachFromWorker(): void
     {
         $this->logger->debug('Detaching socket in worker process', ['pid' => getmypid()]);
-
-        // ВАЖНО: НЕ закрываем socket!
-        // При fork() дочерний процесс получает копию file descriptor,
-        // но он указывает на ТОТ ЖЕ системный ресурс.
-        // Если worker закроет socket, он закроется для Master тоже!
-        // Просто забываем о нем - установим null и отключим auto-close.
 
         $this->masterSocket = null;
         $this->isListening = false;

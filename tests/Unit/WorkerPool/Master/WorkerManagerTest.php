@@ -9,6 +9,7 @@ use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\WorkerManager;
 use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
 use Duyler\HttpServer\WorkerPool\Process\ProcessState;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -17,6 +18,7 @@ final class WorkerManagerTest extends TestCase
     private WorkerPoolConfig $config;
     private WorkerManager $manager;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

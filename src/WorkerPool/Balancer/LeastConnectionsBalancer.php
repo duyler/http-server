@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WorkerPool\Balancer;
 
+use Override;
+
 class LeastConnectionsBalancer implements BalancerInterface
 {
     /**
@@ -11,6 +13,7 @@ class LeastConnectionsBalancer implements BalancerInterface
      */
     private array $connections = [];
 
+    #[Override]
     public function selectWorker(array $connections): ?int
     {
         if ($connections === []) {
@@ -22,13 +25,10 @@ class LeastConnectionsBalancer implements BalancerInterface
         $minConnections = min($connections);
         $workersWithMinConnections = array_keys($connections, $minConnections, true);
 
-        if ($workersWithMinConnections === []) {
-            return null;
-        }
-
         return $workersWithMinConnections[array_rand($workersWithMinConnections)];
     }
 
+    #[Override]
     public function onConnectionEstablished(int $workerId): void
     {
         if (!isset($this->connections[$workerId])) {
@@ -38,6 +38,7 @@ class LeastConnectionsBalancer implements BalancerInterface
         $this->connections[$workerId]++;
     }
 
+    #[Override]
     public function onConnectionClosed(int $workerId): void
     {
         if (!isset($this->connections[$workerId])) {
@@ -51,6 +52,7 @@ class LeastConnectionsBalancer implements BalancerInterface
         }
     }
 
+    #[Override]
     public function reset(): void
     {
         $this->connections = [];

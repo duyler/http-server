@@ -20,7 +20,7 @@ class Frame
             throw new InvalidWebSocketFrameException('Masked frame must have masking key');
         }
 
-        if ($this->masked && strlen($this->maskingKey ?? '') !== 4) {
+        if ($this->masked && strlen($this->maskingKey) !== 4) {
             throw new InvalidWebSocketFrameException('Masking key must be exactly 4 bytes');
         }
     }
@@ -81,20 +81,22 @@ class Frame
                 return null;
             }
             $unpacked = unpack('n', substr($data, $offset, 2));
-            if ($unpacked === false) {
+            if ($unpacked === false || !isset($unpacked[1])) {
                 throw new InvalidWebSocketFrameException('Failed to unpack 16-bit payload length');
             }
             $payloadLength = $unpacked[1];
+            assert(is_int($payloadLength));
             $offset += 2;
         } elseif ($payloadLength === 127) {
             if (strlen($data) < $offset + 8) {
                 return null;
             }
             $unpacked = unpack('J', substr($data, $offset, 8));
-            if ($unpacked === false) {
+            if ($unpacked === false || !isset($unpacked[1])) {
                 throw new InvalidWebSocketFrameException('Failed to unpack 64-bit payload length');
             }
             $payloadLength = $unpacked[1];
+            assert(is_int($payloadLength));
             $offset += 8;
         }
 

@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Signal;
 
 use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
 use Duyler\HttpServer\WorkerPool\Signal\SignalManager;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,7 @@ class SignalManagerTest extends TestCase
     private SignalHandler $handler;
     private SignalManager $manager;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -21,6 +23,7 @@ class SignalManagerTest extends TestCase
         $this->manager = new SignalManager($this->handler);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         parent::tearDown();
@@ -38,10 +41,10 @@ class SignalManagerTest extends TestCase
         $reloadCalled = false;
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () use (&$shutdownCalled) {
+            onShutdown: function () use (&$shutdownCalled): void {
                 $shutdownCalled = true;
             },
-            onReload: function () use (&$reloadCalled) {
+            onReload: function () use (&$reloadCalled): void {
                 $reloadCalled = true;
             },
         );
@@ -61,7 +64,7 @@ class SignalManagerTest extends TestCase
         $shutdownCalled = false;
 
         $this->manager->setupWorkerSignals(
-            onShutdown: function () use (&$shutdownCalled) {
+            onShutdown: function () use (&$shutdownCalled): void {
                 $shutdownCalled = true;
             },
         );
@@ -76,8 +79,8 @@ class SignalManagerTest extends TestCase
         $this->assertFalse($this->manager->isShutdownRequested());
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {},
-            onReload: function () {},
+            onShutdown: function (): void {},
+            onReload: function (): void {},
         );
 
         $this->assertFalse($this->manager->isShutdownRequested());
@@ -89,8 +92,8 @@ class SignalManagerTest extends TestCase
         $this->assertFalse($this->manager->isReloadRequested());
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {},
-            onReload: function () {},
+            onShutdown: function (): void {},
+            onReload: function (): void {},
         );
 
         $this->assertFalse($this->manager->isReloadRequested());
@@ -104,8 +107,8 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {},
-            onReload: function () {},
+            onShutdown: function (): void {},
+            onReload: function (): void {},
         );
 
         $this->assertTrue($this->handler->hasHandlers(SIGTERM));
@@ -125,8 +128,8 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {},
-            onReload: function () {},
+            onShutdown: function (): void {},
+            onReload: function (): void {},
         );
 
         $this->manager->resetFlags();
@@ -152,12 +155,12 @@ class SignalManagerTest extends TestCase
         }
 
         $this->manager->setupMasterSignals(
-            onShutdown: function () {},
-            onReload: function () {},
+            onShutdown: function (): void {},
+            onReload: function (): void {},
         );
 
         $this->manager->setupWorkerSignals(
-            onShutdown: function () {},
+            onShutdown: function (): void {},
         );
 
         $this->assertTrue($this->handler->hasHandlers(SIGTERM));

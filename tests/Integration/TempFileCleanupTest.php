@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,7 @@ class TempFileCleanupTest extends TestCase
     private Server $server;
     private int $port;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->port = $this->findAvailablePort();
@@ -28,6 +30,7 @@ class TempFileCleanupTest extends TestCase
         $this->server = new Server($config);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->server->stop();

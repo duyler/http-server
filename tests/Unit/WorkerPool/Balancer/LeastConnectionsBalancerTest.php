@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Balancer;
 
 use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -12,6 +13,7 @@ class LeastConnectionsBalancerTest extends TestCase
 {
     private LeastConnectionsBalancer $balancer;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

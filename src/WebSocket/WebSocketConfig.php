@@ -68,17 +68,5 @@ readonly class WebSocketConfig
         if ($this->allowedOrigins === []) {
             throw new InvalidWebSocketConfigException('allowedOrigins cannot be empty');
         }
-
-        foreach ($this->allowedOrigins as $origin) {
-            if (!is_string($origin)) {
-                throw new InvalidWebSocketConfigException('allowedOrigins must contain only strings');
-            }
-        }
-
-        foreach ($this->subProtocols as $protocol) {
-            if (!is_string($protocol)) {
-                throw new InvalidWebSocketConfigException('subProtocols must contain only strings');
-            }
-        }
     }
 }

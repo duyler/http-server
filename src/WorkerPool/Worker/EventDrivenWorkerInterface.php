@@ -9,52 +9,52 @@ use Duyler\HttpServer\Server;
 /**
  * Event-Driven Worker Interface
  *
- * Используется для запуска полноценных приложений с собственным event loop в Worker Pool.
+ * Used to run full-featured applications with their own event loop in Worker Pool.
  *
- * ## Архитектура
+ * ## Architecture
  *
- * В отличие от WorkerCallbackInterface, который вызывается для каждого соединения,
- * EventDrivenWorkerInterface запускается ОДИН РАЗ при старте воркера и позволяет
- * приложению иметь полный контроль над event loop.
+ * Unlike WorkerCallbackInterface which is called for each connection,
+ * EventDrivenWorkerInterface is launched ONCE on worker startup and allows
+ * the application to have full control over the event loop.
  *
- * ## Поток работы
+ * ## Workflow
  *
- * 1. Master запускает Worker процесс (fork)
- * 2. Worker вызывает `run(workerId, server)` ОДИН РАЗ
- * 3. Приложение инициализируется (Database, EventBus, etc.)
- * 4. Приложение запускает свой event loop (while true)
- * 5. Master передает соединения через `Server::addExternalConnection()`
- * 6. Приложение опрашивает `Server::hasRequest()` в своем event loop
- * 7. Запросы обрабатываются асинхронно через Event Bus
- * 8. Ответы отправляются через `Server::respond()` в другом тике
+ * 1. Master starts Worker process (fork)
+ * 2. Worker calls `run(workerId, server)` ONCE
+ * 3. Application initializes (Database, EventBus, etc.)
+ * 4. Application starts its event loop (while true)
+ * 5. Master passes connections via `Server::addExternalConnection()`
+ * 6. Application polls `Server::hasRequest()` in its event loop
+ * 7. Requests are processed asynchronously via Event Bus
+ * 8. Responses are sent via `Server::respond()` in another tick
  *
- * ## Пример использования
+ * ## Usage Example
  *
  * ```php
  * class MyApp implements EventDrivenWorkerInterface
  * {
  *     public function run(int $workerId, Server $server): void
  *     {
- *         // ВАЖНО: НЕ вызывайте $server->start()!
- *         // Master уже управляет сокетом и передает соединения в Server.
- *         // Server автоматически помечается как "running" в Worker Pool режиме.
+ *         // IMPORTANT: Do NOT call $server->start()!
+ *         // Master already manages the socket and passes connections to Server.
+ *         // Server is automatically marked as "running" in Worker Pool mode.
  *
- *         // Инициализация (ОДИН РАЗ)
+ *         // Initialization (ONCE)
  *         $eventBus = new EventBus();
  *         $db = new Database();
  *
- *         // Event loop приложения (БЕСКОНЕЧНЫЙ)
+ *         // Application event loop (INFINITE)
  *         while (true) {
- *             // Tick 1: Получить запросы от Worker Pool
+ *             // Tick 1: Receive requests from Worker Pool
  *             if ($server->hasRequest()) {
  *                 $request = $server->getRequest();
  *                 $eventBus->dispatch('http.request', $request);
  *             }
  *
- *             // Tick 2: Обработать события
+ *             // Tick 2: Process events
  *             $eventBus->tick();
  *
- *             // Tick 3: Отправить готовые ответы
+ *             // Tick 3: Send ready responses
  *             if ($server->hasPendingResponse()) {
  *                 $response = $eventBus->getResponse();
  *                 $server->respond($response);
@@ -66,26 +66,26 @@ use Duyler\HttpServer\Server;
  * }
  * ```
  *
- * @see WorkerCallbackInterface Для синхронной обработки соединений
+ * @see WorkerCallbackInterface For synchronous connection handling
  */
 interface EventDrivenWorkerInterface
 {
     /**
-     * Запускает приложение в воркере
+     * Starts the application in the worker
      *
-     * Метод вызывается ОДИН РАЗ при старте воркера и НИКОГДА не возвращается.
-     * Приложение должно запустить свой собственный event loop внутри этого метода.
+     * This method is called ONCE on worker startup and NEVER returns.
+     * The application must start its own event loop inside this method.
      *
-     * Master процесс будет передавать новые соединения в Server через
-     * метод addExternalConnection(). Приложение должно периодически вызывать
-     * Server::hasRequest() для проверки наличия новых запросов.
+     * The Master process will pass new connections to Server via
+     * the addExternalConnection() method. The application must periodically call
+     * Server::hasRequest() to check for new requests.
      *
-     * @param int $workerId ID воркера (1, 2, 3, ..., N)
-     * @param Server $server Server instance для взаимодействия с Worker Pool
-     *                       - hasRequest() - проверить наличие запросов
-     *                       - getRequest() - получить следующий запрос
-     *                       - respond() - отправить ответ
-     *                       - hasPendingResponse() - проверить наличие pending ответов
+     * @param int $workerId Worker ID (1, 2, 3, ..., N)
+     * @param Server $server Server instance for Worker Pool interaction
+     *                       - hasRequest() - check for requests
+     *                       - getRequest() - get next request
+     *                       - respond() - send response
+     *                       - hasPendingResponse() - check for pending responses
      *
      * @return void (never returns - infinite loop inside)
      */

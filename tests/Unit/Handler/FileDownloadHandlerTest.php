@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Handler;
 
 use Duyler\HttpServer\Handler\FileDownloadHandler;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,7 @@ class FileDownloadHandlerTest extends TestCase
     private FileDownloadHandler $handler;
     private string $tempFile;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->handler = new FileDownloadHandler();
@@ -20,6 +22,7 @@ class FileDownloadHandlerTest extends TestCase
         file_put_contents($this->tempFile, 'test content for download');
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         if (file_exists($this->tempFile)) {

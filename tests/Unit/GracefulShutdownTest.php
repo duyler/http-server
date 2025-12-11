@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -15,6 +16,7 @@ class GracefulShutdownTest extends TestCase
     private Server $server;
     private int $port;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -30,11 +32,12 @@ class GracefulShutdownTest extends TestCase
         $this->server = new Server($config);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         try {
             $this->server->stop();
-        } catch (Throwable $e) {
+        } catch (Throwable) {
         }
         parent::tearDown();
     }

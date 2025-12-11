@@ -16,6 +16,7 @@ use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use Fiber;
 use InvalidArgumentException;
+use Override;
 use Psr\Log\LoggerInterface;
 use Socket;
 
@@ -49,9 +50,9 @@ class CentralizedMaster extends AbstractMaster
 
     private ?SocketManager $socketManager = null;
     private ?ConnectionQueue $connectionQueue = null;
-    private FdPasser $fdPasser;
-    private WorkerManager $workerManager;
-    private ConnectionRouter $connectionRouter;
+    private readonly FdPasser $fdPasser;
+    private readonly WorkerManager $workerManager;
+    private readonly ConnectionRouter $connectionRouter;
 
     public function __construct(
         WorkerPoolConfig $config,
@@ -80,6 +81,7 @@ class CentralizedMaster extends AbstractMaster
         }
     }
 
+    #[Override]
     public function start(): void
     {
         if ($this->socketManager !== null) {
@@ -99,12 +101,14 @@ class CentralizedMaster extends AbstractMaster
         $this->run();
     }
 
+    #[Override]
     public function stop(): void
     {
         parent::stop();
         $this->workerManager->stopAll();
     }
 
+    #[Override]
     protected function run(): void
     {
         $iteration = 0;
@@ -162,6 +166,7 @@ class CentralizedMaster extends AbstractMaster
 
     private function acceptConnections(): void
     {
+        /** @var int $callCount */
         static $callCount = 0;
         $callCount++;
 
@@ -217,6 +222,7 @@ class CentralizedMaster extends AbstractMaster
         }
     }
 
+    #[Override]
     protected function spawnWorker(int $workerId): void
     {
         $sockets = [];
@@ -325,11 +331,9 @@ class CentralizedMaster extends AbstractMaster
      */
     private function runCallbackWorker(int $workerId, Socket $workerSocket): void
     {
-        $running = true;
         $this->logger->info('Worker entering receive loop', ['worker_id' => $workerId]);
 
-        /** @phpstan-ignore-next-line */
-        while ($running) {
+        while (true) {
             $result = $this->fdPasser->receiveFd($workerSocket);
 
             if ($result === null) {
@@ -354,6 +358,7 @@ class CentralizedMaster extends AbstractMaster
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function getMetrics(): array
     {
         $aliveWorkers = 0;

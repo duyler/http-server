@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
@@ -15,6 +16,7 @@ class WebSocketServerTest extends TestCase
 {
     private WebSocketServer $server;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->server = new WebSocketServer(new WebSocketConfig());
@@ -43,7 +45,7 @@ class WebSocketServerTest extends TestCase
     {
         $called = false;
 
-        $this->server->on('test', function () use (&$called) {
+        $this->server->on('test', function () use (&$called): void {
             $called = true;
         });
 
@@ -57,11 +59,11 @@ class WebSocketServerTest extends TestCase
     {
         $callCount = 0;
 
-        $this->server->on('test', function () use (&$callCount) {
+        $this->server->on('test', function () use (&$callCount): void {
             $callCount++;
         });
 
-        $this->server->on('test', function () use (&$callCount) {
+        $this->server->on('test', function () use (&$callCount): void {
             $callCount++;
         });
 
@@ -75,7 +77,7 @@ class WebSocketServerTest extends TestCase
     {
         $receivedArgs = [];
 
-        $this->server->on('test', function (...$args) use (&$receivedArgs) {
+        $this->server->on('test', function (...$args) use (&$receivedArgs): void {
             $receivedArgs = $args;
         });
 
@@ -100,16 +102,14 @@ class WebSocketServerTest extends TestCase
             ->method('error')
             ->with(
                 'Error in WebSocket event handler',
-                $this->callback(function ($context) {
-                    return isset($context['event'])
-                        && $context['event'] === 'test'
-                        && isset($context['error']);
-                }),
+                $this->callback(fn($context) => isset($context['event'])
+                    && $context['event'] === 'test'
+                    && isset($context['error'])),
             );
 
         $this->server->setLogger($logger);
 
-        $this->server->on('test', function () {
+        $this->server->on('test', function (): void {
             throw new RuntimeException('Test error');
         });
 

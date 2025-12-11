@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Worker;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WorkerPool\Worker\HttpWorkerAdapter;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -16,6 +17,7 @@ class HttpWorkerAdapterTest extends TestCase
     private Server $server;
     private HttpWorkerAdapter $adapter;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

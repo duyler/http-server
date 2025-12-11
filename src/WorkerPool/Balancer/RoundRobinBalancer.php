@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WorkerPool\Balancer;
 
+use Override;
+
 class RoundRobinBalancer implements BalancerInterface
 {
     private int $currentIndex = 0;
@@ -13,6 +15,7 @@ class RoundRobinBalancer implements BalancerInterface
      */
     private array $workerIds = [];
 
+    #[Override]
     public function selectWorker(array $connections): ?int
     {
         if ($connections === []) {
@@ -20,10 +23,6 @@ class RoundRobinBalancer implements BalancerInterface
         }
 
         $this->workerIds = array_keys($connections);
-
-        if ($this->workerIds === []) {
-            return null;
-        }
 
         if ($this->currentIndex >= count($this->workerIds)) {
             $this->currentIndex = 0;
@@ -35,10 +34,13 @@ class RoundRobinBalancer implements BalancerInterface
         return $workerId;
     }
 
+    #[Override]
     public function onConnectionEstablished(int $workerId): void {}
 
+    #[Override]
     public function onConnectionClosed(int $workerId): void {}
 
+    #[Override]
     public function reset(): void
     {
         $this->currentIndex = 0;

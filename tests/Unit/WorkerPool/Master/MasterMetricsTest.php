@@ -10,6 +10,7 @@ use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use Duyler\HttpServer\WorkerPool\Master\SharedSocketMaster;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
@@ -20,6 +21,7 @@ final class MasterMetricsTest extends TestCase
     private ServerConfig $serverConfig;
     private WorkerCallbackInterface $callback;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

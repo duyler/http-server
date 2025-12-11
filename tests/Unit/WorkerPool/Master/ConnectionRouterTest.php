@@ -8,6 +8,7 @@ use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Master\ConnectionRouter;
 use Duyler\HttpServer\WorkerPool\Process\ProcessInfo;
 use Duyler\HttpServer\WorkerPool\Process\ProcessState;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,7 @@ final class ConnectionRouterTest extends TestCase
     private ConnectionRouter $router;
     private LeastConnectionsBalancer $balancer;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -11,6 +11,7 @@ use Duyler\HttpServer\WorkerPool\Master\SharedSocketMaster;
 use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use InvalidArgumentException;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
@@ -20,6 +21,7 @@ class SharedSocketMasterEventDrivenTest extends TestCase
     private ServerConfig $serverConfig;
     private WorkerPoolConfig $workerPoolConfig;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

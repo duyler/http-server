@@ -9,6 +9,7 @@ use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Upload\TempFileManager;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,7 @@ class RequestParserTest extends TestCase
 {
     private RequestParser $parser;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

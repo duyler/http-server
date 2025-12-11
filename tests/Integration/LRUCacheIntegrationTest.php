@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,7 @@ class LRUCacheIntegrationTest extends TestCase
 {
     private string $tempDir;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
@@ -20,6 +22,7 @@ class LRUCacheIntegrationTest extends TestCase
         mkdir($this->tempDir);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->removeDirectory($this->tempDir);

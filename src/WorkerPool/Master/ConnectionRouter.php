@@ -13,16 +13,14 @@ use Psr\Log\NullLogger;
 use Socket;
 use Throwable;
 
-final class ConnectionRouter
+final readonly class ConnectionRouter
 {
-    private LoggerInterface $logger;
     private FdPasser $fdPasser;
 
     public function __construct(
-        private readonly BalancerInterface $balancer,
-        ?LoggerInterface $logger = null,
+        private BalancerInterface $balancer,
+        private LoggerInterface $logger = new NullLogger(),
     ) {
-        $this->logger = $logger ?? new NullLogger();
         $this->fdPasser = new FdPasser($this->logger);
     }
 

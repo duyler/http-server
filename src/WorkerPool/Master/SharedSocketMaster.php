@@ -14,6 +14,7 @@ use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use Fiber;
 use InvalidArgumentException;
+use Override;
 use Psr\Log\LoggerInterface;
 use Socket;
 
@@ -39,7 +40,7 @@ use Socket;
  */
 class SharedSocketMaster extends AbstractMaster
 {
-    private WorkerManager $workerManager;
+    private readonly WorkerManager $workerManager;
 
     public function __construct(
         WorkerPoolConfig $config,
@@ -60,6 +61,7 @@ class SharedSocketMaster extends AbstractMaster
         $this->workerManager = new WorkerManager($this->logger);
     }
 
+    #[Override]
     public function start(): void
     {
         $this->logger->info('Starting with SO_REUSEPORT architecture', [
@@ -73,12 +75,14 @@ class SharedSocketMaster extends AbstractMaster
         $this->run();
     }
 
+    #[Override]
     public function stop(): void
     {
         parent::stop();
         $this->workerManager->stopAll();
     }
 
+    #[Override]
     protected function run(): void
     {
         $this->logger->info('Entering main loop');
@@ -93,6 +97,7 @@ class SharedSocketMaster extends AbstractMaster
         $this->waitForWorkers();
     }
 
+    #[Override]
     protected function spawnWorker(int $workerId): void
     {
         $pid = pcntl_fork();
@@ -214,8 +219,6 @@ class SharedSocketMaster extends AbstractMaster
 
     /**
      * Creates Fiber for background connection acceptance
-     *
-     * @return Fiber<mixed, mixed, mixed, void>
      */
     private function createConnectionAcceptorFiber(
         Socket $socket,
@@ -332,6 +335,7 @@ class SharedSocketMaster extends AbstractMaster
     /**
      * @return array<string, mixed>
      */
+    #[Override]
     public function getMetrics(): array
     {
         $activeWorkers = 0;

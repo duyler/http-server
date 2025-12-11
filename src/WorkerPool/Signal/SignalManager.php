@@ -19,17 +19,17 @@ class SignalManager
         Closure $onShutdown,
         Closure $onReload,
     ): void {
-        $this->handler->register(SIGTERM, function () use ($onShutdown) {
+        $this->handler->register(SIGTERM, function () use ($onShutdown): void {
             $this->shutdownRequested = true;
             $onShutdown(SIGTERM);
         });
 
-        $this->handler->register(SIGINT, function () use ($onShutdown) {
+        $this->handler->register(SIGINT, function () use ($onShutdown): void {
             $this->shutdownRequested = true;
             $onShutdown(SIGINT);
         });
 
-        $this->handler->register(SIGUSR1, function () use ($onReload) {
+        $this->handler->register(SIGUSR1, function () use ($onReload): void {
             $this->reloadRequested = true;
             $onReload(SIGUSR1);
         });
@@ -38,12 +38,12 @@ class SignalManager
     public function setupWorkerSignals(
         Closure $onShutdown,
     ): void {
-        $this->handler->register(SIGTERM, function () use ($onShutdown) {
+        $this->handler->register(SIGTERM, function () use ($onShutdown): void {
             $this->shutdownRequested = true;
             $onShutdown(SIGTERM);
         });
 
-        $this->handler->register(SIGINT, function () use ($onShutdown) {
+        $this->handler->register(SIGINT, function () use ($onShutdown): void {
             $this->shutdownRequested = true;
             $onShutdown(SIGINT);
         });

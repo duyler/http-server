@@ -16,8 +16,10 @@ use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\RateLimit\RateLimiter;
 use Duyler\HttpServer\Socket\SocketInterface;
+use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Duyler\HttpServer\WebSocket\Connection as WebSocketConnection;
 use Duyler\HttpServer\WebSocket\Frame;
@@ -26,6 +28,7 @@ use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Fiber;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Nyholm\Psr7\Response;
+use Override;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -36,16 +39,15 @@ use Throwable;
 
 class Server implements ServerInterface
 {
-    private SocketInterface $socket;
-    private ConnectionPool $connectionPool;
-    private RequestParser $requestParser;
-    private ResponseWriter $responseWriter;
-    private HttpParser $httpParser;
-    private LoggerInterface $logger;
-    private TempFileManager $tempFileManager;
+    private ?SocketInterface $socket = null;
+    private readonly ConnectionPool $connectionPool;
+    private readonly RequestParser $requestParser;
+    private readonly ResponseWriter $responseWriter;
+    private readonly HttpParser $httpParser;
+    private readonly TempFileManager $tempFileManager;
     private ?StaticFileHandler $staticFileHandler = null;
     private ?RateLimiter $rateLimiter = null;
-    private ServerMetrics $metrics;
+    private readonly ServerMetrics $metrics;
 
     /** @var SplQueue<array{request: ServerRequestInterface, connection: Connection}> */
     private SplQueue $requestQueue;
@@ -63,9 +65,7 @@ class Server implements ServerInterface
     private ?int $workerId = null;
     private ?int $workerPid = null;
 
-    /**
-     * @var array<Fiber<mixed, mixed, mixed, void>>
-     */
+    /** @var array<Fiber> */
     private array $fibers = [];
 
     /** @var array<string, WebSocketServer> */
@@ -76,7 +76,7 @@ class Server implements ServerInterface
 
     public function __construct(
         private readonly ServerConfig $config,
-        ?LoggerInterface $logger = null,
+        private LoggerInterface $logger = new NullLogger(),
     ) {
         $this->httpParser = new HttpParser();
         $psr17Factory = new Psr17Factory();
@@ -84,8 +84,8 @@ class Server implements ServerInterface
         $this->requestParser = new RequestParser($this->httpParser, $psr17Factory, $this->tempFileManager);
         $this->responseWriter = new ResponseWriter();
         $this->connectionPool = new ConnectionPool($this->config->maxConnections);
+        /** @psalm-suppress MixedPropertyTypeCoercion */
         $this->requestQueue = new SplQueue();
-        $this->logger = $logger ?? new NullLogger();
         $this->metrics = new ServerMetrics();
 
         if ($this->config->publicPath !== null) {
@@ -117,6 +117,7 @@ class Server implements ServerInterface
         );
     }
 
+    #[Override]
     public function start(): bool
     {
         if ($this->mode === ServerMode::WorkerPool) {
@@ -153,6 +154,7 @@ class Server implements ServerInterface
         }
     }
 
+    #[Override]
     public function stop(): void
     {
         if (!$this->isRunning) {
@@ -177,6 +179,7 @@ class Server implements ServerInterface
         $this->logger->info('HTTP Server stopped');
     }
 
+    #[Override]
     public function shutdown(int $timeout = 30): bool
     {
         if (!$this->isRunning) {
@@ -241,6 +244,7 @@ class Server implements ServerInterface
         return $graceful;
     }
 
+    #[Override]
     public function reset(): void
     {
         $this->logger->warning('Resetting server state');
@@ -253,6 +257,7 @@ class Server implements ServerInterface
         }
 
         $this->connectionPool->closeAll();
+        /** @psalm-suppress MixedPropertyTypeCoercion */
         $this->requestQueue = new SplQueue();
         $this->pendingResponses = [];
         $this->tempFileManager->cleanup();
@@ -276,6 +281,7 @@ class Server implements ServerInterface
         $this->logger->info('Server state reset complete');
     }
 
+    #[Override]
     public function restart(): bool
     {
         $this->logger->warning('Attempting server restart');
@@ -296,6 +302,7 @@ class Server implements ServerInterface
         }
     }
 
+    #[Override]
     public function hasRequest(): bool
     {
         try {
@@ -343,6 +350,7 @@ class Server implements ServerInterface
         }
     }
 
+    #[Override]
     public function getRequest(): ?ServerRequestInterface
     {
         try {
@@ -373,6 +381,7 @@ class Server implements ServerInterface
         }
     }
 
+    #[Override]
     public function respond(ResponseInterface $response): void
     {
         if (count($this->pendingResponses) === 0) {
@@ -381,11 +390,6 @@ class Server implements ServerInterface
         }
 
         $connection = array_shift($this->pendingResponses);
-
-        if ($connection === null) {
-            $this->logger->warning('respond() called but connection not found - ignoring');
-            return;
-        }
 
         if (!$connection->isValid()) {
             if ($this->config->debugMode) {
@@ -412,11 +416,13 @@ class Server implements ServerInterface
         }
     }
 
+    #[Override]
     public function hasPendingResponse(): bool
     {
         return count($this->pendingResponses) > 0;
     }
 
+    #[Override]
     public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
@@ -425,6 +431,7 @@ class Server implements ServerInterface
     /**
      * @return array<string, int|float|string>
      */
+    #[Override]
     public function getMetrics(): array
     {
         $this->metrics->setActiveConnections($this->connectionPool->count());
@@ -439,6 +446,7 @@ class Server implements ServerInterface
         return $this->staticFileHandler?->getCacheStats();
     }
 
+    #[Override]
     public function attachWebSocket(string $path, WebSocketServer $ws): void
     {
         $this->wsServers[$path] = $ws;
@@ -475,9 +483,10 @@ class Server implements ServerInterface
         $acceptedCount = 0;
 
         while ($acceptedCount < $this->config->maxAcceptsPerCycle) {
-            $clientSocket = $this->socket->accept();
+            assert($this->socket !== null);
+            $clientSocketResource = $this->socket->accept();
 
-            if ($clientSocket === false) {
+            if ($clientSocketResource === false) {
                 break;
             }
 
@@ -486,19 +495,24 @@ class Server implements ServerInterface
             $remoteAddr = '0.0.0.0';
             $remotePort = 0;
 
-            if (is_resource($clientSocket)) {
-                $remoteName = stream_socket_get_name($clientSocket, true);
-            } elseif ($clientSocket instanceof Socket) {
-                socket_getpeername($clientSocket, $remoteAddr, $remotePort);
-                $remoteName = "$remoteAddr:$remotePort";
+            $internalResource = $clientSocketResource instanceof StreamSocketResource
+                ? $clientSocketResource->getInternalResource()
+                : null;
+
+            if ($internalResource !== null) {
+                if ($internalResource instanceof Socket) {
+                    socket_getpeername($internalResource, $remoteAddr, $remotePort);
+                } else {
+                    $remoteName = stream_socket_get_name($internalResource, true);
+                    if ($remoteName !== false) {
+                        $parts = explode(':', $remoteName, 2);
+                        $remoteAddr = $parts[0];
+                        $remotePort = isset($parts[1]) ? (int) $parts[1] : 0;
+                    }
+                }
             }
 
-            if ($remoteName !== false) {
-                [$remoteAddr, $remotePort] = explode(':', $remoteName, 2);
-                $remotePort = (int) $remotePort;
-            }
-
-            $connection = new Connection($clientSocket, $remoteAddr, $remotePort);
+            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort);
             $this->connectionPool->add($connection);
             $this->metrics->incrementTotalConnections();
 
@@ -543,14 +557,17 @@ class Server implements ServerInterface
             }
 
             $socket = $connection->getSocket();
+            $internalResource = $socket instanceof StreamSocketResource
+                ? $socket->getInternalResource()
+                : null;
 
-            if (!is_resource($socket) && !$socket instanceof Socket) {
+            if ($internalResource === null) {
                 $this->closeConnection($connection);
                 continue;
             }
 
-            if ($socket instanceof Socket) {
-                $read = [$socket];
+            if ($internalResource instanceof Socket) {
+                $read = [$internalResource];
                 $write = null;
                 $except = null;
                 $changed = socket_select($read, $write, $except, 0);
@@ -558,8 +575,8 @@ class Server implements ServerInterface
                 if ($changed === false || $changed === 0) {
                     continue;
                 }
-            } elseif (is_resource($socket)) {
-                $read = [$socket];
+            } else {
+                $read = [$internalResource];
                 $write = null;
                 $except = null;
                 $changed = stream_select($read, $write, $except, 0);
@@ -697,7 +714,7 @@ class Server implements ServerInterface
         } catch (Throwable $e) {
             $this->logger->error('Failed to process request', [
                 'error' => $e->getMessage(),
-                'error_class' => get_class($e),
+                'error_class' => $e::class,
                 'remote' => $connection->getRemoteAddress() . ':' . $connection->getRemotePort(),
             ]);
             $this->sendErrorResponse($connection, 400, 'Bad Request');
@@ -790,21 +807,6 @@ class Server implements ServerInterface
         }
     }
 
-    /**
-     * @param resource|Socket $socket
-     */
-    private function getSocketId(mixed $socket): int
-    {
-        if ($socket instanceof Socket) {
-            return spl_object_id($socket);
-        }
-
-        if (is_resource($socket)) {
-            return get_resource_id($socket);
-        }
-
-        return 0;
-    }
 
     private function getActiveConnectionCount(): int
     {
@@ -860,9 +862,16 @@ class Server implements ServerInterface
         }
 
         $socket = $tcpConn->getSocket();
+        $internalResource = $socket instanceof StreamSocketResource
+            ? $socket->getInternalResource()
+            : null;
 
-        if ($socket instanceof Socket) {
-            $read = [$socket];
+        if ($internalResource === null) {
+            return;
+        }
+
+        if ($internalResource instanceof Socket) {
+            $read = [$internalResource];
             $write = null;
             $except = null;
             $changed = socket_select($read, $write, $except, 0);
@@ -870,8 +879,8 @@ class Server implements ServerInterface
             if ($changed === false || $changed === 0) {
                 return;
             }
-        } elseif (is_resource($socket)) {
-            $read = [$socket];
+        } else {
+            $read = [$internalResource];
             $write = null;
             $except = null;
             $changed = stream_select($read, $write, $except, 0);
@@ -975,13 +984,18 @@ class Server implements ServerInterface
      *
      * @param array{client_ip?: string, worker_id: int, worker_pid?: int} $metadata
      */
+    #[Override]
     public function addExternalConnection(Socket $clientSocket, array $metadata): void
     {
         if (!isset($metadata['worker_id'])) {
             throw new HttpServerException('worker_id is required in metadata for addExternalConnection()');
         }
 
-        $this->setWorkerContext($metadata);
+        $workerContext = ['worker_id' => $metadata['worker_id']];
+        if (isset($metadata['worker_pid'])) {
+            $workerContext['worker_pid'] = $metadata['worker_pid'];
+        }
+        $this->setWorkerContext($workerContext);
 
         $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
         $clientPort = 0;
@@ -996,7 +1010,8 @@ class Server implements ServerInterface
             ]);
         }
 
-        $connection = new Connection($clientSocket, $clientIp, $clientPort);
+        $socketResource = new StreamSocketResource($clientSocket);
+        $connection = new Connection($socketResource, $clientIp, $clientPort);
 
         $this->connectionPool->add($connection);
 
@@ -1027,16 +1042,19 @@ class Server implements ServerInterface
         ]);
     }
 
+    #[Override]
     public function getMode(): ServerMode
     {
         return $this->mode;
     }
 
+    #[Override]
     public function getWorkerId(): ?int
     {
         return $this->workerId;
     }
 
+    #[Override]
     public function setWorkerId(int $workerId): void
     {
         $this->workerId = $workerId;
@@ -1050,8 +1068,9 @@ class Server implements ServerInterface
     }
 
     /**
-     * @param Fiber<mixed, mixed, mixed, void> $fiber
+     * @param Fiber $fiber
      */
+    #[Override]
     public function registerFiber(Fiber $fiber): void
     {
         $this->fibers[] = $fiber;
@@ -1060,5 +1079,10 @@ class Server implements ServerInterface
             'total_fibers' => count($this->fibers),
             'worker_id' => $this->workerId,
         ]);
+    }
+
+    private function getSocketId(SocketResourceInterface $socket): int
+    {
+        return spl_object_id($socket);
     }
 }

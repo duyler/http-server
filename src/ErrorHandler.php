@@ -35,14 +35,14 @@ class ErrorHandler
         self::$onSignal = $onSignal;
         self::$registered = true;
 
-        set_error_handler([self::class, 'handleError']);
-        set_exception_handler([self::class, 'handleException']);
+        set_error_handler(self::handleError(...));
+        set_exception_handler(self::handleException(...));
         register_shutdown_function([self::class, 'handleShutdown']);
 
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGTERM, [self::class, 'handleSignal']);
-            pcntl_signal(SIGINT, [self::class, 'handleSignal']);
-            pcntl_signal(SIGHUP, [self::class, 'handleSignal']);
+            pcntl_signal(SIGTERM, self::handleSignal(...));
+            pcntl_signal(SIGINT, self::handleSignal(...));
+            pcntl_signal(SIGHUP, self::handleSignal(...));
             pcntl_async_signals(true);
         }
 
@@ -92,7 +92,7 @@ class ErrorHandler
     public static function handleException(Throwable $exception): void
     {
         self::$logger?->critical('Uncaught exception', [
-            'exception' => get_class($exception),
+            'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'code' => $exception->getCode(),
             'file' => $exception->getFile(),
@@ -104,7 +104,7 @@ class ErrorHandler
 
         fwrite(STDERR, sprintf(
             "[CRITICAL] Uncaught %s: %s in %s:%d\n%s\n",
-            get_class($exception),
+            $exception::class,
             $exception->getMessage(),
             $exception->getFile(),
             $exception->getLine(),

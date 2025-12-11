@@ -10,7 +10,8 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class StaticFileHandler
 {
-    private const MIME_TYPES = [
+    /** @var array<string, string> */
+    private const array MIME_TYPES = [
         'html' => 'text/html',
         'htm' => 'text/html',
         'css' => 'text/css',
@@ -145,7 +146,11 @@ class StaticFileHandler
         string $etag,
         int $filesize,
     ): ResponseInterface {
-        $stream = \Nyholm\Psr7\Stream::create(fopen($filePath, 'r'));
+        $handle = fopen($filePath, 'r');
+        if ($handle === false) {
+            return new Response(500, [], 'Failed to open file');
+        }
+        $stream = \Nyholm\Psr7\Stream::create($handle);
 
         return new Response(
             200,

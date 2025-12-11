@@ -8,10 +8,11 @@ use Duyler\HttpServer\Exception\ParseException;
 
 class HttpParser
 {
-    private const HTTP_VERSION_PATTERN = '/^HTTP\/(\d+\.\d+)$/';
-    private const HEADER_PATTERN = '/^([^:\s]+):\s*(.+)$/m';
+    private const string HTTP_VERSION_PATTERN = '/^HTTP\/(\d+\.\d+)$/';
+    private const string HEADER_PATTERN = '/^([^:\s]+):\s*(.+)$/m';
 
-    private const SINGULAR_HEADERS = [
+    /** @var array<string, true> */
+    private const array SINGULAR_HEADERS = [
         'Content-Length' => true,
         'Content-Type' => true,
         'Host' => true,
@@ -19,7 +20,8 @@ class HttpParser
         'Transfer-Encoding' => true,
     ];
 
-    private const VALID_METHODS = [
+    /** @var array<string, true> */
+    private const array VALID_METHODS = [
         'GET' => true,
         'POST' => true,
         'PUT' => true,
@@ -75,7 +77,7 @@ class HttpParser
     }
 
     /**
-     * @return array<string, array<string>>
+     * @return array<string, array<int, string>>
      */
     public function parseHeaders(string $headerBlock): array
     {
@@ -178,7 +180,7 @@ class HttpParser
     }
 
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param array<string, array<array-key, string>> $headers
      */
     public function getContentLength(array $headers): int
     {
@@ -197,7 +199,7 @@ class HttpParser
     }
 
     /**
-     * @param array<string, array<int, string>> $headers
+     * @param array<string, array<array-key, string>> $headers
      */
     public function isChunked(array $headers): bool
     {

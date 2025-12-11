@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Connection;
 
-use Socket;
+use Duyler\HttpServer\Socket\SocketResourceInterface;
 use SplObjectStorage;
 
 class ConnectionPool
@@ -80,10 +80,7 @@ class ConnectionPool
         }
     }
 
-    /**
-     * @param resource|Socket $socket
-     */
-    public function findBySocket(mixed $socket): ?Connection
+    public function findBySocket(SocketResourceInterface $socket): ?Connection
     {
         $resourceId = $this->getSocketId($socket);
         return $this->connectionsByResourceId[$resourceId] ?? null;
@@ -94,20 +91,9 @@ class ConnectionPool
         return $this->connectionsByAddress[$address] ?? null;
     }
 
-    /**
-     * @param resource|Socket $socket
-     */
-    private function getSocketId(mixed $socket): int
+    private function getSocketId(SocketResourceInterface $socket): int
     {
-        if ($socket instanceof Socket) {
-            return spl_object_id($socket);
-        }
-
-        if (is_resource($socket)) {
-            return get_resource_id($socket);
-        }
-
-        return 0;
+        return spl_object_id($socket);
     }
 
     /**

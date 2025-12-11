@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Connection;
 
 use Duyler\HttpServer\Connection\Connection;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,12 +15,14 @@ class ConnectionTest extends TestCase
     private mixed $socket;
     private Connection $connection;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->socket = fopen('php://memory', 'r+');
         $this->connection = new Connection($this->socket, '127.0.0.1', 12345);
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         if (is_resource($this->socket)) {

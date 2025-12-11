@@ -68,8 +68,6 @@ interface ServerInterface
      * Used in Event-Driven mode to register background Fibers that accept
      * connections from Master. These Fibers will be automatically resumed
      * on each hasRequest() call.
-     *
-     * @param Fiber<mixed, mixed, mixed, void> $fiber Fiber to register
      */
     public function registerFiber(Fiber $fiber): void;
 }

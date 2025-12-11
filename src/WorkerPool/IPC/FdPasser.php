@@ -15,20 +15,13 @@ class FdPasser
     public function __construct(
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
-    /**
-     * Проверяет, поддерживается ли SCM_RIGHTS в текущей системе
-     */
+
     public function isSupported(): bool
     {
-        // SCM_RIGHTS хорошо работает на Linux
-        // На macOS есть проблемы
-        // В Docker зависит от конфигурации
-
         if (PHP_OS_FAMILY !== 'Linux') {
             return false;
         }
 
-        // Проверяем, что socket_sendmsg/socket_recvmsg доступны
         return function_exists('socket_sendmsg') && function_exists('socket_recvmsg');
     }
 
@@ -48,7 +41,7 @@ class FdPasser
         $this->logger->debug('Sending FD with metadata', ['metadata' => $metadata]);
 
         $metadataJson = json_encode($metadata, JSON_THROW_ON_ERROR);
-        if ($metadataJson === '[]' || $metadataJson === '') {
+        if ($metadataJson === '[]') {
             $metadataJson = '{}';
         }
 
@@ -81,6 +74,7 @@ class FdPasser
      */
     public function receiveFd(Socket $controlSocket): ?array
     {
+        /** @var int $callCount */
         static $callCount = 0;
         $callCount++;
 
@@ -121,24 +115,31 @@ class FdPasser
         $this->logger->debug('recvmsg returned bytes', ['bytes' => $result]);
         $this->logger->debug('Message type', ['type' => gettype($message)]);
 
-        if (!is_array($message)) {
-            $this->logger->error('Message is not an array', ['type' => gettype($message)]);
+        $this->logger->debug('Message keys', ['keys' => array_keys($message)]);
+
+        if (!isset($message['control']) || !is_array($message['control'])) {
+            $this->logger->error('No control data received');
+            $this->logger->debug('Control key does not exist');
             return null;
         }
 
-        $this->logger->debug('Message keys', ['keys' => array_keys($message)]);
+        if (!isset($message['control'][0]) || !is_array($message['control'][0])) {
+            $this->logger->error('Invalid control array structure');
+            return null;
+        }
+
+        if (!isset($message['control'][0]['data']) || !is_array($message['control'][0]['data'])) {
+            $this->logger->error('No control data array');
+            return null;
+        }
 
         if (!isset($message['control'][0]['data'][0])) {
-            $this->logger->error('No control data received');
-            if (isset($message['control'])) {
-                $this->logger->debug('Control array', ['control' => $message['control']]);
-            } else {
-                $this->logger->debug('Control key does not exist');
-            }
+            $this->logger->error('No file descriptor in control data');
             return null;
         }
 
         $receivedFd = $message['control'][0]['data'][0];
+        assert($receivedFd instanceof Socket);
 
         if (!$receivedFd instanceof Socket) {
             $this->logger->error('Received FD is not a Socket', ['type' => gettype($receivedFd)]);
@@ -146,7 +147,7 @@ class FdPasser
         }
 
         $metadataJson = $message['iov'][0] ?? '{}';
-        $metadataJson = rtrim($metadataJson, "\0");
+        $metadataJson = rtrim((string) $metadataJson, "\0");
 
         if ($metadataJson === '') {
             $metadataJson = '{}';
@@ -162,6 +163,9 @@ class FdPasser
         if (!is_array($metadata)) {
             $metadata = [];
         }
+
+        /** @var array<string, mixed> $metadata */
+        $metadata = $metadata;
 
         $this->logger->debug('FD received successfully', ['metadata' => $metadata]);
 

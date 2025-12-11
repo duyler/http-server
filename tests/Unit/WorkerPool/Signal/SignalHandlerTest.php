@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Signal;
 
 use Duyler\HttpServer\WorkerPool\Signal\SignalHandler;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -12,12 +13,14 @@ class SignalHandlerTest extends TestCase
 {
     private SignalHandler $handler;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         $this->handler = new SignalHandler();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         parent::tearDown();

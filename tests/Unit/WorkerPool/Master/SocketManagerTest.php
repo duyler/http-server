@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\Master;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\WorkerPool\Exception\WorkerPoolException;
 use Duyler\HttpServer\WorkerPool\Master\SocketManager;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,6 +15,7 @@ class SocketManagerTest extends TestCase
 {
     private ServerConfig $config;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

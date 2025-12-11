@@ -10,26 +10,22 @@ use Socket;
 class UnixSocketChannel
 {
     private ?Socket $socket = null;
-    private bool $isServer;
     private bool $isConnected = false;
 
-    public function __construct(
-        private readonly string $socketPath,
-        bool $isServer = false,
-    ) {
-        $this->isServer = $isServer;
-    }
+    public function __construct(private readonly string $socketPath, private readonly bool $isServer = false) {}
 
     public function connect(): bool
     {
-        $this->socket = socket_create(AF_UNIX, SOCK_STREAM, 0);
-
-        if ($this->socket === false) {
+        $socket = socket_create(AF_UNIX, SOCK_STREAM, 0);
+        if ($socket === false) {
             throw new IPCException('Failed to create Unix socket: ' . socket_strerror(socket_last_error()));
         }
+        $this->socket = $socket;
 
         if ($this->isServer) {
-            @unlink($this->socketPath);
+            if (file_exists($this->socketPath)) {
+                unlink($this->socketPath);
+            }
 
             if (!socket_bind($this->socket, $this->socketPath)) {
                 throw new IPCException('Failed to bind Unix socket: ' . socket_strerror(socket_last_error($this->socket)));
@@ -58,7 +54,7 @@ class UnixSocketChannel
 
         $clientSocket = socket_accept($this->socket);
 
-        if ($clientSocket === false || $clientSocket === null) {
+        if ($clientSocket === false) {
             return null;
         }
 
@@ -90,7 +86,7 @@ class UnixSocketChannel
 
         $lengthData = socket_read($this->socket, 4, PHP_BINARY_READ);
 
-        if ($lengthData === false || $lengthData === '' || $lengthData === null) {
+        if ($lengthData === false || $lengthData === '') {
             return null;
         }
 
@@ -99,11 +95,12 @@ class UnixSocketChannel
         }
 
         $unpacked = unpack('N', $lengthData);
-        if ($unpacked === false) {
+        if ($unpacked === false || !isset($unpacked[1])) {
             return null;
         }
 
         $length = $unpacked[1];
+        assert(is_int($length));
 
         if ($length === 0 || $length > 1048576) {
             throw new IPCException('Invalid message length: ' . $length);
@@ -115,7 +112,7 @@ class UnixSocketChannel
         while ($remaining > 0) {
             $chunk = socket_read($this->socket, $remaining, PHP_BINARY_READ);
 
-            if ($chunk === false || $chunk === '' || $chunk === null) {
+            if ($chunk === false || $chunk === '') {
                 return null;
             }
 
@@ -145,7 +142,7 @@ class UnixSocketChannel
         }
 
         if ($this->isServer && file_exists($this->socketPath)) {
-            @unlink($this->socketPath);
+            unlink($this->socketPath);
         }
     }
 

@@ -47,10 +47,22 @@ readonly class Message
             throw new InvalidArgumentException('Message type is required');
         }
 
+        assert(is_int($decoded['type']) || is_string($decoded['type']));
+        assert(!isset($decoded['data']) || is_array($decoded['data']));
+        assert(!isset($decoded['timestamp']) || is_float($decoded['timestamp']) || is_int($decoded['timestamp']) || is_null($decoded['timestamp']));
+
+        /** @var array<string, mixed> $data */
+        $data = $decoded['data'] ?? [];
+
+        $timestamp = null;
+        if (isset($decoded['timestamp'])) {
+            $timestamp = is_int($decoded['timestamp']) ? (float) $decoded['timestamp'] : $decoded['timestamp'];
+        }
+
         return new self(
             type: MessageType::from($decoded['type']),
-            data: $decoded['data'] ?? [],
-            timestamp: $decoded['timestamp'] ?? null,
+            data: $data,
+            timestamp: $timestamp,
         );
     }
 

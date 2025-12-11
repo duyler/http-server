@@ -15,12 +15,12 @@ use Throwable;
 
 class HttpWorkerAdapter
 {
-    private const READ_BUFFER_SIZE = 8192;
-    private const MAX_REQUEST_SIZE = 10485760;
-    private const SOCKET_TIMEOUT = 30;
+    private const int READ_BUFFER_SIZE = 8192;
+    private const int MAX_REQUEST_SIZE = 10485760;
+    private const int SOCKET_TIMEOUT = 30;
 
-    private HttpParser $httpParser;
-    private Psr17Factory $psr17Factory;
+    private readonly HttpParser $httpParser;
+    private readonly Psr17Factory $psr17Factory;
 
     public function __construct()
     {
@@ -83,7 +83,7 @@ class HttpWorkerAdapter
             $lines = explode("\r\n", $headerBlock);
             $requestLine = array_shift($lines);
 
-            if ($requestLine === null || $requestLine === '') {
+            if ($requestLine === '') {
                 return null;
             }
 
@@ -118,7 +118,7 @@ class HttpWorkerAdapter
             }
 
             return $request;
-        } catch (Throwable $e) {
+        } catch (Throwable) {
             return null;
         }
     }
@@ -141,7 +141,7 @@ class HttpWorkerAdapter
         while (true) {
             $chunk = socket_read($socket, self::READ_BUFFER_SIZE);
 
-            if ($chunk === false || $chunk === '' || $chunk === null) {
+            if ($chunk === false || $chunk === '') {
                 break;
             }
 
@@ -155,7 +155,8 @@ class HttpWorkerAdapter
                     $contentLength = (int) $matches[1];
                 }
 
-                [$headers, $body] = explode("\r\n\r\n", $buffer, 2);
+                $parts = explode("\r\n\r\n", $buffer, 2);
+                [$headers, $body] = count($parts) === 2 ? $parts : [$parts[0], ''];
 
                 if (strlen($body) >= $contentLength) {
                     break;

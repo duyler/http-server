@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\Server;
 use Fiber;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -16,6 +17,7 @@ class ServerEventDrivenTest extends TestCase
 {
     private Server $server;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

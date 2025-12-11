@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocket;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -15,11 +16,13 @@ class StreamSocketTest extends TestCase
 {
     private StreamSocket $socket;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->socket = new StreamSocket();
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         $this->socket->close();

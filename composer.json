@@ -30,8 +30,7 @@
     },
     "require-dev": {
         "friendsofphp/php-cs-fixer": "^3.90",
-        "phpstan/phpstan": "^1.11",
-        "phpstan/phpstan-strict-rules": "^1.6",
+        "vimeo/psalm": "^6.10",
         "phpunit/phpunit": "^10.5",
         "rector/rector": "^1.2"
     },
@@ -50,13 +49,5 @@
         "optimize-autoloader": true
     },
     "minimum-stability": "stable",
-    "prefer-stable": true,
-    "scripts": {
-        "test": "phpunit",
-        "test:coverage": "XDEBUG_MODE=coverage phpunit --coverage-html build/coverage",
-        "phpstan": "phpstan analyze --memory-limit=256M --no-progress",
-        "phpstan:baseline": "phpstan analyze --memory-limit=256M --generate-baseline",
-        "cs-fix": "php-cs-fixer fix",
-        "cs-check": "php-cs-fixer fix --dry-run --diff"
-    }
+    "prefer-stable": true
 }

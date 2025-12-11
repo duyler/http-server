@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Parser;
 
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Nyholm\Psr7\Response;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -13,6 +14,7 @@ class ResponseWriterTest extends TestCase
 {
     private ResponseWriter $writer;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->writer = new ResponseWriter();
@@ -121,7 +123,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200, [], 'Small body');
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 8192);
 
@@ -137,7 +139,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200, [], $largeBody);
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 8192);
 
@@ -157,7 +159,7 @@ class ResponseWriterTest extends TestCase
         $chunks = [];
         $bufferSize = 4096;
 
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, $bufferSize);
 
@@ -174,7 +176,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(204);
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         });
 
@@ -188,7 +190,7 @@ class ResponseWriterTest extends TestCase
         $response = (new Response(200, ['Content-Type' => 'text/plain'], str_repeat('X', 10000)));
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 4096);
 
@@ -203,7 +205,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200, [], $body);
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 8192);
 
@@ -217,7 +219,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200, [], $body);
 
         $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks) {
+        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
             $chunks[] = $chunk;
         }, 8192);
 

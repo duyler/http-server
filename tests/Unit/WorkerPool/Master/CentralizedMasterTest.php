@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\WorkerPool\Balancer\LeastConnectionsBalancer;
 use Duyler\HttpServer\WorkerPool\Config\WorkerPoolConfig;
 use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -16,6 +17,7 @@ class CentralizedMasterTest extends TestCase
     private WorkerPoolConfig $config;
     private LeastConnectionsBalancer $balancer;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

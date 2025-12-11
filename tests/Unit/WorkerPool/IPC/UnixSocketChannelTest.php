@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\WorkerPool\IPC;
 use Duyler\HttpServer\WorkerPool\Exception\IPCException;
 use Duyler\HttpServer\WorkerPool\IPC\Message;
 use Duyler\HttpServer\WorkerPool\IPC\UnixSocketChannel;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -14,12 +15,14 @@ class UnixSocketChannelTest extends TestCase
 {
     private string $socketPath;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         $this->socketPath = sys_get_temp_dir() . '/test_socket_' . uniqid() . '.sock';
     }
 
+    #[Override]
     protected function tearDown(): void
     {
         parent::tearDown();

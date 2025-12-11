@@ -12,6 +12,7 @@ use Duyler\HttpServer\WorkerPool\Master\CentralizedMaster;
 use Duyler\HttpServer\WorkerPool\Worker\EventDrivenWorkerInterface;
 use Duyler\HttpServer\WorkerPool\Worker\WorkerCallbackInterface;
 use InvalidArgumentException;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
@@ -22,6 +23,7 @@ class CentralizedMasterEventDrivenTest extends TestCase
     private WorkerPoolConfig $workerPoolConfig;
     private RoundRobinBalancer $balancer;
 
+    #[Override]
     protected function setUp(): void
     {
         parent::setUp();

@@ -69,7 +69,7 @@ class SystemInfo
 
     private function detectCpuCoresWindows(): int
     {
-        $process = @popen('wmic cpu get NumberOfCores', 'rb');
+        $process = popen('wmic cpu get NumberOfCores', 'rb');
         if ($process !== false) {
             fgets($process);
             $cores = intval(fgets($process));
@@ -98,12 +98,14 @@ class SystemInfo
             return $cores;
         }
 
-        $cpuinfo = @file_get_contents('/proc/cpuinfo');
-        if ($cpuinfo !== false) {
-            preg_match_all('/^processor/m', $cpuinfo, $matches);
-            $cores = count($matches[0]);
-            if ($cores > 0) {
-                return $cores;
+        if (is_readable('/proc/cpuinfo')) {
+            $cpuinfo = file_get_contents('/proc/cpuinfo');
+            if ($cpuinfo !== false) {
+                preg_match_all('/^processor/m', $cpuinfo, $matches);
+                $cores = count($matches[0]);
+                if ($cores > 0) {
+                    return $cores;
+                }
             }
         }
 
@@ -137,7 +139,7 @@ class SystemInfo
 
     private function execCommand(string $command): int
     {
-        $process = @popen($command, 'rb');
+        $process = popen($command, 'rb');
         if ($process === false) {
             return 0;
         }
@@ -155,7 +157,8 @@ class SystemInfo
 
     private function execCommandString(string $command): int
     {
-        $output = @shell_exec($command);
+        /** @psalm-suppress ForbiddenCode shell_exec needed for system information */
+        $output = shell_exec($command);
         if ($output === null || $output === '' || $output === false) {
             return 0;
         }
