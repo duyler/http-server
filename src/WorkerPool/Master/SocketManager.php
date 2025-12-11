@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\WorkerPool\Master;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Socket\SocketErrorSuppressor;
 use Duyler\HttpServer\WorkerPool\Exception\WorkerPoolException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -12,6 +13,8 @@ use Socket;
 
 class SocketManager
 {
+    use SocketErrorSuppressor;
+
     private ?Socket $masterSocket = null;
     private bool $isListening = false;
     private bool $shouldCloseOnDestruct = true;
@@ -46,7 +49,13 @@ class SocketManager
             'host' => $this->config->host,
             'port' => $this->config->port,
         ]);
-        if (!socket_bind($this->masterSocket, $this->config->host, $this->config->port)) {
+
+        $socket = $this->masterSocket;
+        $result = $this->suppressSocketWarnings(
+            fn(): bool => socket_bind($socket, $this->config->host, $this->config->port),
+        );
+
+        if (!$result) {
             throw new WorkerPoolException(
                 sprintf(
                     'Failed to bind to %s:%d: %s',

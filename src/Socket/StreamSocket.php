@@ -11,6 +11,8 @@ use Socket;
 
 class StreamSocket implements SocketInterface
 {
+    use SocketErrorSuppressor;
+
     private ?Socket $socket = null;
     private bool $isBound = false;
     private bool $isListening = false;
@@ -40,7 +42,10 @@ class StreamSocket implements SocketInterface
             );
         }
 
-        if (!socket_bind($this->socket, $address, $port)) {
+        $socket = $this->socket;
+        $result = $this->suppressSocketWarnings(fn(): bool => socket_bind($socket, $address, $port));
+
+        if (!$result) {
             $error = socket_strerror(socket_last_error($this->socket));
             $this->close();
             throw new SocketException(sprintf('Failed to bind socket to %s:%d - %s', $address, $port, $error));

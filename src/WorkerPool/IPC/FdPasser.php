@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WorkerPool\IPC;
 
+use Duyler\HttpServer\Socket\SocketErrorSuppressor;
 use Duyler\HttpServer\WorkerPool\Exception\IPCException;
 use JsonException;
 use Psr\Log\LoggerInterface;
@@ -12,6 +13,8 @@ use Socket;
 
 class FdPasser
 {
+    use SocketErrorSuppressor;
+
     public function __construct(
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
@@ -92,7 +95,11 @@ class FdPasser
             'controllen' => socket_cmsg_space(SOL_SOCKET, SCM_RIGHTS),
         ];
 
-        $result = socket_recvmsg($controlSocket, $message, MSG_DONTWAIT);
+        $result = $this->suppressSocketWarnings(
+            fn(): int|false => socket_recvmsg($controlSocket, $message, MSG_DONTWAIT),
+        );
+
+        /** @var array{iov: list<string>, control: list<mixed>, controllen: int} $message */
 
         if ($result === false || $result === 0) {
             $errno = socket_last_error($controlSocket);
@@ -117,29 +124,29 @@ class FdPasser
 
         $this->logger->debug('Message keys', ['keys' => array_keys($message)]);
 
-        if (!isset($message['control']) || !is_array($message['control'])) {
-            $this->logger->error('No control data received');
-            $this->logger->debug('Control key does not exist');
+        if (!array_key_exists(0, $message['control'])) {
+            $this->logger->error('No control data at index 0');
             return null;
         }
 
-        if (!isset($message['control'][0]) || !is_array($message['control'][0])) {
+        $controlData = $message['control'][0];
+
+        if (!is_array($controlData)) {
             $this->logger->error('Invalid control array structure');
             return null;
         }
 
-        if (!isset($message['control'][0]['data']) || !is_array($message['control'][0]['data'])) {
+        if (!isset($controlData['data']) || !is_array($controlData['data'])) {
             $this->logger->error('No control data array');
             return null;
         }
 
-        if (!isset($message['control'][0]['data'][0])) {
+        if (!isset($controlData['data'][0])) {
             $this->logger->error('No file descriptor in control data');
             return null;
         }
 
-        $receivedFd = $message['control'][0]['data'][0];
-        assert($receivedFd instanceof Socket);
+        $receivedFd = $controlData['data'][0];
 
         if (!$receivedFd instanceof Socket) {
             $this->logger->error('Received FD is not a Socket', ['type' => gettype($receivedFd)]);
@@ -147,7 +154,7 @@ class FdPasser
         }
 
         $metadataJson = $message['iov'][0] ?? '{}';
-        $metadataJson = rtrim((string) $metadataJson, "\0");
+        $metadataJson = rtrim($metadataJson, "\0");
 
         if ($metadataJson === '') {
             $metadataJson = '{}';
