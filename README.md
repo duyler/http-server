@@ -64,7 +64,7 @@ class MyApp implements EventDrivenWorkerInterface
         // Server is automatically running in Worker Pool mode.
         
         // Initialize your application ONCE
-        $application = new Application();
+        $application = new Application($workerId, $server);
         $application->run();
     }
 }
