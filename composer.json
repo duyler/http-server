@@ -1,7 +1,6 @@
 {
     "name": "duyler/http-server",
     "description": "Non-blocking HTTP server for Duyler Framework worker mode with PSR-7 support",
-    "version": "1.0.0",
     "type": "library",
     "license": "MIT",
     "keywords": [

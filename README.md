@@ -44,9 +44,9 @@ composer require duyler/http-server
 
 ### Worker Pool HTTP Server (Recommended for Production)
 
-**✨ New: Event-Driven Worker Mode** (Recommended for full applications)
+**✨ Event-Driven Worker Mode**
 
-For event-driven applications with Event Bus (like Duyler Framework):
+For long running applications with Event Bus (like Duyler Framework):
 
 ```php
 use Duyler\HttpServer\Config\ServerConfig;
@@ -65,28 +65,8 @@ class MyApp implements EventDrivenWorkerInterface
         // Server is automatically running in Worker Pool mode.
         
         // Initialize your application ONCE
-        $eventBus = new EventBus();
-        $db = new Database();
-        
-        // Event loop
-        while (true) {
-            // Get requests from Worker Pool
-            if ($server->hasRequest()) {
-                $request = $server->getRequest();
-                $eventBus->dispatch('http.request', $request);
-            }
-            
-            // Process events
-            $eventBus->tick();
-            
-            // Send responses
-            if ($server->hasPendingResponse()) {
-                $response = $eventBus->getResponse();
-                $server->respond($response);
-            }
-            
-            usleep(1000);
-        }
+        $application = new Application();
+        $application->run();
     }
 }
 
@@ -98,7 +78,7 @@ $app = new MyApp();
 $master = new SharedSocketMaster(
     config: $workerPoolConfig,
     serverConfig: $serverConfig,
-    eventDrivenWorker: $app, // ← Event-Driven mode
+    eventDrivenWorker: $app,
 );
 
 $master->start();
@@ -449,7 +429,7 @@ composer phpstan
 
 ## Roadmap
 
-### Version 1.2.0 (In Progress)
+### Version 1.0 (In Progress)
 - [x] Worker Pool - Dual architecture (FD Passing + Shared Socket)
 - [x] WebSocket - RFC 6455 compliant implementation
 - [x] MasterFactory with auto-detection
@@ -458,7 +438,8 @@ composer phpstan
 - [ ] Enhanced documentation
 
 ### Future Versions
-- [ ] HTTP/2 support (planned for 2.0.0)
+- [ ] HTTP/2 support
+- [ ] gRPC support
 - [ ] Advanced Worker Pool features
 
 ## Contributing
