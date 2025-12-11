@@ -1,3 +1,8 @@
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=duyler_di&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=duyler_http-server)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=duyler_di&metric=coverage)](https://sonarcloud.io/summary/new_code?id=duyler_http-server)
+[![type-coverage](https://shepherd.dev/github/duyler/http-server/coverage.svg)](https://shepherd.dev/github/duyler/http-server)
+[![psalm-level](https://shepherd.dev/github/duyler/http-server/level.svg)](https://shepherd.dev/github/duyler/http-server)
+
 # Duyler HTTP Server
 
 Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 support and integrated Worker Pool.
@@ -18,14 +23,13 @@ Non-blocking HTTP server for Duyler Framework worker mode with full PSR-7 suppor
 - **Server Metrics** - Built-in performance and health monitoring
 - **High Performance** - Optimized for long-running worker processes
 
-### Worker Pool Features (New)
+### Worker Pool Features
 - **Process Management** - Fork-based worker processes with auto-restart
 - **Load Balancing** - Least Connections and Round Robin algorithms
 - **IPC System** - Unix domain sockets with FD passing support
 - **Dual Architecture** - FD Passing (Linux) and Shared Socket (Docker/fallback)
 - **Auto CPU Detection** - Automatic worker count based on CPU cores
 - **Signal Handling** - Graceful shutdown via SIGTERM/SIGINT
-- **Cross-Platform** - Linux, Docker, with macOS support via Docker
 
 ## Requirements
 
@@ -44,9 +48,9 @@ composer require duyler/http-server
 
 ### Worker Pool HTTP Server (Recommended for Production)
 
-**✨ New: Event-Driven Worker Mode** (Recommended for full applications)
+**Event-Driven Worker Mode**
 
-For event-driven applications with Event Bus (like Duyler Framework):
+For long running applications with Event Bus (like Duyler Framework):
 
 ```php
 use Duyler\HttpServer\Config\ServerConfig;
@@ -65,28 +69,8 @@ class MyApp implements EventDrivenWorkerInterface
         // Server is automatically running in Worker Pool mode.
         
         // Initialize your application ONCE
-        $eventBus = new EventBus();
-        $db = new Database();
-        
-        // Event loop
-        while (true) {
-            // Get requests from Worker Pool
-            if ($server->hasRequest()) {
-                $request = $server->getRequest();
-                $eventBus->dispatch('http.request', $request);
-            }
-            
-            // Process events
-            $eventBus->tick();
-            
-            // Send responses
-            if ($server->hasPendingResponse()) {
-                $response = $eventBus->getResponse();
-                $server->respond($response);
-            }
-            
-            usleep(1000);
-        }
+        $application = new Application($workerId, $server);
+        $application->run();
     }
 }
 
@@ -98,7 +82,7 @@ $app = new MyApp();
 $master = new SharedSocketMaster(
     config: $workerPoolConfig,
     serverConfig: $serverConfig,
-    eventDrivenWorker: $app, // ← Event-Driven mode
+    eventDrivenWorker: $app,
 );
 
 $master->start();
@@ -449,7 +433,7 @@ composer phpstan
 
 ## Roadmap
 
-### Version 1.2.0 (In Progress)
+### Version 1.0 (In Progress)
 - [x] Worker Pool - Dual architecture (FD Passing + Shared Socket)
 - [x] WebSocket - RFC 6455 compliant implementation
 - [x] MasterFactory with auto-detection
@@ -458,7 +442,8 @@ composer phpstan
 - [ ] Enhanced documentation
 
 ### Future Versions
-- [ ] HTTP/2 support (planned for 2.0.0)
+- [ ] HTTP/2 support
+- [ ] gRPC support
 - [ ] Advanced Worker Pool features
 
 ## Contributing
