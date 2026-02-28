@@ -7,6 +7,8 @@ namespace Duyler\HttpServer\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use InvalidArgumentException;
 use Override;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Socket;
 use Throwable;
 
@@ -22,8 +24,10 @@ final class StreamSocketResource implements SocketResourceInterface
     /**
      * @param Socket|resource $resource
      */
-    public function __construct(mixed $resource)
-    {
+    public function __construct(
+        mixed $resource,
+        private readonly LoggerInterface $logger = new NullLogger(),
+    ) {
         if (!is_resource($resource) && !$resource instanceof Socket) {
             throw new InvalidArgumentException('Invalid socket resource or Socket object');
         }
@@ -86,7 +90,11 @@ final class StreamSocketResource implements SocketResourceInterface
                 $this->resource = null;
                 fclose($resource);
             }
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            $this->logger->debug('Error closing socket resource', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+            ]);
         }
 
         $this->resource = null;

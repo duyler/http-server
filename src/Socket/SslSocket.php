@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Socket;
 
-use Duyler\HttpServer\Constants;
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
 
@@ -57,7 +56,7 @@ class SslSocket implements SocketInterface
     }
 
     #[Override]
-    public function listen(int $backlog = Constants::DEFAULT_LISTEN_BACKLOG): void
+    public function listen(int $backlog = 511): void
     {
         if (!$this->isBound) {
             throw new SocketException('SSL socket is already listening after bind');

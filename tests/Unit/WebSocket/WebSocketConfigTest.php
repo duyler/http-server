@@ -24,7 +24,7 @@ class WebSocketConfigTest extends TestCase
         $this->assertSame(5, $config->handshakeTimeout);
         $this->assertSame(5, $config->closeTimeout);
         $this->assertSame(['*'], $config->allowedOrigins);
-        $this->assertFalse($config->validateOrigin);
+        $this->assertTrue($config->validateOrigin);
         $this->assertTrue($config->requireMasking);
         $this->assertTrue($config->autoFragmentation);
         $this->assertSame(8192, $config->writeBufferSize);

@@ -185,4 +185,89 @@ class RoundRobinBalancerTest extends TestCase
 
         $this->assertSame(1, $result, 'Should restart from beginning with new worker list');
     }
+
+    #[Test]
+    public function handles_worker_removal_before_current_index(): void
+    {
+        $connections = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
+
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+
+        $this->balancer->onWorkerRemoved(2);
+
+        $updatedConnections = [1 => 0, 3 => 0, 4 => 0];
+        $result = $this->balancer->selectWorker($updatedConnections);
+
+        $this->assertSame(4, $result, 'Should select worker 4 after worker 2 removal');
+    }
+
+    #[Test]
+    public function handles_worker_removal_after_current_index(): void
+    {
+        $connections = [1 => 0, 2 => 0, 3 => 0, 4 => 0];
+
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+
+        $this->balancer->onWorkerRemoved(4);
+
+        $updatedConnections = [1 => 0, 2 => 0, 3 => 0];
+        $result = $this->balancer->selectWorker($updatedConnections);
+
+        $this->assertSame(3, $result, 'Should select worker 3 after worker 4 removal');
+    }
+
+    #[Test]
+    public function handles_worker_removal_at_current_index(): void
+    {
+        $connections = [1 => 0, 2 => 0, 3 => 0];
+
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+
+        $this->balancer->onWorkerRemoved(2);
+
+        $updatedConnections = [1 => 0, 3 => 0];
+        $result = $this->balancer->selectWorker($updatedConnections);
+
+        $this->assertSame(3, $result, 'Should select worker 3 after worker 2 removal at current index');
+    }
+
+    #[Test]
+    public function handles_removal_of_non_existent_worker(): void
+    {
+        $connections = [1 => 0, 2 => 0, 3 => 0];
+
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+
+        $this->balancer->onWorkerRemoved(999);
+
+        $result = $this->balancer->selectWorker($connections);
+
+        $this->assertSame(3, $result, 'Should continue normally after non-existent worker removal');
+    }
+
+    #[Test]
+    public function continues_rotation_after_multiple_removals(): void
+    {
+        $connections = [1 => 0, 2 => 0, 3 => 0, 4 => 0, 5 => 0];
+
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+        $this->balancer->selectWorker($connections);
+
+        $this->balancer->onWorkerRemoved(1);
+        $this->balancer->onWorkerRemoved(3);
+
+        $updatedConnections = [2 => 0, 4 => 0, 5 => 0];
+        $result1 = $this->balancer->selectWorker($updatedConnections);
+        $result2 = $this->balancer->selectWorker($updatedConnections);
+
+        $this->assertSame(5, $result1);
+        $this->assertContains($result2, [2, 4, 5]);
+    }
+
 }

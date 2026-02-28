@@ -1,13 +1,25 @@
-/vendor/
-/composer.lock
-/.phpunit.cache/
-/.phpunit.result.cache
-/phpunit.xml
-/.idea/
-/.vscode/
-/.DS_Store
-/build/
+# IDE
+.idea/
+.vscode/
+.duyler/
+
+# Package
+vendor/
+coverage/
+.phpunit.cache/
+composer.lock
 /.php-cs-fixer.cache
-/.phpstan.cache
+/coverage.xml
+.phpactor.json
+
+# Duyler
 /docs/
-/examples/
+
+# For LLM
+.claude/
+.opencode/
+.cursor/
+.sisyphus/
+
+# MacOS
+/.DS_Store

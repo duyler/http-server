@@ -66,7 +66,6 @@ class StreamSocketTest extends TestCase
     {
         $reflection = new ReflectionClass($socket);
         $property = $reflection->getProperty('socket');
-        $property->setAccessible(true);
         $socketResource = $property->getValue($socket);
 
         if ($socketResource instanceof Socket) {

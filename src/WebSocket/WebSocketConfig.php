@@ -31,7 +31,7 @@ readonly class WebSocketConfig
         public int $handshakeTimeout = 5,
         public int $closeTimeout = 5,
         array $allowedOrigins = ['*'],
-        public bool $validateOrigin = false,
+        public bool $validateOrigin = true,
         public bool $requireMasking = true,
         public bool $autoFragmentation = true,
         public int $writeBufferSize = 8192,

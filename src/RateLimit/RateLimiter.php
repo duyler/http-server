@@ -9,13 +9,22 @@ class RateLimiter
     /** @var array<string, array<int, float>> */
     private array $requests = [];
 
+    private int $callCount = 0;
+
     public function __construct(
         private readonly int $maxRequests = 100,
         private readonly int $windowSeconds = 60,
+        private readonly int $cleanupInterval = 100,
     ) {}
 
     public function isAllowed(string $identifier): bool
     {
+        $this->callCount++;
+
+        if ($this->callCount % $this->cleanupInterval === 0) {
+            $this->cleanup();
+        }
+
         $now = microtime(true);
         $windowStart = $now - (float) $this->windowSeconds;
 
@@ -87,13 +96,14 @@ class RateLimiter
     }
 
     /**
-     * @return array{max_requests: int, window_seconds: int}
+     * @return array{max_requests: int, window_seconds: int, cleanup_interval: int}
      */
     public function getConfig(): array
     {
         return [
             'max_requests' => $this->maxRequests,
             'window_seconds' => $this->windowSeconds,
+            'cleanup_interval' => $this->cleanupInterval,
         ];
     }
 

@@ -232,4 +232,38 @@ class HandshakeTest extends TestCase
 
         $this->assertFalse(Handshake::validateOrigin($request, $config));
     }
+
+
+    #[Test]
+    public function detects_insecure_config_when_validation_disabled_with_wildcard(): void
+    {
+        $config = new WebSocketConfig(
+            validateOrigin: false,
+            allowedOrigins: ['*'],
+        );
+
+        $this->assertTrue(Handshake::isInsecureConfig($config));
+    }
+
+    #[Test]
+    public function detects_secure_config_when_validation_enabled(): void
+    {
+        $config = new WebSocketConfig(
+            validateOrigin: true,
+            allowedOrigins: ['*'],
+        );
+
+        $this->assertFalse(Handshake::isInsecureConfig($config));
+    }
+
+    #[Test]
+    public function detects_secure_config_when_validation_disabled_without_wildcard(): void
+    {
+        $config = new WebSocketConfig(
+            validateOrigin: false,
+            allowedOrigins: ['https://example.com'],
+        );
+
+        $this->assertFalse(Handshake::isInsecureConfig($config));
+    }
 }

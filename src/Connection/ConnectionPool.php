@@ -41,7 +41,7 @@ class ConnectionPool
                 return;
             }
 
-            $this->connections->attach($connection, time());
+            $this->connections->offsetSet($connection, time());
 
             $resourceId = $this->getSocketId($connection->getSocket());
             $this->connectionsByResourceId[$resourceId] = $connection;
@@ -64,8 +64,8 @@ class ConnectionPool
         $this->isModifying = true;
 
         try {
-            if ($this->connections->contains($connection)) {
-                $this->connections->detach($connection);
+            if ($this->connections->offsetExists($connection)) {
+                $this->connections->offsetUnset($connection);
 
                 $resourceId = $this->getSocketId($connection->getSocket());
                 unset($this->connectionsByResourceId[$resourceId]);
@@ -137,8 +137,8 @@ class ConnectionPool
             foreach ($toRemove as $connection) {
                 $connection->close();
 
-                if ($this->connections->contains($connection)) {
-                    $this->connections->detach($connection);
+                if ($this->connections->offsetExists($connection)) {
+                    $this->connections->offsetUnset($connection);
 
                     $resourceId = $this->getSocketId($connection->getSocket());
                     unset($this->connectionsByResourceId[$resourceId]);
@@ -170,7 +170,7 @@ class ConnectionPool
 
     public function has(Connection $connection): bool
     {
-        return $this->connections->contains($connection);
+        return $this->connections->offsetExists($connection);
     }
 
     public function isFull(): bool

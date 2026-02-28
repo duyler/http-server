@@ -16,12 +16,14 @@ class Frame
         public readonly bool $masked = false,
         public readonly ?string $maskingKey = null,
     ) {
-        if ($this->masked && $this->maskingKey === null) {
-            throw new InvalidWebSocketFrameException('Masked frame must have masking key');
-        }
+        if ($this->masked) {
+            if ($this->maskingKey === null) {
+                throw new InvalidWebSocketFrameException('Masked frame must have masking key');
+            }
 
-        if ($this->masked && strlen($this->maskingKey) !== 4) {
-            throw new InvalidWebSocketFrameException('Masking key must be exactly 4 bytes');
+            if (strlen($this->maskingKey) !== 4) {
+                throw new InvalidWebSocketFrameException('Masking key must be exactly 4 bytes');
+            }
         }
     }
 

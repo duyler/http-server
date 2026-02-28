@@ -98,6 +98,16 @@ class Handshake
         return in_array($origin, $config->allowedOrigins, true);
     }
 
+
+    public static function isInsecureConfig(WebSocketConfig $config): bool
+    {
+        if ($config->validateOrigin) {
+            return false;
+        }
+
+        return in_array('*', $config->allowedOrigins, true);
+    }
+
     /**
      * @param array<string> $requestedProtocols
      * @param array<string> $supportedProtocols

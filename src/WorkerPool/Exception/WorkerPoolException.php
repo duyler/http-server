@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WorkerPool\Exception;
 
-use RuntimeException;
+use Duyler\HttpServer\Exception\HttpServerException;
 
-class WorkerPoolException extends RuntimeException {}
+class WorkerPoolException extends HttpServerException
+{
+    protected string $errorCode = 'WORKER_POOL_ERROR';
+}

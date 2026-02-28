@@ -9,6 +9,7 @@ use Duyler\HttpServer\WorkerPool\IPC\MessageType;
 use InvalidArgumentException;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use ValueError;
 
 class MessageTest extends TestCase
@@ -179,5 +180,68 @@ class MessageTest extends TestCase
         $this->assertSame($original->type, $restored->type);
         $this->assertSame($original->data, $restored->data);
         $this->assertSame($original->timestamp, $restored->timestamp);
+    }
+
+    #[Test]
+    public function logs_warning_on_invalid_json(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->once())
+            ->method('warning')
+            ->with(
+                'Failed to unserialize IPC message: JSON parse error',
+                $this->callback(fn(array $context): bool => isset($context['error'])
+                    && isset($context['data_length'])
+                    && $context['data_length'] === 12),
+            );
+
+        $this->expectException(InvalidArgumentException::class);
+        Message::unserialize('invalid json', $logger);
+    }
+
+    #[Test]
+    public function logs_warning_on_non_array_json(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->once())
+            ->method('warning')
+            ->with(
+                'Failed to unserialize IPC message: decoded data is not an array',
+                $this->callback(fn(array $context): bool => isset($context['type']) && $context['type'] === 'string'),
+            );
+
+        $this->expectException(InvalidArgumentException::class);
+        Message::unserialize('"just a string"', $logger);
+    }
+
+    #[Test]
+    public function logs_warning_on_missing_type(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->once())
+            ->method('warning')
+            ->with('Failed to unserialize IPC message: missing type field');
+
+        $this->expectException(InvalidArgumentException::class);
+        Message::unserialize(json_encode(['data' => []]), $logger);
+    }
+
+    #[Test]
+    public function does_not_log_on_valid_unserialize(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->never())
+            ->method('warning');
+
+        $json = json_encode([
+            'type' => 'shutdown',
+            'data' => [],
+        ]);
+
+        Message::unserialize($json, $logger);
     }
 }

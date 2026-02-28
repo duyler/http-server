@@ -58,6 +58,12 @@ class LeastConnectionsBalancer implements BalancerInterface
         $this->connections = [];
     }
 
+    #[Override]
+    public function onWorkerRemoved(int $workerId): void
+    {
+        unset($this->connections[$workerId]);
+    }
+
     /**
      * @return array<int, int>
      */

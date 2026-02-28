@@ -6,12 +6,15 @@ namespace Duyler\HttpServer\WebSocket;
 
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use JsonException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 class Message
 {
     public function __construct(
         private readonly string $data,
         private readonly Opcode $opcode,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
 
     public function getData(): string
@@ -45,8 +48,21 @@ class Message
 
         try {
             $decoded = json_decode($this->data, true, 512, JSON_THROW_ON_ERROR);
-            return is_array($decoded) ? $decoded : null;
-        } catch (JsonException) {
+
+            if (!is_array($decoded)) {
+                $this->logger->debug('WebSocket JSON message is not an array', [
+                    'type' => gettype($decoded),
+                ]);
+                return null;
+            }
+
+            return $decoded;
+        } catch (JsonException $e) {
+            $this->logger->debug('Failed to parse WebSocket message as JSON', [
+                'error' => $e->getMessage(),
+                'payload_length' => strlen($this->data),
+                'opcode' => $this->opcode->name,
+            ]);
             return null;
         }
     }

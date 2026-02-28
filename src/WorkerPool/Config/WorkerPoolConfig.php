@@ -8,13 +8,6 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\WorkerPool\Util\SystemInfo;
 use InvalidArgumentException;
 
-enum BalancerType: string
-{
-    case LeastConnections = 'least_connections';
-    case RoundRobin = 'round_robin';
-    case Weighted = 'weighted';
-}
-
 readonly class WorkerPoolConfig
 {
     public int $workerCount;
@@ -25,6 +18,7 @@ readonly class WorkerPoolConfig
         public BalancerType $balancer = BalancerType::LeastConnections,
         public int $backlog = 128,
         public int $maxQueueSize = 1000,
+        public int $maxIpcMessageSize = 1048576,
         public bool $enableStickySession = false,
         public bool $enableGracefulReload = false,
         public bool $autoRestart = true,
@@ -68,6 +62,9 @@ readonly class WorkerPoolConfig
             throw new InvalidArgumentException('Restart delay must be non-negative');
         }
 
+        if ($this->maxIpcMessageSize < 1024) {
+            throw new InvalidArgumentException('Max IPC message size must be at least 1024 bytes');
+        }
         if ($this->fallbackCpuCores < 1) {
             throw new InvalidArgumentException('Fallback CPU cores must be positive');
         }
