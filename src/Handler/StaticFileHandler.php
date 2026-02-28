@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Handler;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use stdClass;
 
 class StaticFileHandler
 {
@@ -33,9 +34,13 @@ class StaticFileHandler
         'otf' => 'font/otf',
     ];
 
-    /** @var array<string, array{content: string, mtime: int, etag: string, lastAccessTime: float, size: int}> */
+    /** @var array<string, array{content: string, mtime: int, etag: string, size: int, lruNode: object}> */
     private array $cache = [];
     private int $cacheSize = 0;
+    /** @var object|null LRU list head (most recently used) */
+    private ?object $lruHead = null;
+    /** @var object|null LRU list tail (least recently used) */
+    private ?object $lruTail = null;
 
     public function __construct(
         private readonly string $publicPath,
@@ -176,10 +181,11 @@ class StaticFileHandler
             $cached = $this->cache[$filePath];
 
             if ($cached['mtime'] === $mtime && $cached['etag'] === $etag) {
-                $this->cache[$filePath]['lastAccessTime'] = microtime(true);
+                $this->moveToHead($cached['lruNode']);
                 return $cached['content'];
             }
 
+            $this->removeFromList($cached['lruNode']);
             $this->cacheSize -= $cached['size'];
             unset($this->cache[$filePath]);
         }
@@ -196,12 +202,14 @@ class StaticFileHandler
 
         $this->evictIfNeeded($filesize);
 
+        $lruNode = $this->createLruNode($filePath);
+
         $this->cache[$filePath] = [
             'content' => $content,
             'mtime' => $mtime,
             'etag' => $etag,
-            'lastAccessTime' => microtime(true),
             'size' => $filesize,
+            'lruNode' => $lruNode,
         ];
         $this->cacheSize += $filesize;
 
@@ -221,20 +229,82 @@ class StaticFileHandler
 
     private function evictLeastRecentlyUsed(): void
     {
-        $oldestPath = null;
-        $oldestTime = PHP_FLOAT_MAX;
-
-        foreach ($this->cache as $path => $entry) {
-            if ($entry['lastAccessTime'] < $oldestTime) {
-                $oldestTime = $entry['lastAccessTime'];
-                $oldestPath = $path;
-            }
+        if (null === $this->lruTail) {
+            return;
         }
 
-        if ($oldestPath !== null) {
+        /** @var string $oldestPath */
+        $oldestPath = $this->lruTail->path;
+        $this->removeFromList($this->lruTail);
+
+        if (isset($this->cache[$oldestPath])) {
             $this->cacheSize -= $this->cache[$oldestPath]['size'];
             unset($this->cache[$oldestPath]);
         }
+    }
+
+    private function createLruNode(string $path): object
+    {
+        $node = new stdClass();
+        $node->path = $path;
+        $node->prev = null;
+        $node->next = null;
+
+        if (null === $this->lruHead) {
+            $this->lruHead = $node;
+            $this->lruTail = $node;
+        } else {
+            $node->next = $this->lruHead;
+            $this->lruHead->prev = $node;
+            $this->lruHead = $node;
+        }
+
+        return $node;
+    }
+
+    private function moveToHead(object $node): void
+    {
+        if ($node === $this->lruHead) {
+            return;
+        }
+
+        $this->removeFromList($node);
+
+        $node->prev = null;
+        $node->next = $this->lruHead;
+
+        if (null !== $this->lruHead) {
+            $this->lruHead->prev = $node;
+        }
+
+        $this->lruHead = $node;
+
+        if (null === $this->lruTail) {
+            $this->lruTail = $node;
+        }
+    }
+
+    private function removeFromList(object $node): void
+    {
+        /** @var object|null $prev */
+        $prev = $node->prev;
+        /** @var object|null $next */
+        $next = $node->next;
+
+        if (null !== $prev) {
+            $prev->next = $next;
+        } else {
+            $this->lruHead = $next;
+        }
+
+        if (null !== $next) {
+            $next->prev = $prev;
+        } else {
+            $this->lruTail = $prev;
+        }
+
+        $node->prev = null;
+        $node->next = null;
     }
 
     private function getMimeType(string $filePath): string
@@ -261,5 +331,7 @@ class StaticFileHandler
     {
         $this->cache = [];
         $this->cacheSize = 0;
+        $this->lruHead = null;
+        $this->lruTail = null;
     }
 }

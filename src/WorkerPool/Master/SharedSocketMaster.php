@@ -194,7 +194,7 @@ class SharedSocketMaster extends AbstractMaster
             throw new WorkerPoolException("Failed to bind socket: $error");
         }
 
-        if (!socket_listen($socket, 128)) {
+        if (!socket_listen($socket, $this->serverConfig->socketBacklog)) {
             $this->logger->error('Failed to listen', [
                 'worker_id' => $workerId,
                 'error' => socket_strerror(socket_last_error($socket)),
@@ -211,8 +211,6 @@ class SharedSocketMaster extends AbstractMaster
             'host' => $host,
             'port' => $port,
         ]);
-
-        socket_set_nonblock($socket);
 
         return $socket;
     }
@@ -296,7 +294,7 @@ class SharedSocketMaster extends AbstractMaster
             exit(1);
         }
 
-        if (!socket_listen($socket, 128)) {
+        if (!socket_listen($socket, $this->serverConfig->socketBacklog)) {
             $this->logger->error('Failed to listen', [
                 'worker_id' => $workerId,
                 'error' => socket_strerror(socket_last_error($socket)),

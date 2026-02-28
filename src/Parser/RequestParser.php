@@ -89,12 +89,37 @@ class RequestParser
             foreach ($pairs as $pair) {
                 $parts = explode('=', trim($pair), 2);
                 if (count($parts) === 2) {
-                    $cookies[$parts[0]] = urldecode($parts[1]);
+                    $name = trim($parts[0]);
+                    $value = urldecode($parts[1]);
+
+                    if ($this->isValidCookieName($name) && $this->isValidCookieValue($value)) {
+                        $cookies[$name] = $value;
+                    }
                 }
             }
         }
 
         return $request->withCookieParams($cookies);
+    }
+
+    private function isValidCookieName(string $name): bool
+    {
+        if ($name === '') {
+            return false;
+        }
+
+        return preg_match('/^[!#$%&\'*+\-.^_`|~0-9A-Za-z]+$/', $name) === 1;
+    }
+
+    private function isValidCookieValue(string $value): bool
+    {
+        $length = strlen($value);
+
+        if ($length > 4096) {
+            return false;
+        }
+
+        return !preg_match('/[\x00-\x1F\x7F]/', $value);
     }
 
     /**

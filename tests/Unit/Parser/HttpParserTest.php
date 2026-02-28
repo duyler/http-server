@@ -276,4 +276,43 @@ class HttpParserTest extends TestCase
         $headerBlock = "content-length: 100\r\nCONTENT-LENGTH: 200\r\n";
         $this->parser->parseHeaders($headerBlock);
     }
+
+    #[Test]
+    public function default_header_cache_limit_is_100(): void
+    {
+        HttpParser::clearHeaderCache();
+        $parser = new HttpParser();
+
+        $headerBlock = "host: example.com\r\n";
+        $headers = $parser->parseHeaders($headerBlock);
+
+        $this->assertArrayHasKey('Host', $headers);
+    }
+
+    #[Test]
+    public function custom_header_cache_limit_works(): void
+    {
+        HttpParser::clearHeaderCache();
+        $parser = new HttpParser(headerCacheLimit: 5);
+
+        for ($i = 0; $i < 10; $i++) {
+            $headerBlock = "x-custom-$i: value$i\r\n";
+            $result = $parser->parseHeaders($headerBlock);
+            $this->assertArrayHasKey("X-Custom-$i", $result);
+        }
+    }
+
+    #[Test]
+    public function header_cache_respects_limit(): void
+    {
+        HttpParser::clearHeaderCache();
+        $parser = new HttpParser(headerCacheLimit: 2);
+
+        $parser->parseHeaders("x-header-a: 1\r\n");
+        $parser->parseHeaders("x-header-b: 2\r\n");
+        $parser->parseHeaders("x-header-c: 3\r\n");
+        $headers = $parser->parseHeaders("x-header-a: 4\r\n");
+
+        $this->assertArrayHasKey('X-Header-A', $headers);
+    }
 }

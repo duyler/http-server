@@ -9,6 +9,7 @@ use Duyler\HttpServer\WorkerPool\IPC\FdPasser;
 use Exception;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 use Socket;
 
 class FdPasserTest extends TestCase
@@ -134,5 +135,14 @@ class FdPasserTest extends TestCase
         socket_close($testSocket);
         socket_close($socket1);
         socket_close($socket2);
+    }
+
+    #[Test]
+    public function accepts_logger_via_constructor(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $passer = new FdPasser($logger);
+
+        $this->assertIsBool($passer->isSupported());
     }
 }

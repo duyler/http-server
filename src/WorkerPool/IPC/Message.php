@@ -6,6 +6,8 @@ namespace Duyler\HttpServer\WorkerPool\IPC;
 
 use InvalidArgumentException;
 use JsonException;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 readonly class Message
 {
@@ -31,22 +33,31 @@ readonly class Message
         ], JSON_THROW_ON_ERROR);
     }
 
-    public static function unserialize(string $data): self
+    public static function unserialize(string $data, ?LoggerInterface $logger = null): self
     {
+        $logger ??= new NullLogger();
+
         try {
             $decoded = json_decode($data, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
+            $logger->warning('Failed to unserialize IPC message: JSON parse error', [
+                'error' => $e->getMessage(),
+                'data_length' => strlen($data),
+            ]);
             throw new InvalidArgumentException('Invalid message format: ' . $e->getMessage(), 0, $e);
         }
 
         if (!is_array($decoded)) {
+            $logger->warning('Failed to unserialize IPC message: decoded data is not an array', [
+                'type' => gettype($decoded),
+            ]);
             throw new InvalidArgumentException('Invalid message format');
         }
 
         if (!isset($decoded['type'])) {
+            $logger->warning('Failed to unserialize IPC message: missing type field');
             throw new InvalidArgumentException('Message type is required');
         }
-
         assert(is_int($decoded['type']) || is_string($decoded['type']));
         assert(!isset($decoded['data']) || is_array($decoded['data']));
         assert(!isset($decoded['timestamp']) || is_float($decoded['timestamp']) || is_int($decoded['timestamp']) || is_null($decoded['timestamp']));

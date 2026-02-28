@@ -181,7 +181,8 @@ class CentralizedMaster extends AbstractMaster
             return;
         }
 
-        for ($i = 0; $i < 10; $i++) {
+        $maxAccepts = $this->serverConfig?->maxAcceptsPerCycle ?? 10;
+        for ($i = 0; $i < $maxAccepts; $i++) {
             $clientSocket = $this->socketManager->accept();
 
             if ($clientSocket === null) {
@@ -221,6 +222,31 @@ class CentralizedMaster extends AbstractMaster
             );
         }
     }
+
+    #[Override]
+    protected function checkWorkers(): void
+    {
+        foreach ($this->workers as $workerId => $worker) {
+            $result = pcntl_waitpid($worker->pid, $status, WNOHANG);
+
+            if ($result === $worker->pid) {
+                $this->logger->warning('Worker died', [
+                    'worker_id' => $workerId,
+                    'pid' => $worker->pid,
+                ]);
+
+                $this->balancer->onWorkerRemoved($workerId);
+                unset($this->workers[$workerId], $this->workerSockets[$workerId]);
+
+                if ($this->config->autoRestart && !$this->shouldStop) {
+                    $this->logger->info('Respawning worker', ['worker_id' => $workerId]);
+                    sleep($this->config->restartDelay);
+                    $this->spawnWorker($workerId);
+                }
+            }
+        }
+    }
+
 
     #[Override]
     protected function spawnWorker(int $workerId): void

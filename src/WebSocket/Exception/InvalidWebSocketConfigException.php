@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WebSocket\Exception;
 
-use InvalidArgumentException;
+use Duyler\HttpServer\Exception\InvalidConfigException;
 
-class InvalidWebSocketConfigException extends InvalidArgumentException {}
+class InvalidWebSocketConfigException extends InvalidConfigException
+{
+    protected string $errorCode = 'INVALID_WEBSOCKET_CONFIG';
+}

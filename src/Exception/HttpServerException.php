@@ -5,5 +5,28 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Exception;
 
 use Exception;
+use Throwable;
 
-class HttpServerException extends Exception {}
+abstract class HttpServerException extends Exception
+{
+    protected string $errorCode = 'UNKNOWN_ERROR';
+
+    public function __construct(
+        string $message = '',
+        int $code = 0,
+        ?Throwable $previous = null,
+        private readonly array $context = [],
+    ) {
+        parent::__construct($message, $code, $previous);
+    }
+
+    public function getErrorCode(): string
+    {
+        return $this->errorCode;
+    }
+
+    public function getContext(): array
+    {
+        return $this->context;
+    }
+}

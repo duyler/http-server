@@ -25,6 +25,11 @@ interface BalancerInterface
     public function onConnectionClosed(int $workerId): void;
 
     /**
+     * Notify balancer that worker was removed
+     */
+    public function onWorkerRemoved(int $workerId): void;
+
+    /**
      * Reset balancer state
      */
     public function reset(): void;

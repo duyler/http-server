@@ -70,4 +70,12 @@ interface ServerInterface
      * on each hasRequest() call.
      */
     public function registerFiber(Fiber $fiber): void;
+
+    /**
+     * Unregister a previously registered Fiber
+     *
+     * Removes the Fiber from the internal registry. Returns true if the
+     * Fiber was found and removed, false otherwise.
+     */
+    public function unregisterFiber(Fiber $fiber): bool;
 }

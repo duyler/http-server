@@ -66,10 +66,14 @@ class SocketManager
             );
         }
 
-        $backlog = 128;
-        $this->logger->debug('Starting to listen', ['backlog' => $backlog]);
-        if (!socket_listen($this->masterSocket, $backlog)) {
-            throw new WorkerPoolException('Failed to listen: ' . socket_strerror(socket_last_error($this->masterSocket)));
+        $this->logger->debug('Starting to listen', ['backlog' => $this->config->socketBacklog]);
+        if (!socket_listen($this->masterSocket, $this->config->socketBacklog)) {
+            throw new WorkerPoolException(
+                sprintf(
+                    'Failed to listen on socket: %s',
+                    socket_strerror(socket_last_error($this->masterSocket)),
+                ),
+            );
         }
 
         $this->logger->debug('Setting non-blocking mode');

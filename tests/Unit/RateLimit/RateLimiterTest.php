@@ -203,4 +203,87 @@ class RateLimiterTest extends TestCase
 
         $this->assertSame(2, $limiter->getActiveIdentifiersCount());
     }
+
+    #[Test]
+    public function auto_cleanup_triggers_after_interval(): void
+    {
+        $limiter = new RateLimiter(100, 1, 10);
+
+        for ($i = 0; $i < 5; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(5, $limiter->getActiveIdentifiersCount());
+
+        sleep(2);
+
+        for ($i = 5; $i < 15; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(10, $limiter->getActiveIdentifiersCount());
+    }
+
+    #[Test]
+    public function auto_cleanup_with_custom_interval(): void
+    {
+        $limiter = new RateLimiter(100, 1, 5);
+
+        for ($i = 0; $i < 5; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(5, $limiter->getActiveIdentifiersCount());
+
+        sleep(2);
+
+        for ($i = 5; $i < 10; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(5, $limiter->getActiveIdentifiersCount());
+    }
+
+    #[Test]
+    public function memory_usage_does_not_grow_infinitely(): void
+    {
+        $limiter = new RateLimiter(100, 1, 50);
+
+        for ($i = 0; $i < 100; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(100, $limiter->getActiveIdentifiersCount());
+
+        sleep(2);
+
+        for ($i = 100; $i < 150; $i++) {
+            $limiter->isAllowed('client' . $i);
+        }
+
+        $this->assertSame(50, $limiter->getActiveIdentifiersCount());
+    }
+
+    #[Test]
+    public function get_config_includes_cleanup_interval(): void
+    {
+        $limiter = new RateLimiter(100, 30, 50);
+
+        $config = $limiter->getConfig();
+
+        $this->assertSame(100, $config['max_requests']);
+        $this->assertSame(30, $config['window_seconds']);
+        $this->assertSame(50, $config['cleanup_interval']);
+    }
+
+    #[Test]
+    public function default_cleanup_interval_is_100(): void
+    {
+        $limiter = new RateLimiter(100, 60);
+
+        $config = $limiter->getConfig();
+
+        $this->assertSame(100, $config['cleanup_interval']);
+    }
+
 }

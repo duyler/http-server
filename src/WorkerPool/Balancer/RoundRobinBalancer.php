@@ -47,6 +47,16 @@ class RoundRobinBalancer implements BalancerInterface
         $this->workerIds = [];
     }
 
+    #[Override]
+    public function onWorkerRemoved(int $workerId): void
+    {
+        $index = array_search($workerId, $this->workerIds, true);
+
+        if ($index !== false && $index < $this->currentIndex) {
+            $this->currentIndex--;
+        }
+    }
+
     public function getCurrentIndex(): int
     {
         return $this->currentIndex;

@@ -163,7 +163,10 @@ class FdPasser
         try {
             $metadata = json_decode($metadataJson, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $e) {
-            $this->logger->error('Failed to decode metadata', ['error' => $e->getMessage()]);
+            $this->logger->error('Failed to decode IPC metadata JSON', [
+                'error' => $e->getMessage(),
+                'json_length' => strlen($metadataJson),
+            ]);
             $metadata = [];
         }
 

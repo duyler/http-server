@@ -236,4 +236,59 @@ class LeastConnectionsBalancerTest extends TestCase
 
         $this->assertSame(3, $result2, 'Should now select worker 3');
     }
+
+    #[Test]
+    public function removes_worker_from_connections(): void
+    {
+        $this->balancer->selectWorker([1 => 10, 2 => 5, 3 => 7]);
+
+        $this->balancer->onWorkerRemoved(2);
+
+        $connections = $this->balancer->getConnections();
+
+        $this->assertArrayNotHasKey(2, $connections);
+        $this->assertSame(10, $connections[1]);
+        $this->assertSame(7, $connections[3]);
+    }
+
+    #[Test]
+    public function handles_removal_of_non_existent_worker(): void
+    {
+        $this->balancer->selectWorker([1 => 5, 2 => 3]);
+
+        $this->balancer->onWorkerRemoved(999);
+
+        $connections = $this->balancer->getConnections();
+
+        $this->assertCount(2, $connections);
+        $this->assertSame(5, $connections[1]);
+        $this->assertSame(3, $connections[2]);
+    }
+
+    #[Test]
+    public function selects_correctly_after_worker_removal(): void
+    {
+        $this->balancer->selectWorker([1 => 10, 2 => 5, 3 => 7]);
+
+        $this->balancer->onWorkerRemoved(2);
+
+        $connections = $this->balancer->getConnections();
+        $result = $this->balancer->selectWorker($connections);
+
+        $this->assertSame(3, $result, 'Should select worker 3 with least connections after worker 2 removal');
+    }
+
+    #[Test]
+    public function handles_removal_of_all_workers(): void
+    {
+        $this->balancer->selectWorker([1 => 5, 2 => 3]);
+
+        $this->balancer->onWorkerRemoved(1);
+        $this->balancer->onWorkerRemoved(2);
+
+        $connections = $this->balancer->getConnections();
+
+        $this->assertEmpty($connections);
+    }
+
 }

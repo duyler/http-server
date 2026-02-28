@@ -205,10 +205,12 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\Connection;
 use Duyler\HttpServer\WebSocket\Message;
 
+// Secure by default - origin validation is enabled
 $wsConfig = new WebSocketConfig(
     maxMessageSize: 1048576,
     pingInterval: 30,
-    validateOrigin: false,
+    // validateOrigin defaults to true for security
+    // allowedOrigins defaults to ['*'] - customize for your domains
 );
 
 $ws = new WebSocketServer($wsConfig);
@@ -245,6 +247,19 @@ while (true) {
     
     usleep(1000);
 }
+```
+
+#### Public WebSocket Endpoints
+
+For public WebSocket endpoints that accept connections from any origin:
+
+```php
+// WARNING: This configuration is insecure and exposes your WebSocket
+// to CSRF attacks. Only use for truly public endpoints.
+$wsConfig = new WebSocketConfig(
+    validateOrigin: false, // Explicit opt-out of origin validation
+    allowedOrigins: ['*'], // Explicit wildcard
+);
 ```
 
 See `examples/websocket-chat.php` for a complete chat application example.

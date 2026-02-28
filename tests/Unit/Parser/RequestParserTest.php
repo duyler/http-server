@@ -158,4 +158,207 @@ class RequestParserTest extends TestCase
         $this->assertSame('GET', $request->getMethod());
         $this->assertSame('/', $request->getUri()->getPath());
     }
+
+    #[Test]
+    public function parses_cookies_with_urlencoded_value(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: token=hello%40world\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('hello@world', $cookies['token']);
+    }
+
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_separator(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session;id=abc123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session;id', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_parentheses(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: (session)=abc123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('(session)', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_comma(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session,id=abc123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session,id', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_at(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session@id=abc123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session@id', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_with_empty_name(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: =value\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('', $cookies);
+    }
+
+    #[Test]
+    public function accepts_cookie_name_with_special_rfc_chars(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session-id_test.user=value123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('value123', $cookies['session-id_test.user']);
+    }
+
+    #[Test]
+    public function rejects_cookie_value_with_null_byte(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%00def\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_value_with_carriage_return(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%0Ddef\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_value_with_newline(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%0Adef\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_value_with_tab(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc\tdef\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session', $cookies);
+    }
+
+    #[Test]
+    public function rejects_cookie_value_exceeding_max_length(): void
+    {
+        $longValue = str_repeat('a', 4097);
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session={$longValue}\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertArrayNotHasKey('session', $cookies);
+    }
+
+    #[Test]
+    public function accepts_cookie_value_at_max_length(): void
+    {
+        $maxLengthValue = str_repeat('a', 4096);
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session={$maxLengthValue}\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame($maxLengthValue, $cookies['session']);
+    }
+
+    #[Test]
+    public function parses_mix_of_valid_and_invalid_cookies(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: valid1=abc; invalid=%00bad; valid2=xyz; valid3=123\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('abc', $cookies['valid1']);
+        $this->assertArrayNotHasKey('invalid', $cookies);
+        $this->assertSame('xyz', $cookies['valid2']);
+        $this->assertSame('123', $cookies['valid3']);
+    }
+
+    #[Test]
+    public function accepts_cookie_value_with_space(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=hello world\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('hello world', $cookies['session']);
+    }
+
+    #[Test]
+    public function accepts_cookie_value_with_special_chars(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: token=abc!def#xyz\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('abc!def#xyz', $cookies['token']);
+    }
+
+    #[Test]
+    public function handles_empty_cookie_header(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: \r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame([], $cookies);
+    }
+
+    #[Test]
+    public function accepts_cookie_with_empty_value(): void
+    {
+        $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=\r\n\r\n";
+
+        $request = $this->parser->parse($rawRequest, '127.0.0.1', 8080);
+
+        $cookies = $request->getCookieParams();
+        $this->assertSame('', $cookies['session']);
+    }
 }

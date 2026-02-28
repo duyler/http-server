@@ -114,18 +114,90 @@ class FileDownloadHandler
 
     public function parseRangeHeader(string $rangeHeader, int $fileSize): ?array
     {
-        if (!preg_match('/^bytes=(\d+)-(\d*)$/', $rangeHeader, $matches)) {
+        if (!str_starts_with($rangeHeader, 'bytes=')) {
             return null;
         }
 
-        $start = (int) $matches[1];
-        $end = $matches[2] === '' ? $fileSize - 1 : (int) $matches[2];
+        $rangeSpec = substr($rangeHeader, 6);
+        $ranges = explode(',', $rangeSpec);
 
-        if ($start < 0 || $start >= $fileSize || $end < $start || $end >= $fileSize) {
+        if (count($ranges) > 10) {
             return null;
         }
 
-        return ['start' => $start, 'end' => $end];
+        $result = [];
+
+        foreach ($ranges as $range) {
+            $parts = explode('-', trim($range), 2);
+
+            if (count($parts) !== 2) {
+                return null;
+            }
+
+            $startStr = trim($parts[0]);
+            $endStr = trim($parts[1]);
+
+            $startEmpty = $startStr === '';
+            $endEmpty = $endStr === '';
+
+            if ($startEmpty && $endEmpty) {
+                return null;
+            }
+
+            $start = null;
+            $end = null;
+
+            if (!$startEmpty) {
+                $start = $this->parseRangeValue($startStr);
+                if ($start === null) {
+                    return null;
+                }
+            }
+
+            if (!$endEmpty) {
+                $end = $this->parseRangeValue($endStr);
+                if ($end === null) {
+                    return null;
+                }
+            }
+
+            if ($startEmpty) {
+                $start = max(0, $fileSize - ($end ?? 0));
+                $end = $fileSize - 1;
+            } elseif ($endEmpty) {
+                $end = $fileSize - 1;
+            }
+
+            assert(null !== $start && null !== $end);
+
+            if ($start > $end || $start >= $fileSize) {
+                continue;
+            }
+
+            $end = min($end, $fileSize - 1);
+            $result[] = ['start' => $start, 'end' => $end];
+        }
+
+        return $result === [] ? null : $result;
+    }
+
+    private function parseRangeValue(string $value): ?int
+    {
+        if (!preg_match('/^\d+$/', $value)) {
+            return null;
+        }
+
+        if (strlen($value) > 19) {
+            return null;
+        }
+
+        $intVal = (int) $value;
+
+        if ($intVal < 0 || (string) $intVal !== $value) {
+            return null;
+        }
+
+        return $intVal;
     }
 
     private function guessMimeType(string $filePath): string

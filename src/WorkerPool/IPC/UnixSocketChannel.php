@@ -12,7 +12,11 @@ class UnixSocketChannel
     private ?Socket $socket = null;
     private bool $isConnected = false;
 
-    public function __construct(private readonly string $socketPath, private readonly bool $isServer = false) {}
+    public function __construct(
+        private readonly string $socketPath,
+        private readonly bool $isServer = false,
+        private readonly int $maxIpcMessageSize = 1048576,
+    ) {}
 
     public function connect(): bool
     {
@@ -102,7 +106,7 @@ class UnixSocketChannel
         $length = $unpacked[1];
         assert(is_int($length));
 
-        if ($length === 0 || $length > 1048576) {
+        if ($length === 0 || $length > $this->maxIpcMessageSize) {
             throw new IPCException('Invalid message length: ' . $length);
         }
 

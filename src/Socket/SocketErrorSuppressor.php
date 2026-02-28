@@ -15,9 +15,7 @@ trait SocketErrorSuppressor
      */
     private function suppressSocketWarnings(Closure $callback): mixed
     {
-        $previousHandler = set_error_handler(static function (int $errno, string $errstr): bool {
-            return true;
-        }, E_WARNING);
+        $previousHandler = set_error_handler(static fn(int $errno, string $errstr): bool => true, E_WARNING);
 
         try {
             return $callback();

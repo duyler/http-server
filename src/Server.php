@@ -8,7 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
-use Duyler\HttpServer\Exception\HttpServerException;
+use Duyler\HttpServer\Exception\InvalidConfigException;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Duyler\HttpServer\Metrics\ServerMetrics;
 use Duyler\HttpServer\Parser\HttpParser;
@@ -78,7 +78,7 @@ class Server implements ServerInterface
         private readonly ServerConfig $config,
         private LoggerInterface $logger = new NullLogger(),
     ) {
-        $this->httpParser = new HttpParser();
+        $this->httpParser = new HttpParser($this->config->headerCacheLimit);
         $psr17Factory = new Psr17Factory();
         $this->tempFileManager = new TempFileManager();
         $this->requestParser = new RequestParser($this->httpParser, $psr17Factory, $this->tempFileManager);
@@ -135,7 +135,7 @@ class Server implements ServerInterface
         try {
             $this->socket = $this->createSocket();
             $this->socket->bind($this->config->host, $this->config->port);
-            $this->socket->listen();
+            $this->socket->listen($this->config->socketBacklog);
             $this->socket->setBlocking(false);
 
             $this->isRunning = true;
@@ -277,8 +277,7 @@ class Server implements ServerInterface
         }
 
         $this->isRunning = false;
-
-        $this->logger->info('Server state reset complete');
+        $this->fibers = [];
     }
 
     #[Override]
@@ -309,7 +308,12 @@ class Server implements ServerInterface
             // Resume all registered Fibers before processing
             // This is used in Event-Driven Worker Pool mode to accept
             // connections from Master in background
-            foreach ($this->fibers as $fiber) {
+            foreach ($this->fibers as $key => $fiber) {
+                if ($fiber->isTerminated()) {
+                    unset($this->fibers[$key]);
+                    continue;
+                }
+
                 if ($fiber->isSuspended()) {
                     try {
                         $fiber->resume();
@@ -321,6 +325,9 @@ class Server implements ServerInterface
                     }
                 }
             }
+
+            // Re-index fibers array after cleanup
+            $this->fibers = array_values($this->fibers);
 
             if (!$this->isRunning) {
                 $this->logger->warning('hasRequest() called but server is not running');
@@ -463,7 +470,7 @@ class Server implements ServerInterface
             $key = $this->config->sslKey;
 
             if ($cert === null || $key === null) {
-                throw new HttpServerException('SSL enabled but certificate or key not provided');
+                throw new InvalidConfigException('SSL enabled but certificate or key not provided');
             }
 
             return new SslSocket(
@@ -825,7 +832,14 @@ class Server implements ServerInterface
             return;
         }
 
+
         $config = $wsServer->getConfig();
+
+        if (Handshake::isInsecureConfig($config)) {
+            $this->logger->warning('WebSocket insecure configuration detected: validateOrigin is disabled with wildcard allowedOrigins', [
+                'path' => $path,
+            ]);
+        }
         if (!Handshake::validateOrigin($request, $config)) {
             $this->logger->warning('WebSocket origin validation failed', [
                 'origin' => $request->getHeaderLine('Origin'),
@@ -988,7 +1002,7 @@ class Server implements ServerInterface
     public function addExternalConnection(Socket $clientSocket, array $metadata): void
     {
         if (!isset($metadata['worker_id'])) {
-            throw new HttpServerException('worker_id is required in metadata for addExternalConnection()');
+            throw new InvalidConfigException('worker_id is required in metadata for addExternalConnection()');
         }
 
         $workerContext = ['worker_id' => $metadata['worker_id']];
@@ -1079,6 +1093,26 @@ class Server implements ServerInterface
             'total_fibers' => count($this->fibers),
             'worker_id' => $this->workerId,
         ]);
+    }
+
+    #[Override]
+    public function unregisterFiber(Fiber $fiber): bool
+    {
+        $key = array_search($fiber, $this->fibers, true);
+
+        if (false !== $key) {
+            unset($this->fibers[$key]);
+            $this->fibers = array_values($this->fibers);
+
+            $this->logger->debug('Fiber unregistered', [
+                'total_fibers' => count($this->fibers),
+                'worker_id' => $this->workerId,
+            ]);
+
+            return true;
+        }
+
+        return false;
     }
 
     private function getSocketId(SocketResourceInterface $socket): int

@@ -36,6 +36,13 @@ class HttpParser
     /** @var array<string, string> */
     private static array $headerNameCache = [];
 
+    private static int $headerCacheLimit = 100;
+
+    public function __construct(int $headerCacheLimit = 100)
+    {
+        self::$headerCacheLimit = $headerCacheLimit;
+    }
+
     /**
      * @return array{method: string, uri: string, version: string}
      */
@@ -225,7 +232,7 @@ class HttpParser
         $normalized = str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower($name))));
 
         // Limit cache size to prevent memory leaks
-        if (count(self::$headerNameCache) < 100) {
+        if (count(self::$headerNameCache) < self::$headerCacheLimit) {
             self::$headerNameCache[$name] = $normalized;
         }
 

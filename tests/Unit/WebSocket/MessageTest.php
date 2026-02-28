@@ -8,6 +8,7 @@ use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use Duyler\HttpServer\WebSocket\Message;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Psr\Log\LoggerInterface;
 
 class MessageTest extends TestCase
 {
@@ -120,5 +121,66 @@ class MessageTest extends TestCase
 
         $this->assertIsArray($parsed);
         $this->assertSame('nested value', $parsed['data']['nested']['deeply']);
+    }
+
+    #[Test]
+    public function logs_debug_on_invalid_json(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->once())
+            ->method('debug')
+            ->with(
+                'Failed to parse WebSocket message as JSON',
+                $this->callback(fn(array $context): bool => isset($context['error'])
+                    && isset($context['payload_length'])
+                    && isset($context['opcode'])
+                    && $context['opcode'] === 'TEXT'
+                    && $context['payload_length'] === 14),
+            );
+
+        $message = new Message('not valid json', Opcode::TEXT, $logger);
+        $message->getJson();
+    }
+
+    #[Test]
+    public function logs_debug_on_non_array_json(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->once())
+            ->method('debug')
+            ->with(
+                'WebSocket JSON message is not an array',
+                $this->callback(fn(array $context): bool => isset($context['type']) && $context['type'] === 'string'),
+            );
+
+        $message = new Message('"just a string"', Opcode::TEXT, $logger);
+        $message->getJson();
+    }
+
+    #[Test]
+    public function does_not_log_on_valid_json(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->never())
+            ->method('debug');
+
+        $jsonData = json_encode(['type' => 'test']);
+        $message = new Message($jsonData, Opcode::TEXT, $logger);
+        $message->getJson();
+    }
+
+    #[Test]
+    public function does_not_log_on_binary_message(): void
+    {
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger
+            ->expects($this->never())
+            ->method('debug');
+
+        $message = new Message('not valid json', Opcode::BINARY, $logger);
+        $message->getJson();
     }
 }

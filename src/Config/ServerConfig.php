@@ -30,6 +30,8 @@ readonly class ServerConfig
         public int $rateLimitRequests = 100,
         public int $rateLimitWindow = 60,
         public int $maxAcceptsPerCycle = 10,
+        public int $socketBacklog = 511,
+        public int $headerCacheLimit = 100,
         public bool $debugMode = false,
     ) {
         $this->validate();
@@ -110,5 +112,14 @@ readonly class ServerConfig
         if ($this->maxAcceptsPerCycle < 1) {
             throw new InvalidConfigException('Max accepts per cycle must be positive');
         }
+
+        if ($this->socketBacklog < 1) {
+            throw new InvalidConfigException('Socket backlog must be positive');
+        }
+
+        if ($this->headerCacheLimit < 1) {
+            throw new InvalidConfigException('Header cache limit must be positive');
+        }
     }
+
 }
