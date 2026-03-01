@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WebSocket;
 
-use Duyler\HttpServer\Connection\Connection as TcpConnection;
+use Duyler\HttpServer\Connection\ConnectionInterface as TcpConnection;
 use Duyler\HttpServer\WebSocket\Enum\CloseCode;
 use Duyler\HttpServer\WebSocket\Enum\ConnectionState;
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use Psr\Http\Message\ServerRequestInterface;
 use Throwable;
 
-class Connection
+final class Connection
 {
     private readonly string $id;
     private ConnectionState $state = ConnectionState::CONNECTING;
@@ -69,13 +69,13 @@ class Connection
      */
     public function send(string|array $data, bool $binary = false): bool
     {
-        if (!$this->isOpen()) {
+        if (false === $this->isOpen()) {
             return false;
         }
 
         if (is_array($data)) {
             $encoded = json_encode($data);
-            if ($encoded === false) {
+            if (false === $encoded) {
                 return false;
             }
             $data = $encoded;
@@ -138,7 +138,7 @@ class Connection
 
     private function handleDataFrame(Frame $frame): ?Message
     {
-        if (!$frame->fin) {
+        if (false === $frame->fin) {
             $this->fragmentOpcode = $frame->opcode;
             $this->fragmentBuffer[] = $frame->payload;
             return null;
@@ -151,7 +151,7 @@ class Connection
     {
         $this->fragmentBuffer[] = $frame->payload;
 
-        if ($frame->fin && $this->fragmentOpcode !== null) {
+        if ($frame->fin && null !== $this->fragmentOpcode) {
             $completePayload = implode('', $this->fragmentBuffer);
             $message = new Message($completePayload, $this->fragmentOpcode);
 
@@ -175,9 +175,10 @@ class Connection
         $code = CloseCode::NORMAL->value;
         $reason = '';
 
-        if (strlen($frame->payload) >= 2) {
+        if (2 <= strlen($frame->payload)) {
             $unpacked = unpack('n', substr($frame->payload, 0, 2));
             if ($unpacked !== false) {
+                /** @var int $code */
                 $code = $unpacked[1];
                 $reason = substr($frame->payload, 2);
             }
@@ -245,7 +246,7 @@ class Connection
     public function leaveRoom(string $room): void
     {
         $key = array_search($room, $this->rooms, true);
-        if ($key !== false) {
+        if (false !== $key) {
             unset($this->rooms[$key]);
             $this->rooms = array_values($this->rooms);
             $this->server->removeConnectionFromRoom($this, $room);

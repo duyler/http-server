@@ -4,24 +4,25 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\WebSocket;
 
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
-class Handshake
+final class Handshake
 {
     private const string GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 
     public static function isWebSocketRequest(ServerRequestInterface $request): bool
     {
-        if (!$request->hasHeader('Upgrade')) {
+        if (false === $request->hasHeader('Upgrade')) {
             return false;
         }
 
         $upgrade = strtolower($request->getHeaderLine('Upgrade'));
-        if ($upgrade !== 'websocket') {
+        if ('websocket' !== $upgrade) {
             return false;
         }
 
-        if (!$request->hasHeader('Connection')) {
+        if (false === $request->hasHeader('Connection')) {
             return false;
         }
 
@@ -30,16 +31,16 @@ class Handshake
             return false;
         }
 
-        if (!$request->hasHeader('Sec-WebSocket-Key')) {
+        if (false === $request->hasHeader('Sec-WebSocket-Key')) {
             return false;
         }
 
-        if (!$request->hasHeader('Sec-WebSocket-Version')) {
+        if (false === $request->hasHeader('Sec-WebSocket-Version')) {
             return false;
         }
 
         $version = $request->getHeaderLine('Sec-WebSocket-Version');
-        if ($version !== '13') {
+        if ('13' !== $version) {
             return false;
         }
 
@@ -79,25 +80,31 @@ class Handshake
         return $response;
     }
 
-    public static function validateOrigin(ServerRequestInterface $request, WebSocketConfig $config): bool
-    {
-        if (!$config->validateOrigin) {
+    public static function validateOrigin(
+        ServerRequestInterface $request,
+        WebSocketConfig $config,
+        ?AuditLoggerInterface $auditLogger = null,
+    ): bool {
+        $origin = $request->getHeaderLine('Origin');
+        $clientIp = self::getClientIp($request);
+
+        if (false === $config->validateOrigin) {
             return true;
         }
 
-        if (in_array('*', $config->allowedOrigins, true)) {
-            return true;
-        }
-
-        if (!$request->hasHeader('Origin')) {
+        if (false === $request->hasHeader('Origin')) {
+            $auditLogger?->logInvalidOrigin($clientIp, $origin);
             return false;
         }
 
-        $origin = $request->getHeaderLine('Origin');
+        if (in_array($origin, $config->allowedOrigins, true)) {
+            $auditLogger?->logWebSocketConnection($clientIp, $origin, true);
+            return true;
+        }
 
-        return in_array($origin, $config->allowedOrigins, true);
+        $auditLogger?->logWebSocketConnection($clientIp, $origin, false);
+        return false;
     }
-
 
     public static function isInsecureConfig(WebSocketConfig $config): bool
     {
@@ -105,7 +112,41 @@ class Handshake
             return false;
         }
 
-        return in_array('*', $config->allowedOrigins, true);
+        if (in_array('*', $config->allowedOrigins, true)) {
+            return true;
+        }
+
+        if (0 === count($config->allowedOrigins)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public static function getClientIp(ServerRequestInterface $request): string
+    {
+        $serverParams = $request->getServerParams();
+
+        if (isset($serverParams['HTTP_X_FORWARDED_FOR']) && is_string($serverParams['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $serverParams['HTTP_X_FORWARDED_FOR']);
+            $ip = trim($ips[0]);
+            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        if (isset($serverParams['HTTP_X_REAL_IP']) && is_string($serverParams['HTTP_X_REAL_IP'])) {
+            $ip = $serverParams['HTTP_X_REAL_IP'];
+            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        if (isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR'])) {
+            return $serverParams['REMOTE_ADDR'];
+        }
+
+        return 'unknown';
     }
 
     /**

@@ -6,13 +6,24 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
-use PHPUnit\Framework\Attributes\Test;
+use Override;
 use PHPUnit\Framework\TestCase;
 
 class AcceptLimitIntegrationTest extends TestCase
 {
-    #[Test]
-    public function server_respects_max_accepts_per_cycle_limit(): void
+    private ?Server $server = null;
+
+    #[Override]
+    protected function tearDown(): void
+    {
+        if (null !== $this->server) {
+            $this->server->reset();
+            $this->server = null;
+        }
+        parent::tearDown();
+    }
+
+    public function testServerRespectsMaxAcceptsPerCycleLimit(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -21,14 +32,13 @@ class AcceptLimitIntegrationTest extends TestCase
             debugMode: false,
         );
 
-        $server = new Server($config);
+        $this->server = new Server($config);
 
         $this->assertSame(5, $config->maxAcceptsPerCycle);
-        $this->assertInstanceOf(Server::class, $server);
+        $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    #[Test]
-    public function server_with_low_accept_limit_still_works(): void
+    public function testServerWithLowAcceptLimitStillWorks(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -37,14 +47,13 @@ class AcceptLimitIntegrationTest extends TestCase
             debugMode: false,
         );
 
-        $server = new Server($config);
+        $this->server = new Server($config);
 
         $this->assertSame(1, $config->maxAcceptsPerCycle);
-        $this->assertInstanceOf(Server::class, $server);
+        $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    #[Test]
-    public function server_with_high_accept_limit_works(): void
+    public function testServerWithHighAcceptLimitWorks(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -53,23 +62,22 @@ class AcceptLimitIntegrationTest extends TestCase
             debugMode: false,
         );
 
-        $server = new Server($config);
+        $this->server = new Server($config);
 
         $this->assertSame(100, $config->maxAcceptsPerCycle);
-        $this->assertInstanceOf(Server::class, $server);
+        $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    #[Test]
-    public function server_with_default_accept_limit(): void
+    public function testServerWithDefaultAcceptLimit(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 8084,
         );
 
-        $server = new Server($config);
+        $this->server = new Server($config);
 
         $this->assertSame(10, $config->maxAcceptsPerCycle);
-        $this->assertInstanceOf(Server::class, $server);
+        $this->assertInstanceOf(Server::class, $this->server);
     }
 }

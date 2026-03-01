@@ -9,12 +9,12 @@ use JsonException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 
-class Message
+final readonly class Message
 {
     public function __construct(
-        private readonly string $data,
-        private readonly Opcode $opcode,
-        private readonly LoggerInterface $logger = new NullLogger(),
+        private string $data,
+        private Opcode $opcode,
+        private LoggerInterface $logger = new NullLogger(),
     ) {}
 
     public function getData(): string
@@ -42,14 +42,14 @@ class Message
      */
     public function getJson(): ?array
     {
-        if (!$this->isText()) {
+        if (false === $this->isText()) {
             return null;
         }
 
         try {
             $decoded = json_decode($this->data, true, 512, JSON_THROW_ON_ERROR);
 
-            if (!is_array($decoded)) {
+            if (false === is_array($decoded)) {
                 $this->logger->debug('WebSocket JSON message is not an array', [
                     'type' => gettype($decoded),
                 ]);

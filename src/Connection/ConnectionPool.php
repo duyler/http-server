@@ -7,15 +7,15 @@ namespace Duyler\HttpServer\Connection;
 use Duyler\HttpServer\Socket\SocketResourceInterface;
 use SplObjectStorage;
 
-class ConnectionPool
+final class ConnectionPool
 {
-    /** @var SplObjectStorage<Connection, int> */
+    /** @var SplObjectStorage<ConnectionInterface, int> */
     private SplObjectStorage $connections;
 
-    /** @var array<int, Connection> */
+    /** @var array<int, ConnectionInterface> */
     private array $connectionsByResourceId = [];
 
-    /** @var array<string, Connection> */
+    /** @var array<string, ConnectionInterface> */
     private array $connectionsByAddress = [];
 
     private bool $isModifying = false;
@@ -26,7 +26,7 @@ class ConnectionPool
         $this->connections = new SplObjectStorage();
     }
 
-    public function add(Connection $connection): void
+    public function add(ConnectionInterface $connection): void
     {
         if ($this->isModifying) {
             $connection->close();
@@ -36,7 +36,7 @@ class ConnectionPool
         $this->isModifying = true;
 
         try {
-            if ($this->connections->count() >= $this->maxConnections) {
+            if ($this->maxConnections <= $this->connections->count()) {
                 $connection->close();
                 return;
             }
@@ -47,7 +47,7 @@ class ConnectionPool
             $this->connectionsByResourceId[$resourceId] = $connection;
 
             $address = $connection->getRemoteAddress();
-            if ($address !== '') {
+            if ('' !== $address) {
                 $this->connectionsByAddress[$address] = $connection;
             }
         } finally {
@@ -55,7 +55,7 @@ class ConnectionPool
         }
     }
 
-    public function remove(Connection $connection): void
+    public function remove(ConnectionInterface $connection): void
     {
         if ($this->isModifying) {
             return;
@@ -80,13 +80,13 @@ class ConnectionPool
         }
     }
 
-    public function findBySocket(SocketResourceInterface $socket): ?Connection
+    public function findBySocket(SocketResourceInterface $socket): ?ConnectionInterface
     {
         $resourceId = $this->getSocketId($socket);
         return $this->connectionsByResourceId[$resourceId] ?? null;
     }
 
-    public function findByAddress(string $address): ?Connection
+    public function findByAddress(string $address): ?ConnectionInterface
     {
         return $this->connectionsByAddress[$address] ?? null;
     }
@@ -97,7 +97,7 @@ class ConnectionPool
     }
 
     /**
-     * @return array<Connection>
+     * @return array<ConnectionInterface>
      */
     public function getAll(): array
     {
@@ -129,7 +129,7 @@ class ConnectionPool
             foreach ($this->connections as $connection) {
                 $addedAt = $this->connections[$connection];
 
-                if ($connection->isTimedOut($timeout) || ($now - $addedAt) > $timeout) {
+                if ($connection->isTimedOut($timeout) || $timeout < ($now - $addedAt)) {
                     $toRemove[] = $connection;
                 }
             }
@@ -168,14 +168,14 @@ class ConnectionPool
         $this->connectionsByAddress = [];
     }
 
-    public function has(Connection $connection): bool
+    public function has(ConnectionInterface $connection): bool
     {
         return $this->connections->offsetExists($connection);
     }
 
     public function isFull(): bool
     {
-        return $this->connections->count() >= $this->maxConnections;
+        return $this->maxConnections <= $this->connections->count();
     }
 
     public function getMaxConnections(): int

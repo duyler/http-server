@@ -11,12 +11,12 @@ use Nyholm\Psr7\ServerRequest;
 use Nyholm\Psr7\UploadedFile;
 use Psr\Http\Message\ServerRequestInterface;
 
-class RequestParser
+final readonly class RequestParser
 {
     public function __construct(
-        private readonly HttpParser $httpParser,
-        private readonly Psr17Factory $psr17Factory,
-        private readonly TempFileManager $tempFileManager,
+        private HttpParser $httpParser,
+        private Psr17Factory $psr17Factory,
+        private TempFileManager $tempFileManager,
     ) {}
 
     public function parse(string $rawRequest, string $remoteAddr, int $remotePort): ServerRequestInterface
@@ -26,7 +26,7 @@ class RequestParser
         $lines = explode("\r\n", $headerBlock);
         $requestLine = array_shift($lines);
 
-        if ($requestLine === '') {
+        if ('' === $requestLine) {
             throw new InvalidArgumentException('Empty request line');
         }
 
@@ -65,7 +65,7 @@ class RequestParser
     {
         $query = $request->getUri()->getQuery();
 
-        if ($query === '') {
+        if ('' === $query) {
             return $request;
         }
 
@@ -88,7 +88,7 @@ class RequestParser
             $pairs = explode(';', $cookieHeader);
             foreach ($pairs as $pair) {
                 $parts = explode('=', trim($pair), 2);
-                if (count($parts) === 2) {
+                if (2 === count($parts)) {
                     $name = trim($parts[0]);
                     $value = urldecode($parts[1]);
 
@@ -104,7 +104,7 @@ class RequestParser
 
     private function isValidCookieName(string $name): bool
     {
-        if ($name === '') {
+        if ('' === $name) {
             return false;
         }
 
@@ -127,7 +127,7 @@ class RequestParser
      */
     private function parseBody(ServerRequestInterface $request, array $headers, string $body): ServerRequestInterface
     {
-        if ($body === '') {
+        if ('' === $body) {
             return $request;
         }
 
@@ -139,8 +139,9 @@ class RequestParser
         }
 
         if (str_starts_with($contentType, 'application/json')) {
+            /** @var array<string, mixed>|null $parsedBody */
             $parsedBody = json_decode($body, true);
-            if (json_last_error() === JSON_ERROR_NONE && is_array($parsedBody)) {
+            if (JSON_ERROR_NONE === json_last_error() && is_array($parsedBody)) {
                 return $request->withParsedBody($parsedBody);
             }
         }
@@ -162,7 +163,7 @@ class RequestParser
 
         $rawBoundary = ($matches[1] !== '') ? $matches[1] : ($matches[2] ?? '');
 
-        if (!$this->isValidBoundary($rawBoundary)) {
+        if (false === $this->isValidBoundary($rawBoundary)) {
             throw new InvalidArgumentException('Invalid multipart boundary');
         }
 
@@ -176,7 +177,7 @@ class RequestParser
         $uploadedFiles = [];
 
         foreach ($parts as $part) {
-            if (trim($part) === '' || trim($part) === '--') {
+            if ('' === trim($part) || '--' === trim($part)) {
                 continue;
             }
 
@@ -190,7 +191,7 @@ class RequestParser
             preg_match('/name="([^"]+)"/', $partHeaders['Content-Disposition'][0], $nameMatch);
             $name = $nameMatch[1] ?? null;
 
-            if ($name === null) {
+            if (null === $name) {
                 continue;
             }
 

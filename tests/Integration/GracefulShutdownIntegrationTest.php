@@ -5,18 +5,18 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
 use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
 #[Group('pcntl')]
 class GracefulShutdownIntegrationTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
     private int $port;
 
     #[Override]
@@ -39,15 +39,18 @@ class GracefulShutdownIntegrationTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        try {
-            $this->server->stop();
-        } catch (Throwable) {
+        if (null !== $this->server) {
+            try {
+                $this->server->stop();
+                $this->server->reset();
+            } catch (Throwable) {
+            }
+            $this->server = null;
         }
         parent::tearDown();
     }
 
-    #[Test]
-    public function shutdown_waits_for_pending_request_to_complete(): void
+    public function testShutdownWaitsForPendingRequestToComplete(): void
     {
         $client = $this->connectClient();
         fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -71,7 +74,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         } else {
             usleep(500000);
 
-            $this->server->respond(new Response(200, [], 'OK'));
+            $this->server->respond(new ResponseData($request->id, new Response(200, [], 'OK')));
 
             pcntl_waitpid($pid, $status);
             $shutdownResult = pcntl_wexitstatus($status) === 0;
@@ -84,8 +87,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertStringContainsString('OK', $response);
     }
 
-    #[Test]
-    public function shutdown_with_timeout_forces_close(): void
+    public function testShutdownWithTimeoutForcesClose(): void
     {
         $client = $this->connectClient();
         fwrite($client, "GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -105,8 +107,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertLessThanOrEqual(1.5, $elapsed, 'Shutdown should respect timeout');
     }
 
-    #[Test]
-    public function shutdown_processes_queued_requests(): void
+    public function testShutdownProcessesQueuedRequests(): void
     {
         $client1 = $this->connectClient();
         $client2 = $this->connectClient();
@@ -118,14 +119,16 @@ class GracefulShutdownIntegrationTest extends TestCase
 
         $this->assertTrue($this->server->hasRequest());
         $request1 = $this->server->getRequest();
+        assert($request1 !== null);
 
-        $this->server->respond(new Response(200, [], 'Response 1'));
+        $this->server->respond(new ResponseData($request1->id, new Response(200, [], 'Response 1')));
 
         usleep(100000);
 
         if ($this->server->hasRequest()) {
             $request2 = $this->server->getRequest();
-            $this->server->respond(new Response(200, [], 'Response 2'));
+            assert($request2 !== null);
+            $this->server->respond(new ResponseData($request2->id, new Response(200, [], 'Response 2')));
         }
 
         usleep(100000);
@@ -142,8 +145,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
-    public function shutdown_with_no_active_requests_completes_immediately(): void
+    public function testShutdownWithNoActiveRequestsCompletesImmediately(): void
     {
         $startTime = microtime(true);
         $result = $this->server->shutdown(5);
@@ -153,8 +155,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertLessThan(0.5, $elapsed, 'Should complete almost immediately');
     }
 
-    #[Test]
-    public function shutdown_does_not_accept_new_connections_after_initiated(): void
+    public function testShutdownDoesNotAcceptNewConnectionsAfterInitiated(): void
     {
         $clientBefore = $this->connectClient();
         fwrite($clientBefore, "GET /before HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -162,8 +163,9 @@ class GracefulShutdownIntegrationTest extends TestCase
         usleep(100000);
 
         if ($this->server->hasRequest()) {
-            $this->server->getRequest();
-            $this->server->respond(new Response(200, [], 'Before shutdown'));
+            $request = $this->server->getRequest();
+            assert($request !== null);
+            $this->server->respond(new ResponseData($request->id, new Response(200, [], 'Before shutdown')));
         }
 
         $pid = pcntl_fork();
@@ -185,8 +187,7 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertTrue(true, 'Shutdown completed');
     }
 
-    #[Test]
-    public function multiple_requests_complete_before_shutdown(): void
+    public function testMultipleRequestsCompleteBeforeShutdown(): void
     {
         $clients = [];
         for ($i = 0; $i < 3; $i++) {
@@ -198,8 +199,9 @@ class GracefulShutdownIntegrationTest extends TestCase
 
         $responses = 0;
         while ($this->server->hasRequest() && $responses < 3) {
-            $this->server->getRequest();
-            $this->server->respond(new Response(200, [], "Response {$responses}"));
+            $request = $this->server->getRequest();
+            assert($request !== null);
+            $this->server->respond(new ResponseData($request->id, new Response(200, [], "Response {$responses}")));
             $responses++;
             usleep(50000);
         }

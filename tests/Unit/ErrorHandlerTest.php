@@ -6,7 +6,6 @@ namespace Duyler\HttpServer\Tests\Unit;
 
 use Duyler\HttpServer\ErrorHandler;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
@@ -26,21 +25,19 @@ class ErrorHandlerTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
-    public function can_be_registered(): void
+    public function testCanBeRegistered(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
             ->method('info')
-            ->with('Error handler registered', $this->isType('array'));
+            ->with('Error handler registered', $this->callback(fn($arg) => is_array($arg)));
 
         ErrorHandler::register($logger);
 
         $this->assertTrue(true);
     }
 
-    #[Test]
-    public function handles_errors_correctly(): void
+    public function testHandlesErrorsCorrectly(): void
     {
         // Просто проверяем, что handleError можно вызвать без ошибок
         $result = ErrorHandler::handleError(
@@ -53,13 +50,12 @@ class ErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[Test]
-    public function exception_handler_is_registered(): void
+    public function testExceptionHandlerIsRegistered(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
             ->method('info')
-            ->with('Error handler registered', $this->isType('array'));
+            ->with('Error handler registered', $this->callback(fn($arg) => is_array($arg)));
 
         ErrorHandler::register($logger);
 
@@ -69,8 +65,7 @@ class ErrorHandlerTest extends TestCase
         $this->assertIsCallable($handlers);
     }
 
-    #[Test]
-    public function handles_fatal_error_callback(): void
+    public function testHandlesFatalErrorCallback(): void
     {
         $callbackInvoked = false;
 
@@ -82,7 +77,7 @@ class ErrorHandlerTest extends TestCase
             $this->assertArrayHasKey('line', $error);
         };
 
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         ErrorHandler::register($logger, $callback);
 
         // Тестируем callback напрямую
@@ -98,8 +93,7 @@ class ErrorHandlerTest extends TestCase
         $this->assertTrue($callbackInvoked);
     }
 
-    #[Test]
-    public function handles_signal_callback(): void
+    public function testHandlesSignalCallback(): void
     {
         if (!function_exists('pcntl_signal')) {
             $this->markTestSkipped('pcntl extension not available');
@@ -112,7 +106,7 @@ class ErrorHandlerTest extends TestCase
             $this->assertIsInt($signal);
         };
 
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         ErrorHandler::register($logger, null, $callback);
 
         // Тестируем callback напрямую
@@ -121,13 +115,12 @@ class ErrorHandlerTest extends TestCase
         $this->assertTrue($callbackInvoked);
     }
 
-    #[Test]
-    public function does_not_register_twice(): void
+    public function testDoesNotRegisterTwice(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
             ->method('info')
-            ->with('Error handler registered', $this->isType('array'));
+            ->with('Error handler registered', $this->callback(fn($arg) => is_array($arg)));
 
         ErrorHandler::register($logger);
 
@@ -140,8 +133,7 @@ class ErrorHandlerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
-    public function handles_error_with_suppressed_reporting(): void
+    public function testHandlesErrorWithSuppressedReporting(): void
     {
         $oldReporting = error_reporting();
         error_reporting(0); // Suppress all errors

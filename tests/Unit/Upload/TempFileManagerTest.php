@@ -6,7 +6,6 @@ namespace Duyler\HttpServer\Tests\Unit\Upload;
 
 use Duyler\HttpServer\Upload\TempFileManager;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class TempFileManagerTest extends TestCase
@@ -27,8 +26,7 @@ class TempFileManagerTest extends TestCase
         }
     }
 
-    #[Test]
-    public function creates_temporary_file_with_default_prefix(): void
+    public function testCreatesTemporaryFileWithDefaultPrefix(): void
     {
         $tmpFile = $this->manager->create();
 
@@ -37,8 +35,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(1, $this->manager->getTrackedFilesCount());
     }
 
-    #[Test]
-    public function creates_temporary_file_with_custom_prefix(): void
+    public function testCreatesTemporaryFileWithCustomPrefix(): void
     {
         $tmpFile = $this->manager->create('test_');
 
@@ -46,8 +43,7 @@ class TempFileManagerTest extends TestCase
         $this->assertStringContainsString('test_', basename($tmpFile));
     }
 
-    #[Test]
-    public function tracks_multiple_temporary_files(): void
+    public function testTracksMultipleTemporaryFiles(): void
     {
         $tmpFile1 = $this->manager->create();
         $tmpFile2 = $this->manager->create();
@@ -59,8 +55,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(3, $this->manager->getTrackedFilesCount());
     }
 
-    #[Test]
-    public function cleanup_removes_all_temporary_files(): void
+    public function testCleanupRemovesAllTemporaryFiles(): void
     {
         $tmpFile1 = $this->manager->create();
         $tmpFile2 = $this->manager->create();
@@ -75,8 +70,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    #[Test]
-    public function cleanup_handles_already_deleted_files(): void
+    public function testCleanupHandlesAlreadyDeletedFiles(): void
     {
         $tmpFile = $this->manager->create();
         unlink($tmpFile);
@@ -86,8 +80,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    #[Test]
-    public function destructor_cleans_up_files(): void
+    public function testDestructorCleansUpFiles(): void
     {
         $tmpFile = $this->manager->create();
         $this->assertFileExists($tmpFile);
@@ -97,8 +90,7 @@ class TempFileManagerTest extends TestCase
         $this->assertFileDoesNotExist($tmpFile);
     }
 
-    #[Test]
-    public function created_files_can_be_written_to(): void
+    public function testCreatedFilesCanBeWrittenTo(): void
     {
         $tmpFile = $this->manager->create();
         $content = 'test content';
@@ -108,8 +100,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame($content, file_get_contents($tmpFile));
     }
 
-    #[Test]
-    public function cleanup_can_be_called_multiple_times(): void
+    public function testCleanupCanBeCalledMultipleTimes(): void
     {
         $tmpFile = $this->manager->create();
 
@@ -120,8 +111,7 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    #[Test]
-    public function files_created_after_cleanup_are_tracked_separately(): void
+    public function testFilesCreatedAfterCleanupAreTrackedSeparately(): void
     {
         $tmpFile1 = $this->manager->create();
         $this->manager->cleanup();

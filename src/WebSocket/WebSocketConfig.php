@@ -6,7 +6,7 @@ namespace Duyler\HttpServer\WebSocket;
 
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketConfigException;
 
-readonly class WebSocketConfig
+final readonly class WebSocketConfig
 {
     /**
      * @var array<string> $allowedOrigins
@@ -30,7 +30,7 @@ readonly class WebSocketConfig
         public bool $autoPing = true,
         public int $handshakeTimeout = 5,
         public int $closeTimeout = 5,
-        array $allowedOrigins = ['*'],
+        array $allowedOrigins = [],
         public bool $validateOrigin = true,
         public bool $requireMasking = true,
         public bool $autoFragmentation = true,
@@ -48,6 +48,7 @@ readonly class WebSocketConfig
             $this->writeBufferSize,
             $allowedOrigins,
             $subProtocols,
+            $this->validateOrigin,
         );
 
         /** @var array<string> $allowedOrigins */
@@ -70,6 +71,7 @@ readonly class WebSocketConfig
         int $writeBufferSize,
         array $allowedOrigins,
         array $subProtocols,
+        bool $validateOrigin,
     ): void {
         if ($maxMessageSize < 1) {
             throw new InvalidWebSocketConfigException('maxMessageSize must be positive');
@@ -103,14 +105,17 @@ readonly class WebSocketConfig
             throw new InvalidWebSocketConfigException('writeBufferSize must be positive');
         }
 
-        if ($allowedOrigins === []) {
-            throw new InvalidWebSocketConfigException('allowedOrigins cannot be empty');
-        }
-
         foreach ($allowedOrigins as $origin) {
             if (!is_string($origin)) {
                 throw new InvalidWebSocketConfigException('allowedOrigins must contain only strings');
             }
+        }
+
+        if ($validateOrigin && in_array('*', $allowedOrigins, true)) {
+            throw new InvalidWebSocketConfigException(
+                'Wildcard origin with validation enabled is insecure. '
+                . 'Either set validateOrigin=false explicitly or specify allowed origins.',
+            );
         }
 
         foreach ($subProtocols as $protocol) {

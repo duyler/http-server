@@ -10,7 +10,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Throwable;
 
-class WebSocketServer
+final class WebSocketServer
 {
     /**
      * @var array<string, Connection>
@@ -112,7 +112,7 @@ class WebSocketServer
     public function broadcast(string|array $data, ?Connection $exclude = null): void
     {
         foreach ($this->connections as $conn) {
-            if ($exclude !== null && $conn->getId() === $exclude->getId()) {
+            if (null !== $exclude && $conn->getId() === $exclude->getId()) {
                 continue;
             }
 
@@ -132,7 +132,7 @@ class WebSocketServer
         }
 
         foreach ($this->rooms[$room] as $conn) {
-            if ($exclude !== null && $conn->getId() === $exclude->getId()) {
+            if (null !== $exclude && $conn->getId() === $exclude->getId()) {
                 continue;
             }
 
@@ -156,7 +156,7 @@ class WebSocketServer
         if (isset($this->rooms[$room][$conn->getId()])) {
             unset($this->rooms[$room][$conn->getId()]);
 
-            if ($this->rooms[$room] === []) {
+            if ([] === $this->rooms[$room]) {
                 unset($this->rooms[$room]);
             }
         }
@@ -177,21 +177,21 @@ class WebSocketServer
 
     public function processPings(): void
     {
-        if (!$this->config->autoPing) {
+        if (false === $this->config->autoPing) {
             return;
         }
 
         $now = microtime(true);
 
         foreach ($this->connections as $conn) {
-            if (!$conn->isOpen()) {
+            if (false === $conn->isOpen()) {
                 continue;
             }
 
             $lastPing = $conn->getLastPing();
             $lastPong = $conn->getLastPong();
 
-            if ($lastPing !== null) {
+            if (null !== $lastPing) {
                 $timeSincePing = $now - $lastPing;
                 $timeSincePong = $now - $lastPong;
 
@@ -206,7 +206,7 @@ class WebSocketServer
                 }
             }
 
-            if ($lastPing === null || $now - $lastPing > $this->config->pingInterval) {
+            if (null === $lastPing || $now - $lastPing > $this->config->pingInterval) {
                 $conn->ping();
             }
         }

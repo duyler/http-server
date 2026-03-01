@@ -5,17 +5,24 @@ declare(strict_types=1);
 namespace Duyler\HttpServer;
 
 use Closure;
+use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Throwable;
 
-class ErrorHandler
+/**
+ * @deprecated Use ProductionErrorHandler instead
+ * @see ProductionErrorHandler
+ */
+final class ErrorHandler
 {
     private static ?LoggerInterface $logger = null;
     private static bool $registered = false;
     private static bool $isShuttingDown = false;
     private static ?Closure $onFatalError = null;
     private static ?Closure $onSignal = null;
+    private static mixed $previousErrorHandler = null;
+    private static mixed $previousExceptionHandler = null;
 
     /**
      * @param Closure(array{type: int, message: string, file: string, line: int}): void|null $onFatalError
@@ -30,13 +37,15 @@ class ErrorHandler
             return;
         }
 
+        error_clear_last();
+
         self::$logger = $logger ?? new NullLogger();
         self::$onFatalError = $onFatalError;
         self::$onSignal = $onSignal;
         self::$registered = true;
 
-        set_error_handler(self::handleError(...));
-        set_exception_handler(self::handleException(...));
+        self::$previousErrorHandler = set_error_handler(self::handleError(...));
+        self::$previousExceptionHandler = set_exception_handler(self::handleException(...));
         register_shutdown_function([self::class, 'handleShutdown']);
 
         if (function_exists('pcntl_signal')) {
@@ -60,7 +69,7 @@ class ErrorHandler
         string $errfile,
         int $errline,
     ): bool {
-        if ((error_reporting() & $errno) === 0) {
+        if (0 === (error_reporting() & $errno)) {
             return false;
         }
 
@@ -122,7 +131,7 @@ class ErrorHandler
 
         $error = error_get_last();
 
-        if ($error !== null && in_array($error['type'], [
+        if (null !== $error && in_array($error['type'], [
             E_ERROR,
             E_CORE_ERROR,
             E_COMPILE_ERROR,
@@ -151,7 +160,7 @@ class ErrorHandler
 
             flush();
 
-            if (self::$onFatalError !== null) {
+            if (null !== self::$onFatalError) {
                 try {
                     (self::$onFatalError)($error);
                 } catch (Throwable $e) {
@@ -185,7 +194,7 @@ class ErrorHandler
         if (in_array($signal, [SIGTERM, SIGINT], true)) {
             self::$logger?->info('Graceful shutdown initiated');
 
-            if (self::$onSignal !== null) {
+            if (null !== self::$onSignal) {
                 try {
                     (self::$onSignal)($signal);
                 } catch (Throwable $e) {
@@ -211,7 +220,6 @@ class ErrorHandler
             E_USER_ERROR => 'E_USER_ERROR',
             E_USER_WARNING => 'E_USER_WARNING',
             E_USER_NOTICE => 'E_USER_NOTICE',
-            E_STRICT => 'E_STRICT',
             E_RECOVERABLE_ERROR => 'E_RECOVERABLE_ERROR',
             E_DEPRECATED => 'E_DEPRECATED',
             E_USER_DEPRECATED => 'E_USER_DEPRECATED',
@@ -221,7 +229,7 @@ class ErrorHandler
 
     private static function getSignalName(int $signal): string
     {
-        if (!defined('SIGTERM')) {
+        if (false === defined('SIGTERM')) {
             return "SIGNAL_$signal";
         }
 
@@ -239,6 +247,11 @@ class ErrorHandler
 
     public static function reset(): void
     {
+        if (!self::$registered) {
+            self::$isShuttingDown = false;
+            return;
+        }
+
         self::$logger = null;
         self::$registered = false;
         self::$isShuttingDown = false;
@@ -247,5 +260,8 @@ class ErrorHandler
 
         restore_error_handler();
         restore_exception_handler();
+
+        self::$previousErrorHandler = null;
+        self::$previousExceptionHandler = null;
     }
 }

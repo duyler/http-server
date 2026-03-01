@@ -6,7 +6,6 @@ namespace Duyler\HttpServer\Tests\Unit\Handler;
 
 use Duyler\HttpServer\Handler\FileDownloadHandler;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class FileDownloadHandlerTest extends TestCase
@@ -30,8 +29,7 @@ class FileDownloadHandlerTest extends TestCase
         }
     }
 
-    #[Test]
-    public function downloads_file(): void
+    public function testDownloadsFile(): void
     {
         $response = $this->handler->download($this->tempFile);
 
@@ -41,40 +39,35 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertTrue($response->hasHeader('Content-Type'));
     }
 
-    #[Test]
-    public function sets_custom_filename(): void
+    public function testSetsCustomFilename(): void
     {
         $response = $this->handler->download($this->tempFile, 'custom.txt');
 
         $this->assertStringContainsString('custom.txt', $response->getHeaderLine('Content-Disposition'));
     }
 
-    #[Test]
-    public function sets_custom_mime_type(): void
+    public function testSetsCustomMimeType(): void
     {
         $response = $this->handler->download($this->tempFile, null, 'application/custom');
 
         $this->assertSame('application/custom', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function returns_404_for_non_existent_file(): void
+    public function testReturns404ForNonExistentFile(): void
     {
         $response = $this->handler->download('/non/existent/file.txt');
 
         $this->assertSame(404, $response->getStatusCode());
     }
 
-    #[Test]
-    public function supports_range_requests(): void
+    public function testSupportsRangeRequests(): void
     {
         $response = $this->handler->download($this->tempFile);
 
         $this->assertSame('bytes', $response->getHeaderLine('Accept-Ranges'));
     }
 
-    #[Test]
-    public function downloads_file_range(): void
+    public function testDownloadsFileRange(): void
     {
         $fileSize = filesize($this->tempFile);
 
@@ -85,8 +78,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertStringContainsString('bytes 0-4', $response->getHeaderLine('Content-Range'));
     }
 
-    #[Test]
-    public function returns_416_for_invalid_range(): void
+    public function testReturns416ForInvalidRange(): void
     {
         $fileSize = filesize($this->tempFile);
 
@@ -95,8 +87,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame(416, $response->getStatusCode());
     }
 
-    #[Test]
-    public function parses_range_header(): void
+    public function testParsesRangeHeader(): void
     {
         $fileSize = 100;
 
@@ -105,8 +96,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 0, 'end' => 49]], $range);
     }
 
-    #[Test]
-    public function parses_open_ended_range(): void
+    public function testParsesOpenEndedRange(): void
     {
         $fileSize = 100;
 
@@ -115,8 +105,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 50, 'end' => 99]], $range);
     }
 
-    #[Test]
-    public function returns_null_for_invalid_range_header(): void
+    public function testReturnsNullForInvalidRangeHeader(): void
     {
         $fileSize = 100;
 
@@ -125,8 +114,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function parses_suffix_range(): void
+    public function testParsesSuffixRange(): void
     {
         $fileSize = 100;
 
@@ -135,8 +123,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 90, 'end' => 99]], $range);
     }
 
-    #[Test]
-    public function parses_multiple_ranges(): void
+    public function testParsesMultipleRanges(): void
     {
         $fileSize = 100;
 
@@ -149,8 +136,7 @@ class FileDownloadHandlerTest extends TestCase
         ], $range);
     }
 
-    #[Test]
-    public function rejects_more_than_10_ranges(): void
+    public function testRejectsMoreThan10Ranges(): void
     {
         $fileSize = 1000;
         $rangeHeader = 'bytes=' . implode(',', array_map(fn(int $i): string => "$i-" . ($i + 9), range(0, 100, 10)));
@@ -160,8 +146,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_overflow_start_value(): void
+    public function testRejectsOverflowStartValue(): void
     {
         $fileSize = 100;
 
@@ -170,8 +155,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_overflow_end_value(): void
+    public function testRejectsOverflowEndValue(): void
     {
         $fileSize = 100;
 
@@ -180,8 +164,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_negative_start_value(): void
+    public function testRejectsNegativeStartValue(): void
     {
         $fileSize = 100;
 
@@ -190,8 +173,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_negative_end_value(): void
+    public function testRejectsNegativeEndValue(): void
     {
         $fileSize = 100;
 
@@ -200,8 +182,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_non_numeric_value(): void
+    public function testRejectsNonNumericValue(): void
     {
         $fileSize = 100;
 
@@ -210,8 +191,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_range_without_bytes_prefix(): void
+    public function testRejectsRangeWithoutBytesPrefix(): void
     {
         $fileSize = 100;
 
@@ -220,8 +200,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function skips_invalid_range_in_multi_range(): void
+    public function testSkipsInvalidRangeInMultiRange(): void
     {
         $fileSize = 100;
 
@@ -233,8 +212,7 @@ class FileDownloadHandlerTest extends TestCase
         ], $range);
     }
 
-    #[Test]
-    public function returns_null_when_all_ranges_invalid(): void
+    public function testReturnsNullWhenAllRangesInvalid(): void
     {
         $fileSize = 100;
 
@@ -243,8 +221,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function handles_suffix_range_larger_than_file(): void
+    public function testHandlesSuffixRangeLargerThanFile(): void
     {
         $fileSize = 50;
 
@@ -253,8 +230,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 0, 'end' => 49]], $range);
     }
 
-    #[Test]
-    public function clamps_end_to_file_size(): void
+    public function testClampsEndToFileSize(): void
     {
         $fileSize = 100;
 
@@ -263,8 +239,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 50, 'end' => 99]], $range);
     }
 
-    #[Test]
-    public function rejects_empty_range_parts(): void
+    public function testRejectsEmptyRangeParts(): void
     {
         $fileSize = 100;
 
@@ -273,8 +248,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_range_with_only_start_equals_file_size(): void
+    public function testRejectsRangeWithOnlyStartEqualsFileSize(): void
     {
         $fileSize = 100;
 
@@ -283,8 +257,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function rejects_range_start_greater_than_end(): void
+    public function testRejectsRangeStartGreaterThanEnd(): void
     {
         $fileSize = 100;
 
@@ -293,8 +266,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertNull($range);
     }
 
-    #[Test]
-    public function handles_large_valid_range_value(): void
+    public function testHandlesLargeValidRangeValue(): void
     {
         $fileSize = PHP_INT_MAX;
 
@@ -303,32 +275,28 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame([['start' => 0, 'end' => 999999999999999999]], $range);
     }
 
-    #[Test]
-    public function returns_404_for_non_existent_file_in_range_download(): void
+    public function testReturns404ForNonExistentFileInRangeDownload(): void
     {
         $response = $this->handler->downloadRange('/non/existent/file.txt', 0, 10);
 
         $this->assertSame(404, $response->getStatusCode());
     }
 
-    #[Test]
-    public function returns_416_for_negative_start_in_range(): void
+    public function testReturns416ForNegativeStartInRange(): void
     {
         $response = $this->handler->downloadRange($this->tempFile, -1, 10);
 
         $this->assertSame(416, $response->getStatusCode());
     }
 
-    #[Test]
-    public function returns_416_for_start_greater_than_end_in_range(): void
+    public function testReturns416ForStartGreaterThanEndInRange(): void
     {
         $response = $this->handler->downloadRange($this->tempFile, 10, 5);
 
         $this->assertSame(416, $response->getStatusCode());
     }
 
-    #[Test]
-    public function returns_416_for_start_at_file_size(): void
+    public function testReturns416ForStartAtFileSize(): void
     {
         $fileSize = filesize($this->tempFile);
 
@@ -337,8 +305,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame(416, $response->getStatusCode());
     }
 
-    #[Test]
-    public function downloads_full_range_from_start(): void
+    public function testDownloadsFullRangeFromStart(): void
     {
         $fileSize = filesize($this->tempFile);
 
@@ -348,24 +315,21 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertSame('test content for download', (string) $response->getBody());
     }
 
-    #[Test]
-    public function sets_custom_filename_in_range_download(): void
+    public function testSetsCustomFilenameInRangeDownload(): void
     {
         $response = $this->handler->downloadRange($this->tempFile, 0, 4, 'custom.txt');
 
         $this->assertStringContainsString('custom.txt', $response->getHeaderLine('Content-Disposition'));
     }
 
-    #[Test]
-    public function sets_custom_mime_type_in_range_download(): void
+    public function testSetsCustomMimeTypeInRangeDownload(): void
     {
         $response = $this->handler->downloadRange($this->tempFile, 0, 4, null, 'application/custom');
 
         $this->assertSame('application/custom', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function detects_pdf_mime_type(): void
+    public function testDetectsPdfMimeType(): void
     {
         $tempPdf = tempnam(sys_get_temp_dir(), 'test_') . '.pdf';
         file_put_contents($tempPdf, '%PDF-1.4');
@@ -377,8 +341,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertStringContainsString('application/pdf', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function detects_json_mime_type(): void
+    public function testDetectsJsonMimeType(): void
     {
         $tempJson = tempnam(sys_get_temp_dir(), 'test_') . '.json';
         file_put_contents($tempJson, '{}');
@@ -390,8 +353,7 @@ class FileDownloadHandlerTest extends TestCase
         $this->assertStringContainsString('application/json', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function defaults_to_octet_stream_for_unknown_extension(): void
+    public function testDefaultsToOctetStreamForUnknownExtension(): void
     {
         $tempUnknown = tempnam(sys_get_temp_dir(), 'test_') . '.xyz123';
         file_put_contents($tempUnknown, chr(0) . chr(1) . chr(2) . chr(3));

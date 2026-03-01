@@ -9,13 +9,24 @@ use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Server;
 use Duyler\HttpServer\Socket\StreamSocketResource;
-use PHPUnit\Framework\Attributes\Test;
+use Override;
 use PHPUnit\Framework\TestCase;
 
 class ConnectionPoolIntegrationTest extends TestCase
 {
-    #[Test]
-    public function connection_pool_integrates_with_server(): void
+    private ?Server $server = null;
+
+    #[Override]
+    protected function tearDown(): void
+    {
+        if (null !== $this->server) {
+            $this->server->reset();
+            $this->server = null;
+        }
+        parent::tearDown();
+    }
+
+    public function testConnectionPoolIntegratesWithServer(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -23,13 +34,12 @@ class ConnectionPoolIntegrationTest extends TestCase
             maxConnections: 10,
         );
 
-        $server = new Server($config);
+        $this->server = new Server($config);
 
-        $this->assertInstanceOf(Server::class, $server);
+        $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    #[Test]
-    public function connection_pool_respects_max_connections_from_config(): void
+    public function testConnectionPoolRespectsMaxConnectionsFromConfig(): void
     {
         $pool = new ConnectionPool(maxConnections: 3);
 
@@ -48,8 +58,7 @@ class ConnectionPoolIntegrationTest extends TestCase
         $this->assertLessThanOrEqual(3, $pool->count());
     }
 
-    #[Test]
-    public function connection_pool_handles_rapid_add_remove(): void
+    public function testConnectionPoolHandlesRapidAddRemove(): void
     {
         $pool = new ConnectionPool(maxConnections: 50);
 
@@ -73,8 +82,7 @@ class ConnectionPoolIntegrationTest extends TestCase
         $this->assertSame(0, $pool->count());
     }
 
-    #[Test]
-    public function connection_pool_find_by_socket_works_correctly(): void
+    public function testConnectionPoolFindBySocketWorksCorrectly(): void
     {
         $pool = new ConnectionPool();
 
@@ -95,8 +103,7 @@ class ConnectionPoolIntegrationTest extends TestCase
         $this->assertSame(443, $found->getRemotePort());
     }
 
-    #[Test]
-    public function connection_pool_remove_timed_out_works(): void
+    public function testConnectionPoolRemoveTimedOutWorks(): void
     {
         $pool = new ConnectionPool();
 

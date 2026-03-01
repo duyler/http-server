@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
+use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class LRUCacheIntegrationTest extends TestCase
@@ -27,10 +27,10 @@ class LRUCacheIntegrationTest extends TestCase
     {
         $this->removeDirectory($this->tempDir);
         parent::tearDown();
+        ErrorHandler::reset();
     }
 
-    #[Test]
-    public function handler_caches_files_with_lru_eviction(): void
+    public function testHandlerCachesFilesWithLruEviction(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 10240, 3);
 
@@ -50,8 +50,7 @@ class LRUCacheIntegrationTest extends TestCase
         $this->assertLessThanOrEqual(3, $stats['entries']);
     }
 
-    #[Test]
-    public function handler_serves_large_files_without_caching(): void
+    public function testHandlerServesLargeFilesWithoutCaching(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1024, 10);
 
@@ -67,8 +66,7 @@ class LRUCacheIntegrationTest extends TestCase
         $this->assertSame(0, $stats['entries'], 'Large files should not be cached');
     }
 
-    #[Test]
-    public function handler_updates_lru_on_access(): void
+    public function testHandlerUpdatesLruOnAccess(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 10240, 2);
 
@@ -100,8 +98,7 @@ class LRUCacheIntegrationTest extends TestCase
         $this->assertSame('Content 3', (string) $response3->getBody());
     }
 
-    #[Test]
-    public function handler_evicts_by_size_limit(): void
+    public function testHandlerEvictsBySizeLimit(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 2000, 100);
 
@@ -116,8 +113,7 @@ class LRUCacheIntegrationTest extends TestCase
         $this->assertLessThanOrEqual(2000, $stats['size']);
     }
 
-    #[Test]
-    public function handler_maintains_cache_consistency(): void
+    public function testHandlerMaintainsCacheConsistency(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 5120, 5);
 

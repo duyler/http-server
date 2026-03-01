@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\RateLimit;
 
-class RateLimiter
+use Duyler\HttpServer\Security\AuditLoggerInterface;
+
+final class RateLimiter
 {
     /** @var array<string, array<int, float>> */
     private array $requests = [];
@@ -15,6 +17,8 @@ class RateLimiter
         private readonly int $maxRequests = 100,
         private readonly int $windowSeconds = 60,
         private readonly int $cleanupInterval = 100,
+        private readonly int $maxIdentifiers = 10000,
+        private readonly ?AuditLoggerInterface $auditLogger = null,
     ) {}
 
     public function isAllowed(string $identifier): bool
@@ -23,6 +27,11 @@ class RateLimiter
 
         if ($this->callCount % $this->cleanupInterval === 0) {
             $this->cleanup();
+        }
+
+        if (count($this->requests) >= $this->maxIdentifiers && !isset($this->requests[$identifier])) {
+            $this->auditLogger?->logMaxIdentifiersReached(count($this->requests), $this->maxIdentifiers);
+            return false;
         }
 
         $now = microtime(true);
@@ -38,10 +47,12 @@ class RateLimiter
             fn(float $timestamp) => $timestamp > $windowStart,
         );
 
-        if (count($this->requests[$identifier]) < $this->maxRequests) {
+        if ($this->maxRequests > count($this->requests[$identifier])) {
             $this->requests[$identifier][] = $now;
             return true;
         }
+
+        $this->auditLogger?->logRateLimitExceeded($identifier, count($this->requests[$identifier]));
 
         return false;
     }
@@ -65,7 +76,7 @@ class RateLimiter
 
     public function getResetTime(string $identifier): int
     {
-        if (!isset($this->requests[$identifier]) || count($this->requests[$identifier]) === 0) {
+        if (!isset($this->requests[$identifier]) || 0 === count($this->requests[$identifier])) {
             return 0;
         }
 
@@ -89,14 +100,14 @@ class RateLimiter
                 fn(float $timestamp) => $timestamp > $windowStart,
             );
 
-            if (count($this->requests[$identifier]) === 0) {
+            if (0 === count($this->requests[$identifier])) {
                 unset($this->requests[$identifier]);
             }
         }
     }
 
     /**
-     * @return array{max_requests: int, window_seconds: int, cleanup_interval: int}
+     * @return array{max_requests: int, window_seconds: int, cleanup_interval: int, max_identifiers: int}
      */
     public function getConfig(): array
     {
@@ -104,6 +115,7 @@ class RateLimiter
             'max_requests' => $this->maxRequests,
             'window_seconds' => $this->windowSeconds,
             'cleanup_interval' => $this->cleanupInterval,
+            'max_identifiers' => $this->maxIdentifiers,
         ];
     }
 

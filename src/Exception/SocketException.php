@@ -9,7 +9,7 @@ use Socket;
 use function socket_last_error;
 use function socket_strerror;
 
-class SocketException extends HttpServerException
+final class SocketException extends HttpServerException
 {
     protected string $errorCode = 'SOCKET_ERROR';
 

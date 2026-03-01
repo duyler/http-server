@@ -10,7 +10,6 @@ use Duyler\HttpServer\Upload\TempFileManager;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class MultipartBoundaryIntegrationTest extends TestCase
@@ -27,8 +26,7 @@ class MultipartBoundaryIntegrationTest extends TestCase
         $this->parser = new RequestParser($httpParser, $psr17Factory, $tempFileManager);
     }
 
-    #[Test]
-    public function full_request_with_valid_boundary(): void
+    public function testFullRequestWithValidBoundary(): void
     {
         $boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
         $request = $this->createFullMultipartRequest($boundary);
@@ -42,8 +40,7 @@ class MultipartBoundaryIntegrationTest extends TestCase
         $this->assertSame('john@example.com', $parsedBody['email']);
     }
 
-    #[Test]
-    public function full_request_with_malicious_boundary_in_headers(): void
+    public function testFullRequestWithMaliciousBoundaryInHeaders(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -54,8 +51,7 @@ class MultipartBoundaryIntegrationTest extends TestCase
         $this->parser->parse($request, '192.168.1.100', 54321);
     }
 
-    #[Test]
-    public function full_request_with_excessively_long_boundary(): void
+    public function testFullRequestWithExcessivelyLongBoundary(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -66,8 +62,7 @@ class MultipartBoundaryIntegrationTest extends TestCase
         $this->parser->parse($request, '192.168.1.100', 54321);
     }
 
-    #[Test]
-    public function full_request_with_boundary_in_quotes(): void
+    public function testFullRequestWithBoundaryInQuotes(): void
     {
         $boundary = 'boundary with spaces';
         $request = $this->createQuotedMultipartRequest($boundary);
@@ -79,8 +74,7 @@ class MultipartBoundaryIntegrationTest extends TestCase
         $this->assertSame('test value', $parsedBody['field']);
     }
 
-    #[Test]
-    public function full_request_with_file_upload_and_valid_boundary(): void
+    public function testFullRequestWithFileUploadAndValidBoundary(): void
     {
         $boundary = 'boundary-file-upload-123';
         $fileContent = 'This is a test file content';

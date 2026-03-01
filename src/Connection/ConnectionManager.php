@@ -1,0 +1,194 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Duyler\HttpServer\Connection;
+
+use Duyler\HttpServer\Metrics\ServerMetrics;
+use Duyler\HttpServer\Parser\HttpParser;
+use Duyler\HttpServer\Processor\HttpRequestProcessor;
+use Duyler\HttpServer\Socket\SocketInterface;
+use Duyler\HttpServer\Socket\SocketResourceInterface;
+use Duyler\HttpServer\Socket\StreamSocketResource;
+use Override;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Socket;
+
+final class ConnectionManager implements ConnectionManagerInterface
+{
+    public function __construct(private readonly ConnectionPool $pool, private readonly HttpParser $httpParser, private readonly HttpRequestProcessor $requestProcessor, private readonly ServerMetrics $metrics, private LoggerInterface $logger = new NullLogger()) {}
+
+    public function setLogger(LoggerInterface $logger): void
+    {
+        $this->logger = $logger;
+    }
+
+    #[Override]
+    public function add(ConnectionInterface $connection): void
+    {
+        $this->pool->add($connection);
+    }
+
+    #[Override]
+    public function remove(ConnectionInterface $connection): void
+    {
+        $this->pool->remove($connection);
+    }
+
+    #[Override]
+    public function findBySocket(SocketResourceInterface $socket): ?ConnectionInterface
+    {
+        return $this->pool->findBySocket($socket);
+    }
+
+    #[Override]
+    public function getAll(): array
+    {
+        return $this->pool->getAll();
+    }
+
+    #[Override]
+    public function count(): int
+    {
+        return $this->pool->count();
+    }
+
+    #[Override]
+    public function closeAll(): void
+    {
+        $this->pool->closeAll();
+    }
+
+    #[Override]
+    public function removeTimedOut(int $timeout): int
+    {
+        return $this->pool->removeTimedOut($timeout);
+    }
+
+    public function closeConnectionWithMetrics(ConnectionInterface $connection): void
+    {
+        $connection->close();
+        $this->pool->remove($connection);
+        $this->metrics->incrementClosedConnections();
+    }
+
+    public function readFromConnection(
+        ConnectionInterface $connection,
+        int $bufferSize,
+        callable $onDataCallback,
+    ): bool {
+        if (false === $connection->isValid()) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
+        $socket = $connection->getSocket();
+        $internalResource = $socket instanceof StreamSocketResource
+            ? $socket->getInternalResource()
+            : null;
+
+        if (null === $internalResource) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
+        if ($internalResource instanceof Socket) {
+            $read = [$internalResource];
+            $write = null;
+            $except = null;
+            $changed = socket_select($read, $write, $except, 0);
+
+            if (false === $changed || 0 === $changed) {
+                return true;
+            }
+        } else {
+            $read = [$internalResource];
+            $write = null;
+            $except = null;
+            $changed = stream_select($read, $write, $except, 0);
+
+            if (false === $changed || 0 === $changed) {
+                return true;
+            }
+        }
+
+        $data = $connection->read($bufferSize);
+
+        if (false === $data || '' === $data) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
+        $connection->appendToBuffer($data);
+        $onDataCallback($connection);
+
+        return true;
+    }
+
+    public function acceptFromServerSocket(
+        SocketInterface $socket,
+        int $maxAccepts,
+        bool $debugMode,
+    ): int {
+        $acceptedCount = 0;
+
+        while ($acceptedCount < $maxAccepts) {
+            $clientSocketResource = $socket->accept();
+
+            if (false === $clientSocketResource) {
+                break;
+            }
+
+            $acceptedCount++;
+
+            $remoteAddr = '0.0.0.0';
+            $remotePort = 0;
+
+            $internalResource = $clientSocketResource instanceof StreamSocketResource
+                ? $clientSocketResource->getInternalResource()
+                : null;
+
+            if (null !== $internalResource) {
+                if ($internalResource instanceof Socket) {
+                    socket_getpeername($internalResource, $remoteAddr, $remotePort);
+                } else {
+                    $remoteName = stream_socket_get_name($internalResource, true);
+                    if (false !== $remoteName) {
+                        $parts = explode(':', $remoteName, 2);
+                        $remoteAddr = $parts[0];
+                        $remotePort = isset($parts[1]) ? (int) $parts[1] : 0;
+                    }
+                }
+            }
+
+            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort);
+            $this->pool->add($connection);
+            $this->metrics->incrementTotalConnections();
+
+            if ($debugMode) {
+                $this->logger->debug('New connection accepted', [
+                    'remote' => "$remoteAddr:$remotePort",
+                    'total_connections' => $this->pool->count(),
+                    'accepts_this_cycle' => $acceptedCount,
+                ]);
+            }
+        }
+
+        return $acceptedCount;
+    }
+
+    public function cleanupTimedOut(int $timeout): int
+    {
+        $removed = $this->pool->removeTimedOut($timeout);
+        for ($i = 0; $i < $removed; $i++) {
+            $this->metrics->incrementTimedOutConnections();
+        }
+        return $removed;
+    }
+
+    public function getPool(): ConnectionPool
+    {
+        return $this->pool;
+    }
+}

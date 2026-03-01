@@ -8,7 +8,7 @@ use Nyholm\Psr7\Response;
 use Nyholm\Psr7\Stream;
 use Psr\Http\Message\ResponseInterface;
 
-class FileDownloadHandler
+final class FileDownloadHandler
 {
     private const int CHUNK_SIZE = 8192;
 
@@ -23,12 +23,12 @@ class FileDownloadHandler
         }
 
         $fileSize = filesize($filePath);
-        if ($fileSize === false) {
+        if (false === $fileSize) {
             return new Response(500, [], 'Failed to get file size');
         }
 
         $mtime = filemtime($filePath);
-        if ($mtime === false) {
+        if (false === $mtime) {
             return new Response(500, [], 'Failed to get file modification time');
         }
 
@@ -36,7 +36,7 @@ class FileDownloadHandler
         $mimeType ??= $this->guessMimeType($filePath);
 
         $handle = fopen($filePath, 'r');
-        if ($handle === false) {
+        if (false === $handle) {
             return new Response(500, [], 'Failed to open file');
         }
 
@@ -71,7 +71,7 @@ class FileDownloadHandler
         }
 
         $fileSize = filesize($filePath);
-        if ($fileSize === false) {
+        if (false === $fileSize) {
             return new Response(500, [], 'Failed to get file size');
         }
 
@@ -83,11 +83,11 @@ class FileDownloadHandler
         $mimeType ??= $this->guessMimeType($filePath);
 
         $handle = fopen($filePath, 'r');
-        if ($handle === false) {
+        if (false === $handle) {
             return new Response(500, [], 'Failed to open file');
         }
 
-        if (fseek($handle, $start) === -1) {
+        if (-1 === fseek($handle, $start)) {
             fclose($handle);
             return new Response(500, [], 'Failed to seek in file');
         }
@@ -95,7 +95,7 @@ class FileDownloadHandler
         $content = fread($handle, $end - $start + 1);
         fclose($handle);
 
-        if ($content === false) {
+        if (false === $content) {
             return new Response(500, [], 'Failed to read file');
         }
 
@@ -147,16 +147,16 @@ class FileDownloadHandler
             $start = null;
             $end = null;
 
-            if (!$startEmpty) {
+            if (false === $startEmpty) {
                 $start = $this->parseRangeValue($startStr);
-                if ($start === null) {
+                if (null === $start) {
                     return null;
                 }
             }
 
-            if (!$endEmpty) {
+            if (false === $endEmpty) {
                 $end = $this->parseRangeValue($endStr);
-                if ($end === null) {
+                if (null === $end) {
                     return null;
                 }
             }
@@ -204,7 +204,7 @@ class FileDownloadHandler
     {
         if (function_exists('mime_content_type')) {
             $mime = mime_content_type($filePath);
-            if ($mime !== false) {
+            if (false !== $mime) {
                 return $mime;
             }
         }

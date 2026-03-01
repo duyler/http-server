@@ -5,22 +5,36 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class HttpRequestSmugglingTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
     private int $port;
 
     #[Override]
     protected function setUp(): void
     {
         $this->port = $this->findAvailablePort();
+    }
 
+    #[Override]
+    protected function tearDown(): void
+    {
+        if (null !== $this->server) {
+            $this->server->stop();
+            $this->server->reset();
+            $this->server = null;
+        }
+        parent::tearDown();
+    }
+
+    public function testRejectsRequestWithDuplicateContentLength(): void
+    {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: $this->port,
@@ -29,17 +43,6 @@ class HttpRequestSmugglingTest extends TestCase
         );
 
         $this->server = new Server($config);
-    }
-
-    #[Override]
-    protected function tearDown(): void
-    {
-        $this->server->stop();
-    }
-
-    #[Test]
-    public function rejects_request_with_duplicate_content_length(): void
-    {
         $this->server->start();
 
         $request = "POST / HTTP/1.1\r\n";
@@ -58,9 +61,16 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    #[Test]
-    public function rejects_request_with_duplicate_host(): void
+    public function testRejectsRequestWithDuplicateHost(): void
     {
+        $config = new ServerConfig(
+            host: '127.0.0.1',
+            port: $this->port,
+            requestTimeout: 5,
+            connectionTimeout: 5,
+        );
+
+        $this->server = new Server($config);
         $this->server->start();
 
         $request = "GET / HTTP/1.1\r\n";
@@ -77,9 +87,16 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    #[Test]
-    public function rejects_request_with_duplicate_transfer_encoding(): void
+    public function testRejectsRequestWithDuplicateTransferEncoding(): void
     {
+        $config = new ServerConfig(
+            host: '127.0.0.1',
+            port: $this->port,
+            requestTimeout: 5,
+            connectionTimeout: 5,
+        );
+
+        $this->server = new Server($config);
         $this->server->start();
 
         $request = "POST / HTTP/1.1\r\n";
@@ -97,9 +114,16 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    #[Test]
-    public function accepts_request_with_single_valid_headers(): void
+    public function testAcceptsRequestWithSingleValidHeaders(): void
     {
+        $config = new ServerConfig(
+            host: '127.0.0.1',
+            port: $this->port,
+            requestTimeout: 5,
+            connectionTimeout: 5,
+        );
+
+        $this->server = new Server($config);
         $this->server->start();
 
         $body = "test body";
@@ -117,20 +141,29 @@ class HttpRequestSmugglingTest extends TestCase
         $this->assertTrue($this->server->hasRequest(), 'Server should accept valid request');
 
         if ($this->server->hasRequest()) {
-            $serverRequest = $this->server->getRequest();
+            $requestData = $this->server->getRequest();
+            assert($requestData !== null);
+            $serverRequest = $requestData->request;
             $this->assertSame('POST', $serverRequest->getMethod());
             $this->assertSame('localhost', $serverRequest->getHeaderLine('Host'));
 
             $response = new Response(200, [], 'OK');
-            $this->server->respond($response);
+            $this->server->respond(new ResponseData($requestData->id, $response));
         }
 
         fclose($client);
     }
 
-    #[Test]
-    public function accepts_request_with_multiple_cookie_headers(): void
+    public function testAcceptsRequestWithMultipleCookieHeaders(): void
     {
+        $config = new ServerConfig(
+            host: '127.0.0.1',
+            port: $this->port,
+            requestTimeout: 5,
+            connectionTimeout: 5,
+        );
+
+        $this->server = new Server($config);
         $this->server->start();
 
         $request = "GET / HTTP/1.1\r\n";
@@ -146,13 +179,15 @@ class HttpRequestSmugglingTest extends TestCase
         $this->assertTrue($this->server->hasRequest(), 'Server should accept request with multiple Cookie headers');
 
         if ($this->server->hasRequest()) {
-            $serverRequest = $this->server->getRequest();
+            $requestData = $this->server->getRequest();
+            assert($requestData !== null);
+            $serverRequest = $requestData->request;
             $cookies = $serverRequest->getCookieParams();
             $this->assertArrayHasKey('session', $cookies);
             $this->assertArrayHasKey('user', $cookies);
 
             $response = new Response(200, [], 'OK');
-            $this->server->respond($response);
+            $this->server->respond(new ResponseData($requestData->id, $response));
         }
 
         fclose($client);

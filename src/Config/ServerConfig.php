@@ -7,7 +7,7 @@ namespace Duyler\HttpServer\Config;
 use Duyler\HttpServer\Constants;
 use Duyler\HttpServer\Exception\InvalidConfigException;
 
-readonly class ServerConfig
+final readonly class ServerConfig
 {
     public function __construct(
         public string $host = '0.0.0.0',
@@ -33,6 +33,11 @@ readonly class ServerConfig
         public int $socketBacklog = 511,
         public int $headerCacheLimit = 100,
         public bool $debugMode = false,
+        public int $memoryLimit = 134217728,
+        public bool $enableSecurityHeaders = true,
+        public string $frameOptions = 'DENY',
+        public string $referrerPolicy = 'strict-origin-when-cross-origin',
+        public string $permissionsPolicy = 'geolocation=(), microphone=(), camera=()',
     ) {
         $this->validate();
     }
@@ -119,6 +124,35 @@ readonly class ServerConfig
 
         if ($this->headerCacheLimit < 1) {
             throw new InvalidConfigException('Header cache limit must be positive');
+        }
+
+        if ($this->memoryLimit < 1048576) {
+            throw new InvalidConfigException('Memory limit must be at least 1MB');
+        }
+
+        $validFrameOptions = ['DENY', 'SAMEORIGIN'];
+        if (false === in_array($this->frameOptions, $validFrameOptions, true)) {
+            throw new InvalidConfigException(sprintf(
+                'Frame options must be one of: %s',
+                implode(', ', $validFrameOptions),
+            ));
+        }
+
+        $validReferrerPolicies = [
+            'no-referrer',
+            'no-referrer-when-downgrade',
+            'origin',
+            'origin-when-cross-origin',
+            'same-origin',
+            'strict-origin',
+            'strict-origin-when-cross-origin',
+            'unsafe-url',
+        ];
+        if (false === in_array($this->referrerPolicy, $validReferrerPolicies, true)) {
+            throw new InvalidConfigException(sprintf(
+                'Referrer policy must be one of: %s',
+                implode(', ', $validReferrerPolicies),
+            ));
         }
     }
 

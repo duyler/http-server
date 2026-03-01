@@ -7,13 +7,11 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketFrameException;
 use Duyler\HttpServer\WebSocket\Frame;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class FrameTest extends TestCase
 {
-    #[Test]
-    public function creates_simple_text_frame(): void
+    public function testCreatesSimpleTextFrame(): void
     {
         $frame = new Frame(Opcode::TEXT, 'Hello', fin: true, masked: false);
 
@@ -24,8 +22,7 @@ class FrameTest extends TestCase
         $this->assertNull($frame->maskingKey);
     }
 
-    #[Test]
-    public function creates_masked_frame(): void
+    public function testCreatesMaskedFrame(): void
     {
         $maskingKey = "\x12\x34\x56\x78";
         $frame = new Frame(Opcode::TEXT, 'Hello', fin: true, masked: true, maskingKey: $maskingKey);
@@ -34,8 +31,7 @@ class FrameTest extends TestCase
         $this->assertSame($maskingKey, $frame->maskingKey);
     }
 
-    #[Test]
-    public function throws_when_masked_without_key(): void
+    public function testThrowsWhenMaskedWithoutKey(): void
     {
         $this->expectException(InvalidWebSocketFrameException::class);
         $this->expectExceptionMessage('Masked frame must have masking key');
@@ -43,8 +39,7 @@ class FrameTest extends TestCase
         new Frame(Opcode::TEXT, 'Hello', masked: true);
     }
 
-    #[Test]
-    public function throws_when_masking_key_invalid_length(): void
+    public function testThrowsWhenMaskingKeyInvalidLength(): void
     {
         $this->expectException(InvalidWebSocketFrameException::class);
         $this->expectExceptionMessage('Masking key must be exactly 4 bytes');
@@ -52,8 +47,7 @@ class FrameTest extends TestCase
         new Frame(Opcode::TEXT, 'Hello', masked: true, maskingKey: 'abc');
     }
 
-    #[Test]
-    public function encodes_small_unmasked_frame(): void
+    public function testEncodesSmallUnmaskedFrame(): void
     {
         $frame = new Frame(Opcode::TEXT, 'Hi', fin: true, masked: false);
         $encoded = $frame->encode();
@@ -61,8 +55,7 @@ class FrameTest extends TestCase
         $this->assertSame("\x81\x02Hi", $encoded);
     }
 
-    #[Test]
-    public function encodes_medium_payload_with_extended_length(): void
+    public function testEncodesMediumPayloadWithExtendedLength(): void
     {
         $payload = str_repeat('A', 200);
         $frame = new Frame(Opcode::TEXT, $payload, fin: true, masked: false);
@@ -75,8 +68,7 @@ class FrameTest extends TestCase
         $this->assertSame(200, $length);
     }
 
-    #[Test]
-    public function encodes_large_payload_with_64bit_length(): void
+    public function testEncodesLargePayloadWith64bitLength(): void
     {
         $payload = str_repeat('B', 70000);
         $frame = new Frame(Opcode::BINARY, $payload, fin: true, masked: false);
@@ -89,8 +81,7 @@ class FrameTest extends TestCase
         $this->assertSame(70000, $length);
     }
 
-    #[Test]
-    public function encodes_masked_frame(): void
+    public function testEncodesMaskedFrame(): void
     {
         $maskingKey = "\x12\x34\x56\x78";
         $frame = new Frame(Opcode::TEXT, 'Hi', fin: true, masked: true, maskingKey: $maskingKey);
@@ -106,8 +97,7 @@ class FrameTest extends TestCase
         $this->assertNotSame('Hi', $maskedPayload);
     }
 
-    #[Test]
-    public function decodes_simple_text_frame(): void
+    public function testDecodesSimpleTextFrame(): void
     {
         $data = "\x81\x02Hi";
         $frame = Frame::decode($data);
@@ -119,8 +109,7 @@ class FrameTest extends TestCase
         $this->assertFalse($frame->masked);
     }
 
-    #[Test]
-    public function decodes_fragmented_frame(): void
+    public function testDecodesFragmentedFrame(): void
     {
         $data = "\x01\x05Hello";
         $frame = Frame::decode($data);
@@ -131,8 +120,7 @@ class FrameTest extends TestCase
         $this->assertFalse($frame->fin);
     }
 
-    #[Test]
-    public function decodes_continuation_frame(): void
+    public function testDecodesContinuationFrame(): void
     {
         $data = "\x80\x05World";
         $frame = Frame::decode($data);
@@ -143,8 +131,7 @@ class FrameTest extends TestCase
         $this->assertTrue($frame->fin);
     }
 
-    #[Test]
-    public function decodes_masked_frame(): void
+    public function testDecodesMaskedFrame(): void
     {
         $maskingKey = "\x12\x34\x56\x78";
         $payload = 'Test';
@@ -162,8 +149,7 @@ class FrameTest extends TestCase
         $this->assertSame($maskingKey, $frame->maskingKey);
     }
 
-    #[Test]
-    public function decodes_control_frames(): void
+    public function testDecodesControlFrames(): void
     {
         $pingFrame = Frame::decode("\x89\x00");
         $this->assertSame(Opcode::PING, $pingFrame->opcode);
@@ -175,22 +161,19 @@ class FrameTest extends TestCase
         $this->assertSame(Opcode::CLOSE, $closeFrame->opcode);
     }
 
-    #[Test]
-    public function returns_null_when_not_enough_data(): void
+    public function testReturnsNullWhenNotEnoughData(): void
     {
         $this->assertNull(Frame::decode("\x81"));
         $this->assertNull(Frame::decode(""));
     }
 
-    #[Test]
-    public function returns_null_when_payload_incomplete(): void
+    public function testReturnsNullWhenPayloadIncomplete(): void
     {
         $data = "\x81\x05Hi";
         $this->assertNull(Frame::decode($data));
     }
 
-    #[Test]
-    public function throws_on_unknown_opcode(): void
+    public function testThrowsOnUnknownOpcode(): void
     {
         $this->expectException(InvalidWebSocketFrameException::class);
         $this->expectExceptionMessage('Unknown opcode: 15');
@@ -198,8 +181,7 @@ class FrameTest extends TestCase
         Frame::decode("\x8F\x00");
     }
 
-    #[Test]
-    public function calculates_frame_size_correctly(): void
+    public function testCalculatesFrameSizeCorrectly(): void
     {
         $smallFrame = new Frame(Opcode::TEXT, 'Hi', fin: true, masked: false);
         $this->assertSame(4, $smallFrame->getSize());
@@ -214,8 +196,7 @@ class FrameTest extends TestCase
         $this->assertSame(8, $maskedFrame->getSize());
     }
 
-    #[Test]
-    public function encode_decode_roundtrip(): void
+    public function testEncodeDecodeRoundtrip(): void
     {
         $original = new Frame(Opcode::TEXT, 'Hello WebSocket!', fin: true, masked: false);
         $encoded = $original->encode();
@@ -227,8 +208,7 @@ class FrameTest extends TestCase
         $this->assertSame($original->fin, $decoded->fin);
     }
 
-    #[Test]
-    public function encode_decode_roundtrip_with_masking(): void
+    public function testEncodeDecodeRoundtripWithMasking(): void
     {
         $maskingKey = "\xAB\xCD\xEF\x01";
         $original = new Frame(Opcode::TEXT, 'Masked message', fin: true, masked: true, maskingKey: $maskingKey);

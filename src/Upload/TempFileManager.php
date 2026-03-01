@@ -15,7 +15,7 @@ final class TempFileManager
     {
         $tmpFile = tempnam(sys_get_temp_dir(), $prefix);
 
-        if ($tmpFile === false) {
+        if (false === $tmpFile) {
             throw new RuntimeException('Failed to create temporary file');
         }
 
