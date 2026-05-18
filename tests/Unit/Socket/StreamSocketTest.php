@@ -7,7 +7,6 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Socket;
@@ -28,22 +27,19 @@ class StreamSocketTest extends TestCase
         $this->socket->close();
     }
 
-    #[Test]
-    public function is_not_valid_initially(): void
+    public function testIsNotValidInitially(): void
     {
         $this->assertFalse($this->socket->isValid());
     }
 
-    #[Test]
-    public function binds_to_address_and_port(): void
+    public function testBindsToAddressAndPort(): void
     {
         $this->socket->bind('127.0.0.1', 0);
 
         $this->assertTrue($this->socket->isValid());
     }
 
-    #[Test]
-    public function throws_exception_when_binding_to_used_port(): void
+    public function testThrowsExceptionWhenBindingToUsedPort(): void
     {
         $socket1 = new StreamSocket();
         $socket1->bind('127.0.0.1', 0);
@@ -84,8 +80,7 @@ class StreamSocketTest extends TestCase
         return 0;
     }
 
-    #[Test]
-    public function listens_after_bind(): void
+    public function testListensAfterBind(): void
     {
         $this->socket->bind('127.0.0.1', 0);
         $this->socket->listen();
@@ -93,8 +88,7 @@ class StreamSocketTest extends TestCase
         $this->assertTrue($this->socket->isValid());
     }
 
-    #[Test]
-    public function throws_exception_when_listening_without_bind(): void
+    public function testThrowsExceptionWhenListeningWithoutBind(): void
     {
         $this->expectException(SocketException::class);
         $this->expectExceptionMessage('Socket must be bound before listening');
@@ -102,8 +96,7 @@ class StreamSocketTest extends TestCase
         $this->socket->listen();
     }
 
-    #[Test]
-    public function throws_exception_when_accepting_without_listening(): void
+    public function testThrowsExceptionWhenAcceptingWithoutListening(): void
     {
         $this->expectException(SocketException::class);
         $this->expectExceptionMessage('Socket must be listening before accepting connections');
@@ -111,8 +104,7 @@ class StreamSocketTest extends TestCase
         $this->socket->accept();
     }
 
-    #[Test]
-    public function sets_blocking_mode(): void
+    public function testSetsBlockingMode(): void
     {
         $this->socket->bind('127.0.0.1', 0);
 
@@ -122,8 +114,7 @@ class StreamSocketTest extends TestCase
         $this->assertTrue($this->socket->isValid());
     }
 
-    #[Test]
-    public function throws_exception_when_setting_blocking_on_invalid_socket(): void
+    public function testThrowsExceptionWhenSettingBlockingOnInvalidSocket(): void
     {
         $this->expectException(SocketException::class);
         $this->expectExceptionMessage('Socket is not valid');
@@ -131,8 +122,7 @@ class StreamSocketTest extends TestCase
         $this->socket->setBlocking(true);
     }
 
-    #[Test]
-    public function closes_socket(): void
+    public function testClosesSocket(): void
     {
         $this->socket->bind('127.0.0.1', 0);
         $this->socket->close();
@@ -140,16 +130,14 @@ class StreamSocketTest extends TestCase
         $this->assertFalse($this->socket->isValid());
     }
 
-    #[Test]
-    public function returns_null_resource_when_not_bound(): void
+    public function testReturnsNullResourceWhenNotBound(): void
     {
         $resource = $this->socket->getInternalResource();
 
         $this->assertNull($resource);
     }
 
-    #[Test]
-    public function returns_resource_after_bind(): void
+    public function testReturnsResourceAfterBind(): void
     {
         $this->socket->bind('127.0.0.1', 0);
         $resource = $this->socket->getInternalResource();
@@ -157,8 +145,7 @@ class StreamSocketTest extends TestCase
         $this->assertTrue(is_resource($resource) || $resource instanceof Socket);
     }
 
-    #[Test]
-    public function accepts_returns_false_in_non_blocking_mode_with_no_connections(): void
+    public function testAcceptsReturnsFalseInNonBlockingModeWithNoConnections(): void
     {
         $this->socket->bind('127.0.0.1', 0);
         $this->socket->listen();

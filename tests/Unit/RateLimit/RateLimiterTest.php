@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\RateLimit;
 
 use Duyler\HttpServer\RateLimit\RateLimiter;
-use PHPUnit\Framework\Attributes\Test;
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use PHPUnit\Framework\TestCase;
 
 class RateLimiterTest extends TestCase
 {
-    #[Test]
-    public function allows_requests_under_limit(): void
+    public function testAllowsRequestsUnderLimit(): void
     {
         $limiter = new RateLimiter(5, 60);
 
@@ -20,8 +19,7 @@ class RateLimiterTest extends TestCase
         }
     }
 
-    #[Test]
-    public function blocks_requests_over_limit(): void
+    public function testBlocksRequestsOverLimit(): void
     {
         $limiter = new RateLimiter(3, 60);
 
@@ -32,8 +30,7 @@ class RateLimiterTest extends TestCase
         $this->assertFalse($limiter->isAllowed('client1'));
     }
 
-    #[Test]
-    public function tracks_different_identifiers_separately(): void
+    public function testTracksDifferentIdentifiersSeparately(): void
     {
         $limiter = new RateLimiter(2, 60);
 
@@ -44,8 +41,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($limiter->isAllowed('client2'));
     }
 
-    #[Test]
-    public function returns_remaining_requests(): void
+    public function testReturnsRemainingRequests(): void
     {
         $limiter = new RateLimiter(5, 60);
 
@@ -58,8 +54,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(3, $limiter->getRemainingRequests('client1'));
     }
 
-    #[Test]
-    public function returns_zero_remaining_when_limit_reached(): void
+    public function testReturnsZeroRemainingWhenLimitReached(): void
     {
         $limiter = new RateLimiter(2, 60);
 
@@ -69,8 +64,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(0, $limiter->getRemainingRequests('client1'));
     }
 
-    #[Test]
-    public function reset_clears_identifier(): void
+    public function testResetClearsIdentifier(): void
     {
         $limiter = new RateLimiter(2, 60);
 
@@ -84,8 +78,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($limiter->isAllowed('client1'));
     }
 
-    #[Test]
-    public function cleanup_removes_old_requests(): void
+    public function testCleanupRemovesOldRequests(): void
     {
         $limiter = new RateLimiter(10, 1);
 
@@ -98,8 +91,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(0, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function sliding_window_allows_requests_after_time(): void
+    public function testSlidingWindowAllowsRequestsAfterTime(): void
     {
         $limiter = new RateLimiter(2, 1);
 
@@ -113,8 +105,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($limiter->isAllowed('client1'));
     }
 
-    #[Test]
-    public function returns_reset_time(): void
+    public function testReturnsResetTime(): void
     {
         $limiter = new RateLimiter(2, 60);
 
@@ -126,16 +117,14 @@ class RateLimiterTest extends TestCase
         $this->assertLessThanOrEqual(60, $resetTime);
     }
 
-    #[Test]
-    public function returns_zero_reset_time_for_unknown_identifier(): void
+    public function testReturnsZeroResetTimeForUnknownIdentifier(): void
     {
         $limiter = new RateLimiter(5, 60);
 
         $this->assertSame(0, $limiter->getResetTime('unknown'));
     }
 
-    #[Test]
-    public function get_config_returns_settings(): void
+    public function testGetConfigReturnsSettings(): void
     {
         $limiter = new RateLimiter(100, 30);
 
@@ -145,8 +134,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(30, $config['window_seconds']);
     }
 
-    #[Test]
-    public function get_active_identifiers_count(): void
+    public function testGetActiveIdentifiersCount(): void
     {
         $limiter = new RateLimiter(5, 60);
 
@@ -159,8 +147,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(2, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function sliding_window_gradual_expiry(): void
+    public function testSlidingWindowGradualExpiry(): void
     {
         $limiter = new RateLimiter(3, 2);
 
@@ -179,8 +166,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($limiter->isAllowed('client1'));
     }
 
-    #[Test]
-    public function handles_high_request_rate(): void
+    public function testHandlesHighRequestRate(): void
     {
         $limiter = new RateLimiter(100, 60);
 
@@ -191,8 +177,7 @@ class RateLimiterTest extends TestCase
         $this->assertFalse($limiter->isAllowed('client1'));
     }
 
-    #[Test]
-    public function cleanup_preserves_active_requests(): void
+    public function testCleanupPreservesActiveRequests(): void
     {
         $limiter = new RateLimiter(5, 10);
 
@@ -204,8 +189,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(2, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function auto_cleanup_triggers_after_interval(): void
+    public function testAutoCleanupTriggersAfterInterval(): void
     {
         $limiter = new RateLimiter(100, 1, 10);
 
@@ -224,8 +208,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(10, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function auto_cleanup_with_custom_interval(): void
+    public function testAutoCleanupWithCustomInterval(): void
     {
         $limiter = new RateLimiter(100, 1, 5);
 
@@ -244,8 +227,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(5, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function memory_usage_does_not_grow_infinitely(): void
+    public function testMemoryUsageDoesNotGrowInfinitely(): void
     {
         $limiter = new RateLimiter(100, 1, 50);
 
@@ -264,8 +246,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(50, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Test]
-    public function get_config_includes_cleanup_interval(): void
+    public function testGetConfigIncludesCleanupInterval(): void
     {
         $limiter = new RateLimiter(100, 30, 50);
 
@@ -276,8 +257,7 @@ class RateLimiterTest extends TestCase
         $this->assertSame(50, $config['cleanup_interval']);
     }
 
-    #[Test]
-    public function default_cleanup_interval_is_100(): void
+    public function testDefaultCleanupIntervalIs100(): void
     {
         $limiter = new RateLimiter(100, 60);
 
@@ -286,4 +266,69 @@ class RateLimiterTest extends TestCase
         $this->assertSame(100, $config['cleanup_interval']);
     }
 
+    public function testDefaultMaxIdentifiersIs10000(): void
+    {
+        $limiter = new RateLimiter(100, 60);
+
+        $config = $limiter->getConfig();
+
+        $this->assertSame(10000, $config['max_identifiers']);
+    }
+
+    public function testRejectsNewIdentifiersWhenLimitReached(): void
+    {
+        $limiter = new RateLimiter(maxIdentifiers: 2);
+
+        $this->assertTrue($limiter->isAllowed('ip1'));
+        $this->assertTrue($limiter->isAllowed('ip2'));
+        $this->assertFalse($limiter->isAllowed('ip3'));
+    }
+
+    public function testAllowsExistingIdentifiersWhenLimitReached(): void
+    {
+        $limiter = new RateLimiter(maxIdentifiers: 2);
+
+        $limiter->isAllowed('ip1');
+        $limiter->isAllowed('ip2');
+
+        $this->assertTrue($limiter->isAllowed('ip1'));
+    }
+
+    public function testGetConfigIncludesMaxIdentifiers(): void
+    {
+        $limiter = new RateLimiter(100, 60, 50, 5000);
+
+        $config = $limiter->getConfig();
+
+        $this->assertSame(5000, $config['max_identifiers']);
+    }
+
+    public function testLogsRateLimitExceededWhenRequestLimitReached(): void
+    {
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->atLeastOnce())
+            ->method('logRateLimitExceeded')
+            ->with('client1', $this->greaterThanOrEqual(3));
+
+        $limiter = new RateLimiter(3, 60, 100, 10000, $auditLogger);
+
+        $limiter->isAllowed('client1');
+        $limiter->isAllowed('client1');
+        $limiter->isAllowed('client1');
+        $this->assertFalse($limiter->isAllowed('client1'));
+    }
+
+    public function testLogsMaxIdentifiersReachedWhenIdentifierLimitReached(): void
+    {
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->atLeastOnce())
+            ->method('logMaxIdentifiersReached')
+            ->with($this->greaterThanOrEqual(2), 2);
+
+        $limiter = new RateLimiter(100, 60, 100, 2, $auditLogger);
+
+        $limiter->isAllowed('ip1');
+        $limiter->isAllowed('ip2');
+        $this->assertFalse($limiter->isAllowed('ip3'));
+    }
 }

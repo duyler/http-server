@@ -28,7 +28,7 @@ final class StreamSocketResource implements SocketResourceInterface
         mixed $resource,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
-        if (!is_resource($resource) && !$resource instanceof Socket) {
+        if (false === is_resource($resource) && !$resource instanceof Socket) {
             throw new InvalidArgumentException('Invalid socket resource or Socket object');
         }
         $this->resource = $resource;
@@ -37,11 +37,11 @@ final class StreamSocketResource implements SocketResourceInterface
     #[Override]
     public function read(int $length): string|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 
-        if ($length < 1) {
+        if (1 > $length) {
             return false;
         }
 
@@ -58,7 +58,7 @@ final class StreamSocketResource implements SocketResourceInterface
     #[Override]
     public function write(string $data): int|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 
@@ -69,7 +69,7 @@ final class StreamSocketResource implements SocketResourceInterface
 
         assert(is_resource($this->resource));
         $written = fwrite($this->resource, $data);
-        if ($written !== false) {
+        if (false !== $written) {
             fflush($this->resource);
         }
         return $written;
@@ -118,7 +118,7 @@ final class StreamSocketResource implements SocketResourceInterface
     #[Override]
     public function setBlocking(bool $blocking): void
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             throw new SocketException('Cannot set blocking mode on invalid socket');
         }
 
@@ -127,7 +127,7 @@ final class StreamSocketResource implements SocketResourceInterface
                 ? socket_set_block($this->resource)
                 : socket_set_nonblock($this->resource);
 
-            if (!$success) {
+            if (false === $success) {
                 throw new SocketException(
                     sprintf('Failed to set blocking mode: %s', socket_strerror(socket_last_error($this->resource))),
                 );
@@ -136,7 +136,7 @@ final class StreamSocketResource implements SocketResourceInterface
         }
 
         assert(is_resource($this->resource));
-        if (!stream_set_blocking($this->resource, $blocking)) {
+        if (false === stream_set_blocking($this->resource, $blocking)) {
             throw new SocketException('Failed to set blocking mode on stream');
         }
     }

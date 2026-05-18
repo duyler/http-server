@@ -8,7 +8,7 @@ use Duyler\HttpServer\Exception\SocketException;
 use Override;
 use Socket;
 
-class StreamSocket implements SocketInterface
+final class StreamSocket implements SocketInterface
 {
     use SocketErrorSuppressor;
 
@@ -27,7 +27,7 @@ class StreamSocket implements SocketInterface
 
         $socket = socket_create($domain, SOCK_STREAM, SOL_TCP);
 
-        if ($socket === false) {
+        if (false === $socket) {
             throw new SocketException(
                 sprintf('Failed to create socket: %s', socket_strerror(socket_last_error())),
             );
@@ -44,7 +44,7 @@ class StreamSocket implements SocketInterface
         $socket = $this->socket;
         $result = $this->suppressSocketWarnings(fn(): bool => socket_bind($socket, $address, $port));
 
-        if (!$result) {
+        if (false === $result) {
             $error = socket_strerror(socket_last_error($this->socket));
             $this->close();
             throw new SocketException(sprintf('Failed to bind socket to %s:%d - %s', $address, $port, $error));
@@ -56,7 +56,7 @@ class StreamSocket implements SocketInterface
     #[Override]
     public function listen(int $backlog = 511): void
     {
-        if (!$this->isBound) {
+        if (false === $this->isBound) {
             throw new SocketException('Socket must be bound before listening');
         }
 
@@ -74,7 +74,7 @@ class StreamSocket implements SocketInterface
     #[Override]
     public function accept(): SocketResourceInterface|false
     {
-        if (!$this->isListening) {
+        if (false === $this->isListening) {
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
@@ -82,10 +82,10 @@ class StreamSocket implements SocketInterface
 
         $client = socket_accept($this->socket);
 
-        if ($client === false) {
+        if (false === $client) {
             $error = socket_last_error($this->socket);
 
-            if ($error === SOCKET_EAGAIN || $error === SOCKET_EWOULDBLOCK || $error === 0) {
+            if (SOCKET_EAGAIN === $error || SOCKET_EWOULDBLOCK === $error || 0 === $error) {
                 return false;
             }
 
@@ -102,7 +102,7 @@ class StreamSocket implements SocketInterface
     #[Override]
     public function setBlocking(bool $blocking): void
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             throw new SocketException('Socket is not valid');
         }
 
@@ -112,7 +112,7 @@ class StreamSocket implements SocketInterface
             ? socket_set_block($this->socket)
             : socket_set_nonblock($this->socket);
 
-        if (!$result) {
+        if (false === $result) {
             throw new SocketException(
                 sprintf('Failed to set blocking mode: %s', socket_strerror(socket_last_error($this->socket))),
             );
@@ -122,11 +122,11 @@ class StreamSocket implements SocketInterface
     #[Override]
     public function read(int $length): string|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 
-        if ($length < 1) {
+        if (1 > $length) {
             return false;
         }
 
@@ -139,7 +139,7 @@ class StreamSocket implements SocketInterface
     #[Override]
     public function write(string $data): int|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 

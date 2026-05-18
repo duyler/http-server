@@ -7,7 +7,6 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Nyholm\Psr7\Response;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ResponseWriterPerformanceTest extends TestCase
@@ -21,8 +20,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->writer = new ResponseWriter();
     }
 
-    #[Test]
-    public function write_method_handles_large_response_efficiently(): void
+    public function testWriteMethodHandlesLargeResponseEfficiently(): void
     {
         $largeBody = str_repeat('Lorem ipsum dolor sit amet. ', 10000);
         $response = new Response(200, ['Content-Type' => 'text/plain'], $largeBody);
@@ -41,8 +39,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThan(5 * 1024 * 1024, $memoryUsed, 'Should use less than 5MB extra memory');
     }
 
-    #[Test]
-    public function write_buffered_reduces_memory_overhead(): void
+    public function testWriteBufferedReducesMemoryOverhead(): void
     {
         $largeBody = str_repeat('X', 1024 * 1024);
         $response = new Response(200, [], $largeBody);
@@ -60,8 +57,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThan(3 * 1024 * 1024, $peakMemory, 'Buffered write should use less memory');
     }
 
-    #[Test]
-    public function write_buffered_minimizes_callback_calls(): void
+    public function testWriteBufferedMinimizesCallbackCalls(): void
     {
         $body = str_repeat('A', 100000);
         $response = new Response(200, [], $body);
@@ -75,8 +71,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThanOrEqual($expectedMaxCalls, $callCount, 'Should minimize callback calls');
     }
 
-    #[Test]
-    public function write_buffered_handles_many_headers_efficiently(): void
+    public function testWriteBufferedHandlesManyHeadersEfficiently(): void
     {
         $response = new Response(200, [], 'Body');
 
@@ -99,8 +94,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThan(0.1, $elapsed, 'Should handle many headers quickly');
     }
 
-    #[Test]
-    public function write_vs_write_buffered_consistency(): void
+    public function testWriteVsWriteBufferedConsistency(): void
     {
         $body = str_repeat('Test content ', 1000);
         $response = new Response(200, ['Content-Type' => 'text/plain'], $body);
@@ -116,8 +110,7 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertSame($outputDirect, $outputBuffered, 'Both methods should produce identical output');
     }
 
-    #[Test]
-    public function write_buffered_performance_with_varied_sizes(): void
+    public function testWriteBufferedPerformanceWithVariedSizes(): void
     {
         $sizes = [1024, 8192, 65536, 1024 * 1024];
 
@@ -140,8 +133,7 @@ class ResponseWriterPerformanceTest extends TestCase
         }
     }
 
-    #[Test]
-    public function write_method_optimization_with_many_parts(): void
+    public function testWriteMethodOptimizationWithManyParts(): void
     {
         $headers = [];
         for ($i = 0; $i < 20; $i++) {

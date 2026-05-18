@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
 class RateLimitIntegrationTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
     private int $port;
 
     #[Override]
@@ -27,15 +27,18 @@ class RateLimitIntegrationTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        try {
-            $this->server->stop();
-        } catch (Throwable) {
+        if (null !== $this->server) {
+            try {
+                $this->server->stop();
+                $this->server->reset();
+            } catch (Throwable) {
+            }
+            $this->server = null;
         }
         parent::tearDown();
     }
 
-    #[Test]
-    public function server_without_rate_limit_accepts_all_requests(): void
+    public function testServerWithoutRateLimitAcceptsAllRequests(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -53,8 +56,9 @@ class RateLimitIntegrationTest extends TestCase
             usleep(50000);
 
             if ($this->server->hasRequest()) {
-                $this->server->getRequest();
-                $this->server->respond(new Response(200, [], 'OK'));
+                $request = $this->server->getRequest();
+                assert($request !== null);
+                $this->server->respond(new ResponseData($request->id, new Response(200, [], 'OK')));
             }
 
             fclose($client);
@@ -63,8 +67,7 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertTrue(true, 'All requests accepted without rate limit');
     }
 
-    #[Test]
-    public function server_with_rate_limit_blocks_excess_requests(): void
+    public function testServerWithRateLimitBlocksExcessRequests(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -87,7 +90,8 @@ class RateLimitIntegrationTest extends TestCase
 
             if ($this->server->hasRequest()) {
                 $request = $this->server->getRequest();
-                $this->server->respond(new Response(200, [], "Response {$i}"));
+                assert($request !== null);
+                $this->server->respond(new ResponseData($request->id, new Response(200, [], "Response {$i}")));
             }
 
             $response = stream_get_contents($client);
@@ -110,8 +114,7 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $rateLimitCount, 'Should block excess requests');
     }
 
-    #[Test]
-    public function rate_limit_header_test(): void
+    public function testRateLimitHeaderTest(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -125,8 +128,7 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertTrue(true, 'Rate limit config accepted');
     }
 
-    #[Test]
-    public function different_clients_have_separate_limits(): void
+    public function testDifferentClientsHaveSeparateLimits(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -145,8 +147,9 @@ class RateLimitIntegrationTest extends TestCase
             usleep(100000);
 
             if ($this->server->hasRequest()) {
-                $this->server->getRequest();
-                $this->server->respond(new Response(200, [], 'OK'));
+                $request = $this->server->getRequest();
+                assert($request !== null);
+                $this->server->respond(new ResponseData($request->id, new Response(200, [], 'OK')));
             }
 
             fclose($client);

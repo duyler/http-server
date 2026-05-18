@@ -6,7 +6,6 @@ namespace Duyler\HttpServer\Tests\Unit\Metrics;
 
 use Duyler\HttpServer\Metrics\ServerMetrics;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ServerMetricsTest extends TestCase
@@ -20,8 +19,7 @@ class ServerMetricsTest extends TestCase
         $this->metrics = new ServerMetrics();
     }
 
-    #[Test]
-    public function initial_metrics_are_zero(): void
+    public function testInitialMetricsAreZero(): void
     {
         $metrics = $this->metrics->getMetrics();
 
@@ -32,8 +30,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(0, $metrics['total_connections']);
     }
 
-    #[Test]
-    public function increment_requests_increases_counter(): void
+    public function testIncrementRequestsIncreasesCounter(): void
     {
         $this->metrics->incrementRequests();
         $this->metrics->incrementRequests();
@@ -44,8 +41,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(3, $metrics['total_requests']);
     }
 
-    #[Test]
-    public function increment_successful_requests(): void
+    public function testIncrementSuccessfulRequests(): void
     {
         $this->metrics->incrementSuccessfulRequests();
         $this->metrics->incrementSuccessfulRequests();
@@ -55,8 +51,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(2, $metrics['successful_requests']);
     }
 
-    #[Test]
-    public function increment_failed_requests(): void
+    public function testIncrementFailedRequests(): void
     {
         $this->metrics->incrementFailedRequests();
 
@@ -65,8 +60,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(1, $metrics['failed_requests']);
     }
 
-    #[Test]
-    public function set_active_connections(): void
+    public function testSetActiveConnections(): void
     {
         $this->metrics->setActiveConnections(5);
 
@@ -75,8 +69,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(5, $metrics['active_connections']);
     }
 
-    #[Test]
-    public function increment_total_connections(): void
+    public function testIncrementTotalConnections(): void
     {
         $this->metrics->incrementTotalConnections();
         $this->metrics->incrementTotalConnections();
@@ -87,8 +80,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(3, $metrics['total_connections']);
     }
 
-    #[Test]
-    public function increment_closed_connections(): void
+    public function testIncrementClosedConnections(): void
     {
         $this->metrics->incrementClosedConnections();
 
@@ -97,8 +89,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(1, $metrics['closed_connections']);
     }
 
-    #[Test]
-    public function increment_timed_out_connections(): void
+    public function testIncrementTimedOutConnections(): void
     {
         $this->metrics->incrementTimedOutConnections();
         $this->metrics->incrementTimedOutConnections();
@@ -108,8 +99,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(2, $metrics['timed_out_connections']);
     }
 
-    #[Test]
-    public function increment_cache_hits(): void
+    public function testIncrementCacheHits(): void
     {
         $this->metrics->incrementCacheHits();
         $this->metrics->incrementCacheHits();
@@ -120,8 +110,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(3, $metrics['cache_hits']);
     }
 
-    #[Test]
-    public function increment_cache_misses(): void
+    public function testIncrementCacheMisses(): void
     {
         $this->metrics->incrementCacheMisses();
 
@@ -130,8 +119,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(1, $metrics['cache_misses']);
     }
 
-    #[Test]
-    public function cache_hit_rate_calculation(): void
+    public function testCacheHitRateCalculation(): void
     {
         $this->metrics->incrementCacheHits();
         $this->metrics->incrementCacheHits();
@@ -143,16 +131,14 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(75.0, $metrics['cache_hit_rate']);
     }
 
-    #[Test]
-    public function cache_hit_rate_zero_when_no_cache_access(): void
+    public function testCacheHitRateZeroWhenNoCacheAccess(): void
     {
         $metrics = $this->metrics->getMetrics();
 
         $this->assertSame(0.0, $metrics['cache_hit_rate']);
     }
 
-    #[Test]
-    public function record_request_duration(): void
+    public function testRecordRequestDuration(): void
     {
         $this->metrics->incrementRequests();
         $this->metrics->recordRequestDuration(0.1);
@@ -168,8 +154,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(300.0, $metrics['max_request_duration_ms']);
     }
 
-    #[Test]
-    public function reset_clears_all_metrics(): void
+    public function testResetClearsAllMetrics(): void
     {
         $this->metrics->incrementRequests();
         $this->metrics->incrementSuccessfulRequests();
@@ -186,8 +171,7 @@ class ServerMetricsTest extends TestCase
         $this->assertSame(0, $metrics['total_connections']);
     }
 
-    #[Test]
-    public function uptime_increases(): void
+    public function testUptimeIncreases(): void
     {
         $metrics1 = $this->metrics->getMetrics();
         sleep(1);
@@ -197,8 +181,7 @@ class ServerMetricsTest extends TestCase
         $this->assertGreaterThan($metrics1['uptime_seconds'], $metrics2['uptime_seconds']);
     }
 
-    #[Test]
-    public function requests_per_second_calculation(): void
+    public function testRequestsPerSecondCalculation(): void
     {
         for ($i = 0; $i < 10; $i++) {
             $this->metrics->incrementRequests();
@@ -212,8 +195,7 @@ class ServerMetricsTest extends TestCase
         $this->assertLessThanOrEqual(10, $metrics['requests_per_second']);
     }
 
-    #[Test]
-    public function requests_per_second_is_zero_initially(): void
+    public function testRequestsPerSecondIsZeroInitially(): void
     {
         $metrics = $this->metrics->getMetrics();
 

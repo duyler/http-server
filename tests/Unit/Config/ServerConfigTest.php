@@ -6,29 +6,25 @@ namespace Duyler\HttpServer\Tests\Unit\Config;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Exception\InvalidConfigException;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ServerConfigTest extends TestCase
 {
-    #[Test]
-    public function default_max_accepts_per_cycle(): void
+    public function testDefaultMaxAcceptsPerCycle(): void
     {
         $config = new ServerConfig();
 
         $this->assertSame(10, $config->maxAcceptsPerCycle);
     }
 
-    #[Test]
-    public function custom_max_accepts_per_cycle(): void
+    public function testCustomMaxAcceptsPerCycle(): void
     {
         $config = new ServerConfig(maxAcceptsPerCycle: 25);
 
         $this->assertSame(25, $config->maxAcceptsPerCycle);
     }
 
-    #[Test]
-    public function rejects_zero_max_accepts_per_cycle(): void
+    public function testRejectsZeroMaxAcceptsPerCycle(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Max accepts per cycle must be positive');
@@ -36,8 +32,7 @@ class ServerConfigTest extends TestCase
         new ServerConfig(maxAcceptsPerCycle: 0);
     }
 
-    #[Test]
-    public function rejects_negative_max_accepts_per_cycle(): void
+    public function testRejectsNegativeMaxAcceptsPerCycle(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Max accepts per cycle must be positive');
@@ -45,41 +40,35 @@ class ServerConfigTest extends TestCase
         new ServerConfig(maxAcceptsPerCycle: -1);
     }
 
-    #[Test]
-    public function accepts_one_max_accepts_per_cycle(): void
+    public function testAcceptsOneMaxAcceptsPerCycle(): void
     {
         $config = new ServerConfig(maxAcceptsPerCycle: 1);
 
         $this->assertSame(1, $config->maxAcceptsPerCycle);
     }
 
-    #[Test]
-    public function accepts_large_max_accepts_per_cycle(): void
+    public function testAcceptsLargeMaxAcceptsPerCycle(): void
     {
         $config = new ServerConfig(maxAcceptsPerCycle: 1000);
 
         $this->assertSame(1000, $config->maxAcceptsPerCycle);
     }
 
-
-    #[Test]
-    public function default_socket_backlog(): void
+    public function testDefaultSocketBacklog(): void
     {
         $config = new ServerConfig();
 
         $this->assertSame(511, $config->socketBacklog);
     }
 
-    #[Test]
-    public function custom_socket_backlog(): void
+    public function testCustomSocketBacklog(): void
     {
         $config = new ServerConfig(socketBacklog: 1024);
 
         $this->assertSame(1024, $config->socketBacklog);
     }
 
-    #[Test]
-    public function rejects_zero_socket_backlog(): void
+    public function testRejectsZeroSocketBacklog(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Socket backlog must be positive');
@@ -87,8 +76,7 @@ class ServerConfigTest extends TestCase
         new ServerConfig(socketBacklog: 0);
     }
 
-    #[Test]
-    public function rejects_negative_socket_backlog(): void
+    public function testRejectsNegativeSocketBacklog(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Socket backlog must be positive');
@@ -96,32 +84,28 @@ class ServerConfigTest extends TestCase
         new ServerConfig(socketBacklog: -1);
     }
 
-    #[Test]
-    public function accepts_one_socket_backlog(): void
+    public function testAcceptsOneSocketBacklog(): void
     {
         $config = new ServerConfig(socketBacklog: 1);
 
         $this->assertSame(1, $config->socketBacklog);
     }
 
-    #[Test]
-    public function default_header_cache_limit(): void
+    public function testDefaultHeaderCacheLimit(): void
     {
         $config = new ServerConfig();
 
         $this->assertSame(100, $config->headerCacheLimit);
     }
 
-    #[Test]
-    public function custom_header_cache_limit(): void
+    public function testCustomHeaderCacheLimit(): void
     {
         $config = new ServerConfig(headerCacheLimit: 500);
 
         $this->assertSame(500, $config->headerCacheLimit);
     }
 
-    #[Test]
-    public function rejects_zero_header_cache_limit(): void
+    public function testRejectsZeroHeaderCacheLimit(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Header cache limit must be positive');
@@ -129,8 +113,7 @@ class ServerConfigTest extends TestCase
         new ServerConfig(headerCacheLimit: 0);
     }
 
-    #[Test]
-    public function rejects_negative_header_cache_limit(): void
+    public function testRejectsNegativeHeaderCacheLimit(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Header cache limit must be positive');
@@ -138,11 +121,101 @@ class ServerConfigTest extends TestCase
         new ServerConfig(headerCacheLimit: -1);
     }
 
-    #[Test]
-    public function accepts_one_header_cache_limit(): void
+    public function testAcceptsOneHeaderCacheLimit(): void
     {
         $config = new ServerConfig(headerCacheLimit: 1);
 
         $this->assertSame(1, $config->headerCacheLimit);
+    }
+
+    public function testDefaultEnableSecurityHeaders(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertTrue($config->enableSecurityHeaders);
+    }
+
+    public function testDisableSecurityHeaders(): void
+    {
+        $config = new ServerConfig(enableSecurityHeaders: false);
+
+        $this->assertFalse($config->enableSecurityHeaders);
+    }
+
+    public function testDefaultFrameOptions(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame('DENY', $config->frameOptions);
+    }
+
+    public function testCustomFrameOptions(): void
+    {
+        $config = new ServerConfig(frameOptions: 'SAMEORIGIN');
+
+        $this->assertSame('SAMEORIGIN', $config->frameOptions);
+    }
+
+    public function testRejectsInvalidFrameOptions(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('Frame options must be one of');
+
+        new ServerConfig(frameOptions: 'INVALID');
+    }
+
+    public function testRejectsInvalidReferrerPolicy(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('Referrer policy must be one of');
+
+        new ServerConfig(referrerPolicy: 'invalid-policy');
+    }
+
+    public function testAcceptsAllValidReferrerPolicies(): void
+    {
+        $validPolicies = [
+            'no-referrer',
+            'no-referrer-when-downgrade',
+            'origin',
+            'origin-when-cross-origin',
+            'same-origin',
+            'strict-origin',
+            'strict-origin-when-cross-origin',
+            'unsafe-url',
+        ];
+
+        foreach ($validPolicies as $policy) {
+            $config = new ServerConfig(referrerPolicy: $policy);
+            $this->assertSame($policy, $config->referrerPolicy);
+        }
+    }
+
+    public function testDefaultReferrerPolicy(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame('strict-origin-when-cross-origin', $config->referrerPolicy);
+    }
+
+    public function testCustomReferrerPolicy(): void
+    {
+        $config = new ServerConfig(referrerPolicy: 'no-referrer');
+
+        $this->assertSame('no-referrer', $config->referrerPolicy);
+    }
+
+    public function testDefaultPermissionsPolicy(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame('geolocation=(), microphone=(), camera=()', $config->permissionsPolicy);
+    }
+
+    public function testCustomPermissionsPolicy(): void
+    {
+        $config = new ServerConfig(permissionsPolicy: 'fullscreen=*');
+
+        $this->assertSame('fullscreen=*', $config->permissionsPolicy);
     }
 }

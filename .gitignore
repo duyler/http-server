@@ -1,8 +1,6 @@
 # IDE
 .idea/
 .vscode/
-.duyler/
-
 # Package
 vendor/
 coverage/
@@ -14,12 +12,6 @@ composer.lock
 
 # Duyler
 /docs/
-
-# For LLM
-.claude/
-.opencode/
-.cursor/
-.sisyphus/
 
 # MacOS
 /.DS_Store

@@ -7,12 +7,12 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class TempFileCleanupTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
     private int $port;
 
     #[Override]
@@ -33,11 +33,18 @@ class TempFileCleanupTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        $this->server->stop();
+        if (null !== $this->server) {
+            try {
+                $this->server->stop();
+                $this->server->reset();
+            } catch (Throwable) {
+            }
+            $this->server = null;
+        }
+        parent::tearDown();
     }
 
-    #[Test]
-    public function server_reset_cleans_up_temporary_files(): void
+    public function testServerResetCleansUpTemporaryFiles(): void
     {
         $this->server->start();
 
@@ -65,7 +72,9 @@ class TempFileCleanupTest extends TestCase
         usleep(100000);
 
         if ($this->server->hasRequest()) {
-            $serverRequest = $this->server->getRequest();
+            $requestData = $this->server->getRequest();
+            assert($requestData !== null);
+            $serverRequest = $requestData->request;
             $uploadedFiles = $serverRequest->getUploadedFiles();
 
             $this->assertCount(1, $uploadedFiles);
@@ -86,8 +95,7 @@ class TempFileCleanupTest extends TestCase
         $this->assertLessThanOrEqual($tempDirBefore + 1, $tempDirAfter);
     }
 
-    #[Test]
-    public function multiple_requests_with_reset_dont_leak_memory(): void
+    public function testMultipleRequestsWithResetDontLeakMemory(): void
     {
         $this->server->start();
 

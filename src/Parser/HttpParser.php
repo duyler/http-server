@@ -6,7 +6,7 @@ namespace Duyler\HttpServer\Parser;
 
 use Duyler\HttpServer\Exception\ParseException;
 
-class HttpParser
+final class HttpParser
 {
     private const string HTTP_VERSION_PATTERN = '/^HTTP\/(\d+\.\d+)$/';
     private const string HEADER_PATTERN = '/^([^:\s]+):\s*(.+)$/m';
@@ -34,14 +34,13 @@ class HttpParser
     ];
 
     /** @var array<string, string> */
-    private static array $headerNameCache = [];
+    private array $headerNameCache = [];
 
-    private static int $headerCacheLimit = 100;
+    private int $headerCacheSize = 0;
 
-    public function __construct(int $headerCacheLimit = 100)
-    {
-        self::$headerCacheLimit = $headerCacheLimit;
-    }
+    public function __construct(
+        private readonly int $headerCacheLimit = 100,
+    ) {}
 
     /**
      * @return array{method: string, uri: string, version: string}
@@ -50,7 +49,7 @@ class HttpParser
     {
         $line = rtrim($line, "\r\n");
 
-        if ($line === '') {
+        if ('' === $line) {
             throw new ParseException('Empty request line');
         }
 
@@ -62,7 +61,7 @@ class HttpParser
 
         [$method, $uri, $protocol] = $parts;
 
-        if ($uri === '') {
+        if ('' === $uri) {
             throw new ParseException('Empty URI in request line');
         }
 
@@ -91,11 +90,10 @@ class HttpParser
         $headers = [];
         $headerBlock = trim($headerBlock);
 
-        if ($headerBlock === '') {
+        if ('' === $headerBlock) {
             return [];
         }
 
-        // Fast path: use regex for simple headers without continuation
         if (!str_contains($headerBlock, "\r\n ") && !str_contains($headerBlock, "\r\n\t")) {
             $matchCount = preg_match_all(self::HEADER_PATTERN, $headerBlock, $matches, PREG_SET_ORDER);
 
@@ -120,17 +118,16 @@ class HttpParser
             }
         }
 
-        // Slow path: handle header continuation
         $lines = explode("\r\n", $headerBlock);
         $currentHeader = null;
 
         foreach ($lines as $line) {
-            if ($line === '') {
+            if ('' === $line) {
                 continue;
             }
 
             if ($line[0] === ' ' || $line[0] === "\t") {
-                if ($currentHeader === null) {
+                if (null === $currentHeader) {
                     throw new ParseException('Invalid header continuation');
                 }
                 $headers[$currentHeader][count($headers[$currentHeader]) - 1] .= ' ' . trim($line);
@@ -138,7 +135,7 @@ class HttpParser
             }
 
             $colonPos = strpos($line, ':');
-            if ($colonPos === false) {
+            if (false === $colonPos) {
                 throw new ParseException(sprintf('Invalid header format: %s', $line));
             }
 
@@ -176,7 +173,7 @@ class HttpParser
     {
         $pos = strpos($buffer, "\r\n\r\n");
 
-        if ($pos === false) {
+        if (false === $pos) {
             return [$buffer, ''];
         }
 
@@ -225,22 +222,31 @@ class HttpParser
 
     private function normalizeHeaderName(string $name): string
     {
-        if (isset(self::$headerNameCache[$name])) {
-            return self::$headerNameCache[$name];
+        if (isset($this->headerNameCache[$name])) {
+            return $this->headerNameCache[$name];
         }
 
         $normalized = str_replace(' ', '-', ucwords(str_replace('-', ' ', strtolower($name))));
 
-        // Limit cache size to prevent memory leaks
-        if (count(self::$headerNameCache) < self::$headerCacheLimit) {
-            self::$headerNameCache[$name] = $normalized;
+        if ($this->headerCacheSize >= $this->headerCacheLimit) {
+            $this->headerNameCache = array_slice(
+                $this->headerNameCache,
+                (int) ($this->headerCacheLimit / 2),
+                null,
+                true,
+            );
+            $this->headerCacheSize = count($this->headerNameCache);
         }
+
+        $this->headerNameCache[$name] = $normalized;
+        $this->headerCacheSize++;
 
         return $normalized;
     }
 
-    public static function clearHeaderCache(): void
+    public function clearCache(): void
     {
-        self::$headerNameCache = [];
+        $this->headerNameCache = [];
+        $this->headerCacheSize = 0;
     }
 }

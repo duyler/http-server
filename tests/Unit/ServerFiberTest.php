@@ -8,12 +8,12 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Fiber;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class ServerFiberTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
 
     #[Override]
     protected function setUp(): void
@@ -28,8 +28,21 @@ class ServerFiberTest extends TestCase
         $this->server = new Server($config);
     }
 
-    #[Test]
-    public function unregister_fiber_removes_registered_fiber(): void
+    #[Override]
+    protected function tearDown(): void
+    {
+        if (null !== $this->server) {
+            try {
+                $this->server->stop();
+                $this->server->reset();
+            } catch (Throwable) {
+            }
+            $this->server = null;
+        }
+        parent::tearDown();
+    }
+
+    public function testUnregisterFiberRemovesRegisteredFiber(): void
     {
         $fiber = new Fiber(function (): void {
             Fiber::suspend();
@@ -43,8 +56,7 @@ class ServerFiberTest extends TestCase
         $this->assertTrue($result);
     }
 
-    #[Test]
-    public function unregister_fiber_returns_false_for_non_registered_fiber(): void
+    public function testUnregisterFiberReturnsFalseForNonRegisteredFiber(): void
     {
         $fiber = new Fiber(function (): void {
             Fiber::suspend();
@@ -57,8 +69,7 @@ class ServerFiberTest extends TestCase
         $this->assertFalse($result);
     }
 
-    #[Test]
-    public function unregister_fiber_returns_false_after_second_unregister(): void
+    public function testUnregisterFiberReturnsFalseAfterSecondUnregister(): void
     {
         $fiber = new Fiber(function (): void {
             Fiber::suspend();
@@ -74,8 +85,7 @@ class ServerFiberTest extends TestCase
         $this->assertFalse($secondResult);
     }
 
-    #[Test]
-    public function terminated_fibers_are_cleaned_up_in_has_request(): void
+    public function testTerminatedFibersAreCleanedUpInHasRequest(): void
     {
         $this->server->start();
 
@@ -109,8 +119,7 @@ class ServerFiberTest extends TestCase
         $this->server->stop();
     }
 
-    #[Test]
-    public function multiple_terminated_fibers_are_cleaned_up(): void
+    public function testMultipleTerminatedFibersAreCleanedUp(): void
     {
         $this->server->start();
 
@@ -144,8 +153,7 @@ class ServerFiberTest extends TestCase
         $this->server->stop();
     }
 
-    #[Test]
-    public function reset_clears_all_fibers(): void
+    public function testResetClearsAllFibers(): void
     {
         $this->server->start();
 
@@ -170,8 +178,7 @@ class ServerFiberTest extends TestCase
         $this->assertFalse($this->server->unregisterFiber($fiber2));
     }
 
-    #[Test]
-    public function fiber_array_is_reindexed_after_cleanup(): void
+    public function testFiberArrayIsReindexedAfterCleanup(): void
     {
         $this->server->start();
 
@@ -205,8 +212,7 @@ class ServerFiberTest extends TestCase
         $this->server->stop();
     }
 
-    #[Test]
-    public function suspended_fibers_continue_to_be_resumed_after_cleanup(): void
+    public function testSuspendedFibersContinueToBeResumedAfterCleanup(): void
     {
         $this->server->start();
 

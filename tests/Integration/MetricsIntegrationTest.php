@@ -6,21 +6,32 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
-use PHPUnit\Framework\Attributes\Test;
+use Override;
 use PHPUnit\Framework\TestCase;
 
 class MetricsIntegrationTest extends TestCase
 {
-    #[Test]
-    public function server_collects_metrics(): void
+    private ?Server $server = null;
+
+    #[Override]
+    protected function tearDown(): void
+    {
+        if (null !== $this->server) {
+            $this->server->reset();
+            $this->server = null;
+        }
+        parent::tearDown();
+    }
+
+    public function testServerCollectsMetrics(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9001,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertIsArray($metrics);
         $this->assertArrayHasKey('total_requests', $metrics);
@@ -31,78 +42,73 @@ class MetricsIntegrationTest extends TestCase
         $this->assertArrayHasKey('uptime_seconds', $metrics);
     }
 
-    #[Test]
-    public function metrics_include_cache_stats(): void
+    public function testMetricsIncludeCacheStats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9002,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertArrayHasKey('cache_hits', $metrics);
         $this->assertArrayHasKey('cache_misses', $metrics);
         $this->assertArrayHasKey('cache_hit_rate', $metrics);
     }
 
-    #[Test]
-    public function metrics_include_duration_stats(): void
+    public function testMetricsIncludeDurationStats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9003,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertArrayHasKey('avg_request_duration_ms', $metrics);
         $this->assertArrayHasKey('min_request_duration_ms', $metrics);
         $this->assertArrayHasKey('max_request_duration_ms', $metrics);
     }
 
-    #[Test]
-    public function metrics_include_connection_stats(): void
+    public function testMetricsIncludeConnectionStats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9004,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertArrayHasKey('closed_connections', $metrics);
         $this->assertArrayHasKey('timed_out_connections', $metrics);
     }
 
-    #[Test]
-    public function metrics_include_requests_per_second(): void
+    public function testMetricsIncludeRequestsPerSecond(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9005,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertArrayHasKey('requests_per_second', $metrics);
         $this->assertIsFloat($metrics['requests_per_second']);
     }
 
-    #[Test]
-    public function initial_metrics_have_sensible_values(): void
+    public function testInitialMetricsHaveSensibleValues(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
             port: 9006,
         );
 
-        $server = new Server($config);
-        $metrics = $server->getMetrics();
+        $this->server = new Server($config);
+        $metrics = $this->server->getMetrics();
 
         $this->assertSame(0, $metrics['total_requests']);
         $this->assertSame(0, $metrics['successful_requests']);

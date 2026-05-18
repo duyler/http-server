@@ -7,88 +7,119 @@ namespace Duyler\HttpServer;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\Connection\Connection;
+use Duyler\HttpServer\Connection\ConnectionInterface;
+use Duyler\HttpServer\Connection\ConnectionManager;
 use Duyler\HttpServer\Connection\ConnectionPool;
+use Duyler\HttpServer\Dto\RequestData;
+use Duyler\HttpServer\Dto\ResponseData;
+use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
+use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
 use Duyler\HttpServer\Exception\InvalidConfigException;
+use Duyler\HttpServer\Exception\MemoryLimitExceededException;
+use Duyler\HttpServer\Exception\ServerException;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Duyler\HttpServer\Metrics\ServerMetrics;
+use Duyler\HttpServer\Notification\NotificationManager;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
+use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\RateLimit\RateLimiter;
+use Duyler\HttpServer\Security\SecurityHeadersService;
+use Duyler\HttpServer\Socket\ExistingSocket;
 use Duyler\HttpServer\Socket\SocketInterface;
-use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Duyler\HttpServer\Upload\TempFileManager;
-use Duyler\HttpServer\WebSocket\Connection as WebSocketConnection;
-use Duyler\HttpServer\WebSocket\Frame;
 use Duyler\HttpServer\WebSocket\Handshake;
+use Duyler\HttpServer\WebSocket\WebSocketHandler;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Ev;
+use EvIo;
 use Fiber;
 use Nyholm\Psr7\Factory\Psr17Factory;
-use Nyholm\Psr7\Response;
 use Override;
-use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Socket;
-use SplQueue;
 use Throwable;
 
-class Server implements ServerInterface
+final class Server implements ServerInterface
 {
     private ?SocketInterface $socket = null;
     private readonly ConnectionPool $connectionPool;
+    private readonly ConnectionManager $connectionManager;
     private readonly RequestParser $requestParser;
     private readonly ResponseWriter $responseWriter;
     private readonly HttpParser $httpParser;
     private readonly TempFileManager $tempFileManager;
+    private readonly WebSocketHandler $webSocketHandler;
+    private readonly NotificationManager $notificationManager;
+    private readonly ServerMetrics $metrics;
+    private readonly HttpRequestProcessor $requestProcessor;
+    private readonly ErrorHandlerInterface $errorHandler;
+    private readonly MemoryMonitor $memoryMonitor;
     private ?StaticFileHandler $staticFileHandler = null;
     private ?RateLimiter $rateLimiter = null;
-    private readonly ServerMetrics $metrics;
-
-    /** @var SplQueue<array{request: ServerRequestInterface, connection: Connection}> */
-    private SplQueue $requestQueue;
-
-    /** @var array<int, Connection> */
-    private array $pendingResponses = [];
 
     private bool $isRunning = false;
     private bool $isShuttingDown = false;
-
     private bool $hasWebSocket = false;
-
     private ServerMode $mode = ServerMode::Standalone;
-
     private ?int $workerId = null;
     private ?int $workerPid = null;
+    private mixed $externalSocketResource = null;
+    private bool $eventLoopActive = false;
+    private int $lastMemoryWarningTime = 0;
 
     /** @var array<Fiber> */
     private array $fibers = [];
 
-    /** @var array<string, WebSocketServer> */
-    private array $wsServers = [];
+    /** @var array<int, EvIo> Client socket watchers, key = connection ID */
+    private array $clientWatchers = [];
 
-    /** @var array<int, WebSocketConnection> */
-    private array $wsConnections = [];
+    /** @var EvIo|null Watcher for listening socket */
+    private ?EvIo $listeningWatcher = null;
+
+    /** @var bool Watchers started flag */
+    private bool $watchersStarted = false;
+
+    /** @var resource|null Cached notification stream */
+    private $notificationStream = null;
 
     public function __construct(
         private readonly ServerConfig $config,
         private LoggerInterface $logger = new NullLogger(),
+        ?ErrorHandlerInterface $errorHandler = null,
     ) {
         $this->httpParser = new HttpParser($this->config->headerCacheLimit);
         $psr17Factory = new Psr17Factory();
         $this->tempFileManager = new TempFileManager();
         $this->requestParser = new RequestParser($this->httpParser, $psr17Factory, $this->tempFileManager);
         $this->responseWriter = new ResponseWriter();
-        $this->connectionPool = new ConnectionPool($this->config->maxConnections);
-        /** @psalm-suppress MixedPropertyTypeCoercion */
-        $this->requestQueue = new SplQueue();
-        $this->metrics = new ServerMetrics();
 
-        if ($this->config->publicPath !== null) {
+        if ($this->config->enableSecurityHeaders) {
+            $securityHeadersService = new SecurityHeadersService(
+                enableXContentTypeOptions: true,
+                enableXFrameOptions: true,
+                enableXXSSProtection: true,
+                enableReferrerPolicy: true,
+                enablePermissionsPolicy: true,
+                enableHsts: $this->config->ssl || 443 === $this->config->port,
+                frameOptions: $this->config->frameOptions,
+                referrerPolicy: $this->config->referrerPolicy,
+                permissionsPolicy: $this->config->permissionsPolicy,
+            );
+            $this->responseWriter->setSecurityHeadersService($securityHeadersService);
+        }
+
+        $this->connectionPool = new ConnectionPool($this->config->maxConnections);
+        $this->metrics = new ServerMetrics();
+        $this->notificationManager = new NotificationManager($this->logger);
+
+        if (null !== $this->config->publicPath) {
             $this->staticFileHandler = new StaticFileHandler(
                 $this->config->publicPath,
                 $this->config->enableStaticCache,
@@ -103,7 +134,50 @@ class Server implements ServerInterface
             );
         }
 
-        ErrorHandler::register(
+        $this->requestProcessor = new HttpRequestProcessor(
+            $this->config,
+            $this->httpParser,
+            $this->requestParser,
+            $this->responseWriter,
+            $this->connectionPool,
+            $this->metrics,
+            $this->tempFileManager,
+            $this->staticFileHandler,
+            $this->rateLimiter,
+            $this->logger,
+        );
+
+        $this->webSocketHandler = new WebSocketHandler(
+            $this->config,
+            $this->requestProcessor,
+        );
+        $this->webSocketHandler->setLogger($this->logger);
+
+        $this->connectionManager = new ConnectionManager(
+            $this->connectionPool,
+            $this->httpParser,
+            $this->requestProcessor,
+            $this->metrics,
+            $this->logger,
+        );
+
+        $this->memoryMonitor = new MemoryMonitor($this->config->memoryLimit);
+
+        $this->requestProcessor->setWebSocketHandler(
+            function (ConnectionInterface $connection, ServerRequestInterface $request): void {
+                if ($this->hasWebSocket && Handshake::isWebSocketRequest($request)) {
+                    $this->webSocketHandler->handleHandshake($connection, $request);
+                }
+            },
+        );
+
+        $this->requestProcessor->setNotifyEventLoopCallback(
+            function (): void {
+                $this->notifyEventLoop();
+            },
+        );
+
+        $this->errorHandler = $errorHandler ?? new ProductionErrorHandler(
             $this->logger,
             /**
              * @param array{type: int, message: string, file: string, line: int} $error
@@ -115,6 +189,8 @@ class Server implements ServerInterface
                 $this->handleSignal($signal);
             },
         );
+
+        $this->errorHandler->register();
     }
 
     #[Override]
@@ -157,14 +233,12 @@ class Server implements ServerInterface
     #[Override]
     public function stop(): void
     {
-        if (!$this->isRunning) {
+        if (false === $this->isRunning) {
             return;
         }
 
         if ($this->hasWebSocket) {
-            foreach ($this->wsServers as $wsServer) {
-                $wsServer->closeAll();
-            }
+            $this->webSocketHandler->closeAll();
         }
 
         $this->connectionPool->closeAll();
@@ -172,6 +246,11 @@ class Server implements ServerInterface
         if (isset($this->socket)) {
             $this->socket->close();
         }
+
+        $this->stopWatchers();
+        $this->notificationStream = null;
+
+        $this->notificationManager->disable();
 
         $this->isRunning = false;
         $this->isShuttingDown = false;
@@ -182,7 +261,7 @@ class Server implements ServerInterface
     #[Override]
     public function shutdown(int $timeout = 30): bool
     {
-        if (!$this->isRunning) {
+        if (false === $this->isRunning) {
             $this->logger->warning('Cannot shutdown: server is not running');
             return true;
         }
@@ -198,7 +277,7 @@ class Server implements ServerInterface
         $startTime = time();
         $activeCount = $this->getActiveConnectionCount();
 
-        while (($activeCount > 0 || !$this->requestQueue->isEmpty() || count($this->pendingResponses) > 0)
+        while (($activeCount > 0 || $this->requestProcessor->hasRequest() || $this->requestProcessor->hasPendingResponse())
                && (time() - $startTime) < $timeout) {
             usleep(Constants::SHUTDOWN_POLL_INTERVAL_MICROSECONDS);
 
@@ -216,15 +295,15 @@ class Server implements ServerInterface
             if ($this->config->debugMode && $activeCount > 0) {
                 $this->logger->debug('Waiting for connections to finish', [
                     'active' => $activeCount,
-                    'pending_responses' => count($this->pendingResponses),
-                    'queued_requests' => $this->requestQueue->count(),
+                    'pending_responses' => $this->requestProcessor->getPendingRequestCount(),
+                    'queued_requests' => $this->requestProcessor->getQueueCount(),
                     'elapsed' => time() - $startTime,
                 ]);
             }
         }
 
         $elapsed = time() - $startTime;
-        $graceful = $activeCount === 0 && $this->requestQueue->isEmpty() && count($this->pendingResponses) === 0;
+        $graceful = $activeCount === 0 && !$this->requestProcessor->hasRequest() && !$this->requestProcessor->hasPendingResponse();
 
         if ($graceful) {
             $this->logger->info('Graceful shutdown completed successfully', [
@@ -233,8 +312,8 @@ class Server implements ServerInterface
         } else {
             $this->logger->warning('Graceful shutdown timeout reached, forcing shutdown', [
                 'remaining_active' => $activeCount,
-                'remaining_pending' => count($this->pendingResponses),
-                'remaining_queued' => $this->requestQueue->count(),
+                'remaining_pending' => $this->requestProcessor->getPendingRequestCount(),
+                'remaining_queued' => $this->requestProcessor->getQueueCount(),
                 'elapsed' => $elapsed,
             ]);
         }
@@ -249,20 +328,16 @@ class Server implements ServerInterface
     {
         $this->logger->warning('Resetting server state');
 
+        $this->errorHandler->reset();
+
         if ($this->hasWebSocket) {
-            foreach ($this->wsServers as $wsServer) {
-                $wsServer->closeAll();
-            }
-            $this->wsConnections = [];
+            $this->webSocketHandler->reset();
         }
 
         $this->connectionPool->closeAll();
-        /** @psalm-suppress MixedPropertyTypeCoercion */
-        $this->requestQueue = new SplQueue();
-        $this->pendingResponses = [];
-        $this->tempFileManager->cleanup();
+        $this->requestProcessor->reset();
 
-        if ($this->staticFileHandler !== null) {
+        if (null !== $this->staticFileHandler) {
             $this->staticFileHandler->clearCache();
         }
 
@@ -275,6 +350,11 @@ class Server implements ServerInterface
                 ]);
             }
         }
+
+        $this->stopWatchers();
+        $this->notificationStream = null;
+
+        $this->notificationManager->disable();
 
         $this->isRunning = false;
         $this->fibers = [];
@@ -302,12 +382,30 @@ class Server implements ServerInterface
     }
 
     #[Override]
+    public function enableNotification(): void
+    {
+        $this->notificationManager->enable();
+
+        $this->logger->info('Notification sockets enabled', [
+            'worker_id' => $this->workerId,
+        ]);
+    }
+
+    #[Override]
+    public function disableNotification(): void
+    {
+        $this->notificationStream = null;
+        $this->notificationManager->disable();
+    }
+
+    #[Override]
     public function hasRequest(): bool
     {
+        if ($this->watchersStarted) {
+            return $this->requestProcessor->hasRequest();
+        }
+
         try {
-            // Resume all registered Fibers before processing
-            // This is used in Event-Driven Worker Pool mode to accept
-            // connections from Master in background
             foreach ($this->fibers as $key => $fiber) {
                 if ($fiber->isTerminated()) {
                     unset($this->fibers[$key]);
@@ -326,28 +424,29 @@ class Server implements ServerInterface
                 }
             }
 
-            // Re-index fibers array after cleanup
             $this->fibers = array_values($this->fibers);
 
-            if (!$this->isRunning) {
+            if (false === $this->isRunning) {
                 $this->logger->warning('hasRequest() called but server is not running');
                 return false;
             }
 
-            // Only accept new connections in Standalone mode
-            // In Worker Pool mode, connections come via addExternalConnection()
-            if (!$this->isShuttingDown && $this->mode === ServerMode::Standalone) {
+            if (false === $this->isShuttingDown && $this->mode === ServerMode::Standalone) {
                 $this->acceptNewConnections();
             }
 
             $this->readFromConnections();
             $this->cleanupTimedOutConnections();
+            $this->requestProcessor->cleanupStaleRequests($this->config->requestTimeout);
+            $this->checkMemoryLimit();
 
             if ($this->hasWebSocket) {
-                $this->processWebSocketKeepalive();
+                $this->webSocketHandler->processKeepalive();
             }
 
-            return !$this->requestQueue->isEmpty();
+            return $this->requestProcessor->hasRequest();
+        } catch (MemoryLimitExceededException $e) {
+            throw $e;
         } catch (Throwable $e) {
             $this->logger->error('Error in hasRequest()', [
                 'error' => $e->getMessage(),
@@ -358,27 +457,26 @@ class Server implements ServerInterface
     }
 
     #[Override]
-    public function getRequest(): ?ServerRequestInterface
+    public function getRequest(): ?RequestData
     {
         try {
-            if ($this->requestQueue->isEmpty()) {
+            $requestData = $this->requestProcessor->getRequest();
+
+            if (null === $requestData) {
                 $this->logger->warning('getRequest() called but no requests available');
                 return null;
             }
 
-            $item = $this->requestQueue->dequeue();
-            $connectionId = $this->getSocketId($item['connection']->getSocket());
-            $this->pendingResponses[$connectionId] = $item['connection'];
-
             if ($this->config->debugMode) {
-                $this->logger->debug('Request retrieved', [
-                    'method' => $item['request']->getMethod(),
-                    'uri' => (string) $item['request']->getUri(),
-                    'connection_id' => $connectionId,
+                $this->logger->debug('Request data retrieved', [
+                    'request_id' => $requestData->id,
+                    'method' => $requestData->request->getMethod(),
+                    'uri' => (string) $requestData->request->getUri(),
+                    'connection_id' => $requestData->connectionId,
                 ]);
             }
 
-            return $item['request'];
+            return $requestData;
         } catch (Throwable $e) {
             $this->logger->error('Error in getRequest()', [
                 'error' => $e->getMessage(),
@@ -389,44 +487,21 @@ class Server implements ServerInterface
     }
 
     #[Override]
-    public function respond(ResponseInterface $response): void
+    public function respond(ResponseData $responseData): void
     {
-        if (count($this->pendingResponses) === 0) {
-            $this->logger->warning('respond() called but no pending responses - ignoring');
-            return;
-        }
-
-        $connection = array_shift($this->pendingResponses);
-
-        if (!$connection->isValid()) {
-            if ($this->config->debugMode) {
-                $this->logger->debug('respond() called but connection is no longer valid - closing');
-            }
-            $this->closeConnection($connection);
-            return;
-        }
-
-        try {
-            $this->sendResponse($connection, $response);
-            if ($response->getStatusCode() < 400) {
-                $this->metrics->incrementSuccessfulRequests();
-            } else {
-                $this->metrics->incrementFailedRequests();
-            }
-        } catch (Throwable $e) {
-            $this->metrics->incrementFailedRequests();
-            $this->logger->error('Failed to send response', [
-                'error' => $e->getMessage(),
-                'status' => $response->getStatusCode(),
-            ]);
-            $this->closeConnection($connection);
-        }
+        $this->requestProcessor->respond($responseData);
     }
 
     #[Override]
     public function hasPendingResponse(): bool
     {
-        return count($this->pendingResponses) > 0;
+        return $this->requestProcessor->hasPendingResponse();
+    }
+
+    #[Override]
+    public function getPendingRequestId(): ?string
+    {
+        return $this->requestProcessor->getPendingRequestId();
     }
 
     #[Override]
@@ -442,7 +517,13 @@ class Server implements ServerInterface
     public function getMetrics(): array
     {
         $this->metrics->setActiveConnections($this->connectionPool->count());
-        return $this->metrics->getMetrics();
+        $metrics = $this->metrics->getMetrics();
+        $metrics['memory_usage'] = $this->memoryMonitor->getUsage();
+        $metrics['memory_peak'] = $this->memoryMonitor->getPeak();
+        $metrics['memory_limit'] = $this->config->memoryLimit;
+        $metrics['memory_usage_percent'] = round($this->memoryMonitor->getUsagePercent(), 2);
+
+        return $metrics;
     }
 
     /**
@@ -456,11 +537,8 @@ class Server implements ServerInterface
     #[Override]
     public function attachWebSocket(string $path, WebSocketServer $ws): void
     {
-        $this->wsServers[$path] = $ws;
+        $this->webSocketHandler->attachWebSocketServer($path, $ws);
         $this->hasWebSocket = true;
-        $ws->setLogger($this->logger);
-
-        $this->logger->info('WebSocket attached', ['path' => $path]);
     }
 
     private function createSocket(): SocketInterface
@@ -469,7 +547,7 @@ class Server implements ServerInterface
             $cert = $this->config->sslCert;
             $key = $this->config->sslKey;
 
-            if ($cert === null || $key === null) {
+            if (null === $cert || null === $key) {
                 throw new InvalidConfigException('SSL enabled but certificate or key not provided');
             }
 
@@ -487,53 +565,19 @@ class Server implements ServerInterface
 
     private function acceptNewConnections(): void
     {
-        $acceptedCount = 0;
-
-        while ($acceptedCount < $this->config->maxAcceptsPerCycle) {
-            assert($this->socket !== null);
-            $clientSocketResource = $this->socket->accept();
-
-            if ($clientSocketResource === false) {
-                break;
-            }
-
-            $acceptedCount++;
-
-            $remoteAddr = '0.0.0.0';
-            $remotePort = 0;
-
-            $internalResource = $clientSocketResource instanceof StreamSocketResource
-                ? $clientSocketResource->getInternalResource()
-                : null;
-
-            if ($internalResource !== null) {
-                if ($internalResource instanceof Socket) {
-                    socket_getpeername($internalResource, $remoteAddr, $remotePort);
-                } else {
-                    $remoteName = stream_socket_get_name($internalResource, true);
-                    if ($remoteName !== false) {
-                        $parts = explode(':', $remoteName, 2);
-                        $remoteAddr = $parts[0];
-                        $remotePort = isset($parts[1]) ? (int) $parts[1] : 0;
-                    }
-                }
-            }
-
-            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort);
-            $this->connectionPool->add($connection);
-            $this->metrics->incrementTotalConnections();
-
-            if ($this->config->debugMode) {
-                $this->logger->debug('New connection accepted', [
-                    'remote' => "$remoteAddr:$remotePort",
-                    'total_connections' => $this->connectionPool->count(),
-                    'accepts_this_cycle' => $acceptedCount,
-                ]);
-            }
+        if (null === $this->socket) {
+            return;
         }
 
-        if ($acceptedCount >= $this->config->maxAcceptsPerCycle && $this->config->debugMode) {
+        $acceptedCount = $this->connectionManager->acceptFromServerSocket(
+            $this->socket,
+            $this->config->maxAcceptsPerCycle,
+            $this->config->debugMode,
+        );
+
+        if ($this->config->debugMode && $acceptedCount >= $this->config->maxAcceptsPerCycle) {
             $this->logger->debug('Max accepts per cycle reached', [
+                'accepted' => $acceptedCount,
                 'limit' => $this->config->maxAcceptsPerCycle,
                 'note' => 'Deferring remaining connections to next cycle',
             ]);
@@ -549,409 +593,61 @@ class Server implements ServerInterface
         }
 
         foreach ($connections as $connection) {
-            if ($this->hasWebSocket) {
-                $connId = $this->getSocketId($connection->getSocket());
-
-                if (isset($this->wsConnections[$connId])) {
-                    $this->handleWebSocketData($connection, $this->wsConnections[$connId]);
-                    continue;
+            if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
+                $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
+                if (null !== $wsConn) {
+                    $this->webSocketHandler->handleDataForConnection($connection, $wsConn);
                 }
-            }
-
-            if (!$connection->isValid()) {
-                $this->closeConnection($connection);
                 continue;
             }
 
-            $socket = $connection->getSocket();
-            $internalResource = $socket instanceof StreamSocketResource
-                ? $socket->getInternalResource()
-                : null;
-
-            if ($internalResource === null) {
-                $this->closeConnection($connection);
-                continue;
-            }
-
-            if ($internalResource instanceof Socket) {
-                $read = [$internalResource];
-                $write = null;
-                $except = null;
-                $changed = socket_select($read, $write, $except, 0);
-
-                if ($changed === false || $changed === 0) {
-                    continue;
-                }
-            } else {
-                $read = [$internalResource];
-                $write = null;
-                $except = null;
-                $changed = stream_select($read, $write, $except, 0);
-
-                if ($changed === false || $changed === 0) {
-                    continue;
-                }
-            }
-
-            $data = $connection->read($this->config->bufferSize);
-
-            if ($data === false || $data === '') {
-                $this->closeConnection($connection);
-                continue;
-            }
-
-            $connection->appendToBuffer($data);
-
-            if ($this->httpParser->hasCompleteHeaders($connection->getBuffer())) {
-                $this->processRequest($connection);
-            }
-        }
-    }
-
-    private function processRequest(Connection $connection): void
-    {
-        try {
-            $buffer = $connection->getBuffer();
-
-            $connection->startRequestTimer();
-
-            if ($connection->isRequestTimedOut($this->config->requestTimeout)) {
-                $this->logger->warning('Request reading timeout', [
-                    'remote' => $connection->getRemoteAddress(),
-                    'timeout' => $this->config->requestTimeout,
-                ]);
-                $this->sendErrorResponse($connection, 408, 'Request Timeout');
-                return;
-            }
-
-            [$headerBlock, $body] = $this->httpParser->splitHeadersAndBody($buffer);
-
-            if ($connection->getCachedHeaders() === null) {
-                $lines = explode("\r\n", $headerBlock);
-                $headerText = implode("\r\n", array_slice($lines, 1));
-                $headers = $this->httpParser->parseHeaders($headerText);
-                $contentLength = $this->httpParser->getContentLength($headers);
-
-                $connection->setCachedHeaders($headers);
-                $connection->setExpectedContentLength($contentLength);
-            } else {
-                $headers = $connection->getCachedHeaders();
-                $contentLength = $connection->getExpectedContentLength();
-            }
-
-            if (strlen($body) < $contentLength) {
-                return;
-            }
-
-            if ($contentLength > $this->config->maxRequestSize) {
-                $this->logger->warning('Request payload too large', [
-                    'content_length' => $contentLength,
-                    'max_allowed' => $this->config->maxRequestSize,
-                ]);
-                $this->sendErrorResponse($connection, 413, 'Payload Too Large');
-                return;
-            }
-
-            $request = $this->requestParser->parse(
-                $buffer,
-                $connection->getRemoteAddress(),
-                $connection->getRemotePort(),
+            $this->connectionManager->readFromConnection(
+                $connection,
+                $this->config->bufferSize,
+                function (ConnectionInterface $conn): void {
+                    if ($this->httpParser->hasCompleteHeaders($conn->getBuffer())) {
+                        $this->requestProcessor->processRequest($conn);
+                    }
+                },
             );
-
-            if ($this->hasWebSocket && Handshake::isWebSocketRequest($request)) {
-                $this->handleWebSocketHandshake($connection, $request);
-                return;
-            }
-
-            if ($this->rateLimiter !== null && !$this->rateLimiter->isAllowed($connection->getRemoteAddress())) {
-                $this->logger->warning('Rate limit exceeded', [
-                    'remote' => $connection->getRemoteAddress(),
-                ]);
-
-                $resetTime = $this->rateLimiter->getResetTime($connection->getRemoteAddress());
-                $response = new Response(429, [
-                    'Content-Type' => 'text/plain',
-                    'Retry-After' => (string) $resetTime,
-                    'X-RateLimit-Limit' => (string) $this->config->rateLimitRequests,
-                    'X-RateLimit-Remaining' => '0',
-                    'X-RateLimit-Reset' => (string) (time() + $resetTime),
-                ], 'Too Many Requests');
-
-                $this->sendResponse($connection, $response);
-                return;
-            }
-
-            if ($this->staticFileHandler !== null && $this->staticFileHandler->isStaticFile($request)) {
-                $connection->incrementRequestCount();
-
-                $connectionHeader = $request->getHeaderLine('Connection');
-                $keepAlive = $this->config->enableKeepAlive
-                    && (strcasecmp($connectionHeader, 'close') !== 0)
-                    && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
-
-                $connection->setKeepAlive($keepAlive);
-
-                $response = $this->staticFileHandler->handle($request);
-
-                if ($response !== null) {
-                    $this->sendResponse($connection, $response);
-                }
-
-                $connection->clearBuffer();
-
-                return;
-            }
-
-            $this->metrics->incrementRequests();
-            $this->requestQueue->enqueue([
-                'request' => $request,
-                'connection' => $connection,
-            ]);
-
-            $connection->clearBuffer();
-            $connection->incrementRequestCount();
-
-            $connectionHeader = $request->getHeaderLine('Connection');
-            $keepAlive = $this->config->enableKeepAlive
-                && strcasecmp($connectionHeader, 'keep-alive') === 0
-                && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
-
-            $connection->setKeepAlive($keepAlive);
-
-        } catch (Throwable $e) {
-            $this->logger->error('Failed to process request', [
-                'error' => $e->getMessage(),
-                'error_class' => $e::class,
-                'remote' => $connection->getRemoteAddress() . ':' . $connection->getRemotePort(),
-            ]);
-            $this->sendErrorResponse($connection, 400, 'Bad Request');
         }
-    }
-
-    private function sendResponse(Connection $connection, ResponseInterface $response): void
-    {
-        if (!$connection->isValid()) {
-            $this->closeConnection($connection);
-            return;
-        }
-
-        if (!$response->hasHeader('Content-Length')) {
-            $body = $response->getBody();
-            $size = $body->getSize();
-
-            if ($size !== null) {
-                $response = $response->withHeader('Content-Length', (string) $size);
-            } else {
-                $bodyContents = (string) $body;
-                $size = strlen($bodyContents);
-                $response = $response->withHeader('Content-Length', (string) $size);
-
-                $newBody = \Nyholm\Psr7\Stream::create($bodyContents);
-                $response = $response->withBody($newBody);
-            }
-        }
-
-        if (!$connection->isKeepAlive()) {
-            $response = $response->withHeader('Connection', 'close');
-        } else {
-            $response = $response->withHeader('Connection', 'keep-alive')
-                ->withHeader('Keep-Alive', sprintf(
-                    'timeout=%d, max=%d',
-                    $this->config->keepAliveTimeout,
-                    $this->config->keepAliveMaxRequests - $connection->getRequestCount(),
-                ));
-        }
-
-        $httpResponse = $this->responseWriter->write($response);
-        $written = $connection->write($httpResponse);
-
-        if ($written === false) {
-            $this->logger->warning('Failed to write response', [
-                'remote' => $connection->getRemoteAddress(),
-            ]);
-            $this->closeConnection($connection);
-            return;
-        }
-
-        if (!$connection->isKeepAlive()) {
-            $this->closeConnection($connection);
-        }
-    }
-
-    private function sendErrorResponse(Connection $connection, int $statusCode, string $message): void
-    {
-        $response = (new \Nyholm\Psr7\Response($statusCode))
-            ->withHeader('Content-Type', 'text/plain')
-            ->withHeader('Connection', 'close');
-
-        $response->getBody()->write($message);
-
-        $httpResponse = $this->responseWriter->write($response);
-        $connection->write($httpResponse);
-
-        $this->closeConnection($connection);
-    }
-
-    private function closeConnection(Connection $connection): void
-    {
-        if ($this->config->debugMode) {
-            $this->logger->debug('Closing connection', [
-                'remote' => $connection->getRemoteAddress(),
-                'requests_handled' => $connection->getRequestCount(),
-            ]);
-        }
-
-        $connection->close();
-        $this->connectionPool->remove($connection);
-        $this->metrics->incrementClosedConnections();
     }
 
     private function cleanupTimedOutConnections(): void
     {
-        $removed = $this->connectionPool->removeTimedOut($this->config->connectionTimeout);
-        for ($i = 0; $i < $removed; $i++) {
-            $this->metrics->incrementTimedOutConnections();
-        }
+        $this->connectionManager->cleanupTimedOut($this->config->connectionTimeout);
     }
-
 
     private function getActiveConnectionCount(): int
     {
         return $this->connectionPool->count();
     }
 
-    private function handleWebSocketHandshake(Connection $connection, ServerRequestInterface $request): void
+    private function checkMemoryLimit(): void
     {
-        $path = $request->getUri()->getPath();
-
-        $wsServer = $this->wsServers[$path] ?? null;
-
-        if ($wsServer === null) {
-            $this->logger->debug('WebSocket endpoint not found', ['path' => $path]);
-            $this->sendErrorResponse($connection, 404, 'WebSocket endpoint not found');
-            return;
-        }
-
-
-        $config = $wsServer->getConfig();
-
-        if (Handshake::isInsecureConfig($config)) {
-            $this->logger->warning('WebSocket insecure configuration detected: validateOrigin is disabled with wildcard allowedOrigins', [
-                'path' => $path,
+        if (!$this->memoryMonitor->check()) {
+            $this->logger->critical('Memory limit exceeded', [
+                'limit' => $this->config->memoryLimit,
+                'current' => $this->memoryMonitor->getUsage(),
             ]);
-        }
-        if (!Handshake::validateOrigin($request, $config)) {
-            $this->logger->warning('WebSocket origin validation failed', [
-                'origin' => $request->getHeaderLine('Origin'),
-            ]);
-            $this->sendErrorResponse($connection, 403, 'Origin not allowed');
-            return;
-        }
 
-        $response = Handshake::createResponse($request, $config);
-        $connection->write($response);
-
-        $wsConn = new WebSocketConnection($connection, $request, $wsServer);
-        $wsConn->setState(\Duyler\HttpServer\WebSocket\Enum\ConnectionState::OPEN);
-
-        $connId = $this->getSocketId($connection->getSocket());
-        $this->wsConnections[$connId] = $wsConn;
-
-        $connection->clearBuffer();
-
-        $wsServer->addConnection($wsConn);
-
-        $this->logger->info('WebSocket connection established', [
-            'path' => $path,
-            'remote' => $connection->getRemoteAddress(),
-            'conn_id' => $wsConn->getId(),
-        ]);
-    }
-
-    private function handleWebSocketData(Connection $tcpConn, WebSocketConnection $wsConn): void
-    {
-        if (!$tcpConn->isValid()) {
-            $wsConn->close();
-            return;
+            throw new MemoryLimitExceededException(
+                sprintf(
+                    'Memory limit exceeded: %d bytes used, limit is %d bytes',
+                    $this->memoryMonitor->getUsage(),
+                    $this->config->memoryLimit,
+                ),
+            );
         }
 
-        $socket = $tcpConn->getSocket();
-        $internalResource = $socket instanceof StreamSocketResource
-            ? $socket->getInternalResource()
-            : null;
-
-        if ($internalResource === null) {
-            return;
-        }
-
-        if ($internalResource instanceof Socket) {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = socket_select($read, $write, $except, 0);
-
-            if ($changed === false || $changed === 0) {
-                return;
-            }
-        } else {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = stream_select($read, $write, $except, 0);
-
-            if ($changed === false || $changed === 0) {
-                return;
-            }
-        }
-
-        try {
-            $data = $tcpConn->read($this->config->bufferSize);
-
-            if ($data === false || $data === '') {
-                $wsConn->close();
-                return;
-            }
-
-            $tcpConn->appendToBuffer($data);
-
-            while (true) {
-                $buffer = $tcpConn->getBuffer();
-                $frame = Frame::decode($buffer);
-
-                if ($frame === null) {
-                    break;
-                }
-
-                $frameSize = $frame->getSize();
-                $remaining = substr($buffer, $frameSize);
-
-                $tcpConn->clearBuffer();
-                if ($remaining !== '') {
-                    $tcpConn->appendToBuffer($remaining);
-                }
-
-                $message = $wsConn->processFrame($frame);
-
-                if ($message !== null) {
-                    $wsConn->getServer()->emit('message', $wsConn, $message);
-                }
-            }
-        } catch (Throwable $e) {
-            if ($this->config->debugMode) {
-                $this->logger->debug('WebSocket read error, closing connection', [
-                    'conn_id' => $wsConn->getId(),
-                    'error' => $e->getMessage(),
+        if ($this->memoryMonitor->isWarningThreshold(80)) {
+            $now = time();
+            if ($now - $this->lastMemoryWarningTime >= 60) {
+                $this->lastMemoryWarningTime = $now;
+                $this->logger->warning('Memory usage approaching limit', [
+                    'usage_percent' => round($this->memoryMonitor->getUsagePercent(), 2),
                 ]);
             }
-            $wsConn->close();
-        }
-    }
-
-    private function processWebSocketKeepalive(): void
-    {
-        foreach ($this->wsServers as $wsServer) {
-            $wsServer->processPings();
-            $wsServer->cleanupClosedConnections();
         }
     }
 
@@ -996,10 +692,11 @@ class Server implements ServerInterface
     /**
      * Add external connection from Worker Pool Master
      *
+     * @param Socket|resource $clientSocket Client socket (Socket object or stream resource)
      * @param array{client_ip?: string, worker_id: int, worker_pid?: int} $metadata
      */
     #[Override]
-    public function addExternalConnection(Socket $clientSocket, array $metadata): void
+    public function addExternalConnection(mixed $clientSocket, array $metadata): void
     {
         if (!isset($metadata['worker_id'])) {
             throw new InvalidConfigException('worker_id is required in metadata for addExternalConnection()');
@@ -1014,14 +711,23 @@ class Server implements ServerInterface
         $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
         $clientPort = 0;
 
-        if (socket_getpeername($clientSocket, $clientIp, $clientPort) === false) {
-            $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
-            $clientPort = 0;
+        if ($clientSocket instanceof Socket) {
+            if (false === socket_getpeername($clientSocket, $clientIp, $clientPort)) {
+                $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
+                $clientPort = 0;
 
-            $this->logger->warning('Failed to get peer name', [
-                'error' => socket_strerror(socket_last_error($clientSocket)),
-                'fallback_ip' => $clientIp,
-            ]);
+                $this->logger->warning('Failed to get peer name', [
+                    'error' => socket_strerror(socket_last_error($clientSocket)),
+                    'fallback_ip' => $clientIp,
+                ]);
+            }
+        } else {
+            $peerName = stream_socket_get_name($clientSocket, true);
+            if (false !== $peerName) {
+                $parts = explode(':', $peerName);
+                $clientIp = $parts[0] ?? $clientIp;
+                $clientPort = (int) ($parts[1] ?? $clientPort);
+            }
         }
 
         $socketResource = new StreamSocketResource($clientSocket);
@@ -1073,7 +779,7 @@ class Server implements ServerInterface
     {
         $this->workerId = $workerId;
         $this->mode = ServerMode::WorkerPool;
-        $this->isRunning = true; // Mark as running in Worker Pool mode
+        $this->isRunning = true;
 
         $this->logger->info('Worker ID set', [
             'worker_id' => $workerId,
@@ -1115,8 +821,300 @@ class Server implements ServerInterface
         return false;
     }
 
-    private function getSocketId(SocketResourceInterface $socket): int
+    /**
+     * Get socket resource for Event Loop integration (EvIo)
+     *
+     * @return Socket|resource|null Socket resource or null if unavailable
+     */
+    #[Override]
+    public function getSocketResource(): mixed
     {
-        return spl_object_id($socket);
+        if ($this->notificationManager->isEnabled() && null !== $this->notificationManager->getReadSocket()) {
+            return $this->notificationManager->getReadSocket();
+        }
+
+        if ($this->mode === ServerMode::Standalone && null !== $this->socket) {
+            return $this->socket->getInternalResource();
+        }
+
+        /** @var Socket|resource|null */
+        return $this->externalSocketResource;
+    }
+
+    #[Override]
+    public function setExternalSocketResource(mixed $resource): void
+    {
+        $this->externalSocketResource = $resource;
+    }
+
+    #[Override]
+    public function setEventLoopActive(bool $active): void
+    {
+        $this->eventLoopActive = $active;
+    }
+
+    #[Override]
+    public function isEventLoopActive(): bool
+    {
+        return $this->eventLoopActive;
+    }
+
+    private function notifyEventLoop(): void
+    {
+        if (null === $this->notificationManager->getNotifySocket()) {
+            return;
+        }
+
+        if ($this->eventLoopActive) {
+            return;
+        }
+
+        if (!$this->requestProcessor->hasRequest() && !$this->requestProcessor->hasPendingResponse()) {
+            return;
+        }
+
+        $this->notificationManager->notify();
+    }
+
+    #[Override]
+    public function startWatchers(): void
+    {
+        if ($this->watchersStarted) {
+            return;
+        }
+
+        if (false === $this->notificationManager->isEnabled()) {
+            throw new ServerException('Notification must be enabled before starting watchers');
+        }
+
+        $listeningResource = $this->getListeningResource();
+
+        if (null !== $listeningResource) {
+            $stream = $this->exportResourceToStream($listeningResource);
+
+            if (false !== $stream) {
+                $this->listeningWatcher = new EvIo($stream, Ev::READ, function (): void {
+                    $this->handleListeningSocketReadable();
+                });
+                $this->listeningWatcher->start();
+            }
+        }
+
+        foreach ($this->connectionPool->getAll() as $connection) {
+            $this->startClientWatcher($connection);
+        }
+
+        $this->watchersStarted = true;
+
+        $this->logger->debug('Server watchers started', [
+            'listening' => null !== $this->listeningWatcher,
+            'clients' => count($this->clientWatchers),
+        ]);
+    }
+
+    #[Override]
+    public function stopWatchers(): void
+    {
+        foreach ($this->clientWatchers as $watcher) {
+            $watcher->stop();
+        }
+        $this->clientWatchers = [];
+
+        if (null !== $this->listeningWatcher) {
+            $this->listeningWatcher->stop();
+        }
+        $this->listeningWatcher = null;
+
+        $this->watchersStarted = false;
+
+        $this->logger->debug('Server watchers stopped');
+    }
+
+    #[Override]
+    public function hasWatchers(): bool
+    {
+        return $this->watchersStarted;
+    }
+
+    #[Override]
+    public function getNotificationReadStream(): mixed
+    {
+        if (null !== $this->notificationStream) {
+            return $this->notificationStream;
+        }
+
+        $socket = $this->notificationManager->getReadSocket();
+
+        if (null === $socket) {
+            return null;
+        }
+
+        $stream = $this->exportToStream($socket);
+
+        if (false === $stream) {
+            return null;
+        }
+
+        $this->notificationStream = $stream;
+
+        return $this->notificationStream;
+    }
+
+    /**
+     * @return Socket|resource|null
+     */
+    private function getListeningResource(): mixed
+    {
+        if (null !== $this->socket) {
+            return $this->socket->getInternalResource();
+        }
+
+        if (null !== $this->externalSocketResource && $this->externalSocketResource instanceof Socket) {
+            return $this->externalSocketResource;
+        }
+
+        return null;
+    }
+
+    /**
+     * @return resource|false
+     */
+    private function exportToStream(Socket $socket)
+    {
+        socket_set_block($socket);
+        error_clear_last();
+        $stream = socket_export_stream($socket);
+        socket_set_nonblock($socket);
+
+        if (false === $stream) {
+            $error = error_get_last();
+            $this->logger->warning('socket_export_stream failed', [
+                'error' => $error['message'] ?? 'Unknown error',
+            ]);
+        }
+
+        return $stream;
+    }
+
+    /**
+     * @param Socket|resource $resource
+     *
+     * @return resource|false
+     */
+    private function exportResourceToStream(mixed $resource)
+    {
+        if ($resource instanceof Socket) {
+            return $this->exportToStream($resource);
+        }
+
+        return $resource;
+    }
+
+    private function startClientWatcher(ConnectionInterface $connection): void
+    {
+        $connectionId = $this->getConnectionId($connection);
+
+        if (isset($this->clientWatchers[$connectionId])) {
+            return;
+        }
+
+        $resource = $connection->getSocket()->getInternalResource();
+
+        if (null === $resource) {
+            return;
+        }
+
+        $stream = $this->exportResourceToStream($resource);
+
+        if (false === $stream) {
+            return;
+        }
+
+        $watcher = new EvIo($stream, Ev::READ, function () use ($connection): void {
+            $this->handleClientSocketReadable($connection);
+        });
+
+        $watcher->start();
+        $this->clientWatchers[$connectionId] = $watcher;
+    }
+
+    private function handleClientSocketReadable(ConnectionInterface $connection): void
+    {
+        $data = $connection->read($this->config->bufferSize);
+
+        if (false === $data || '' === $data) {
+            $this->closeConnection($connection);
+            return;
+        }
+
+        $connection->appendToBuffer($data);
+
+        $buffer = $connection->getBuffer();
+
+        if (false === $this->httpParser->hasCompleteHeaders($buffer)) {
+            return;
+        }
+
+        try {
+            $this->requestProcessor->processRequest($connection);
+
+            $this->notifyEventLoop();
+        } catch (Throwable $e) {
+            $this->logger->error('Failed to process request', [
+                'error' => $e->getMessage(),
+            ]);
+            $this->closeConnection($connection);
+        }
+    }
+
+    private function handleListeningSocketReadable(): void
+    {
+        $listeningSocket = $this->getListeningSocket();
+
+        if (null === $listeningSocket) {
+            return;
+        }
+
+        $accepted = $this->connectionManager->acceptFromServerSocket(
+            $listeningSocket,
+            $this->config->maxAcceptsPerCycle,
+            $this->config->debugMode,
+        );
+
+        if ($accepted > 0) {
+            foreach ($this->connectionPool->getAll() as $connection) {
+                $this->startClientWatcher($connection);
+            }
+        }
+    }
+
+    private function getListeningSocket(): ?SocketInterface
+    {
+        if (null !== $this->socket) {
+            return $this->socket;
+        }
+
+        if (null !== $this->externalSocketResource && $this->externalSocketResource instanceof Socket) {
+            return new ExistingSocket($this->externalSocketResource);
+        }
+
+        return null;
+    }
+
+    private function closeConnection(ConnectionInterface $connection): void
+    {
+        $connectionId = $this->getConnectionId($connection);
+
+        if (isset($this->clientWatchers[$connectionId])) {
+            $this->clientWatchers[$connectionId]->stop();
+            unset($this->clientWatchers[$connectionId]);
+        }
+
+        $this->connectionManager->closeConnectionWithMetrics($connection);
+    }
+
+    private function getConnectionId(ConnectionInterface $connection): int
+    {
+        return spl_object_id($connection->getSocket());
     }
 }

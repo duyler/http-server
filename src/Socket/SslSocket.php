@@ -7,7 +7,7 @@ namespace Duyler\HttpServer\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
 
-class SslSocket implements SocketInterface
+final class SslSocket implements SocketInterface
 {
     /** @var resource|null */
     private mixed $socket = null;
@@ -44,7 +44,7 @@ class SslSocket implements SocketInterface
             $context,
         );
 
-        if ($socket === false) {
+        if (false === $socket) {
             throw new SocketException(
                 sprintf('Failed to create SSL socket on %s: [%d] %s', $uri, $errno, $errstr),
             );
@@ -58,7 +58,7 @@ class SslSocket implements SocketInterface
     #[Override]
     public function listen(int $backlog = 511): void
     {
-        if (!$this->isBound) {
+        if (false === $this->isBound) {
             throw new SocketException('SSL socket is already listening after bind');
         }
     }
@@ -66,14 +66,14 @@ class SslSocket implements SocketInterface
     #[Override]
     public function accept(): SocketResourceInterface|false
     {
-        if (!$this->isListening) {
+        if (false === $this->isListening) {
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
         assert($this->socket !== null);
         $client = stream_socket_accept($this->socket, 0);
 
-        if ($client === false) {
+        if (false === $client) {
             return false;
         }
 
@@ -85,12 +85,12 @@ class SslSocket implements SocketInterface
     #[Override]
     public function setBlocking(bool $blocking): void
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             throw new SocketException('Socket is not valid');
         }
 
         assert($this->socket !== null);
-        if (!stream_set_blocking($this->socket, $blocking)) {
+        if (false === stream_set_blocking($this->socket, $blocking)) {
             throw new SocketException('Failed to set blocking mode on SSL socket');
         }
     }
@@ -98,11 +98,11 @@ class SslSocket implements SocketInterface
     #[Override]
     public function read(int $length): string|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 
-        if ($length < 1) {
+        if (1 > $length) {
             return false;
         }
 
@@ -114,13 +114,13 @@ class SslSocket implements SocketInterface
     #[Override]
     public function write(string $data): int|false
     {
-        if (!$this->isValid()) {
+        if (false === $this->isValid()) {
             return false;
         }
 
         assert($this->socket !== null);
         $written = fwrite($this->socket, $data);
-        if ($written !== false) {
+        if (false !== $written) {
             fflush($this->socket);
         }
         return $written;

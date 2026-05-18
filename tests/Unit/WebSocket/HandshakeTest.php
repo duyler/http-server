@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Duyler\HttpServer\WebSocket\Handshake;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Nyholm\Psr7\ServerRequest;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class HandshakeTest extends TestCase
 {
-    #[Test]
-    public function detects_valid_websocket_request(): void
+    public function testDetectsValidWebsocketRequest(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -25,8 +24,7 @@ class HandshakeTest extends TestCase
         $this->assertTrue(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function rejects_request_without_upgrade_header(): void
+    public function testRejectsRequestWithoutUpgradeHeader(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Connection' => 'Upgrade',
@@ -37,8 +35,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function rejects_request_with_wrong_upgrade_value(): void
+    public function testRejectsRequestWithWrongUpgradeValue(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'http2',
@@ -50,8 +47,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function rejects_request_without_connection_header(): void
+    public function testRejectsRequestWithoutConnectionHeader(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -62,8 +58,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function rejects_request_without_websocket_key(): void
+    public function testRejectsRequestWithoutWebsocketKey(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -74,8 +69,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function rejects_request_with_wrong_version(): void
+    public function testRejectsRequestWithWrongVersion(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -87,8 +81,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function accepts_connection_with_multiple_values(): void
+    public function testAcceptsConnectionWithMultipleValues(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -100,8 +93,7 @@ class HandshakeTest extends TestCase
         $this->assertTrue(Handshake::isWebSocketRequest($request));
     }
 
-    #[Test]
-    public function generates_correct_accept_key(): void
+    public function testGeneratesCorrectAcceptKey(): void
     {
         $key = 'dGhlIHNhbXBsZSBub25jZQ==';
         $accept = Handshake::generateAccept($key);
@@ -109,8 +101,7 @@ class HandshakeTest extends TestCase
         $this->assertSame('s3pPLMBiTxaQ9kYGzzhZRbK+xOo=', $accept);
     }
 
-    #[Test]
-    public function creates_handshake_response(): void
+    public function testCreatesHandshakeResponse(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -129,8 +120,7 @@ class HandshakeTest extends TestCase
         $this->assertStringEndsWith("\r\n\r\n", $response);
     }
 
-    #[Test]
-    public function includes_protocol_in_response_when_matched(): void
+    public function testIncludesProtocolInResponseWhenMatched(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -146,8 +136,7 @@ class HandshakeTest extends TestCase
         $this->assertStringContainsString('Sec-WebSocket-Protocol: superchat', $response);
     }
 
-    #[Test]
-    public function excludes_protocol_when_no_match(): void
+    public function testExcludesProtocolWhenNoMatch(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Upgrade' => 'websocket',
@@ -163,8 +152,7 @@ class HandshakeTest extends TestCase
         $this->assertStringNotContainsString('Sec-WebSocket-Protocol:', $response);
     }
 
-    #[Test]
-    public function validates_origin_when_enabled(): void
+    public function testValidatesOriginWhenEnabled(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Origin' => 'https://example.com',
@@ -178,8 +166,7 @@ class HandshakeTest extends TestCase
         $this->assertTrue(Handshake::validateOrigin($request, $config));
     }
 
-    #[Test]
-    public function rejects_invalid_origin(): void
+    public function testRejectsInvalidOrigin(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Origin' => 'https://evil.com',
@@ -193,35 +180,43 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::validateOrigin($request, $config));
     }
 
-    #[Test]
-    public function accepts_any_origin_with_wildcard(): void
+    public function testAcceptsAnyOriginWithWildcardWhenValidationDisabled(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Origin' => 'https://any-domain.com',
         ]);
 
         $config = new WebSocketConfig(
-            validateOrigin: true,
+            validateOrigin: false,
             allowedOrigins: ['*'],
         );
 
         $this->assertTrue(Handshake::validateOrigin($request, $config));
     }
 
-    #[Test]
-    public function skips_origin_validation_when_disabled(): void
+    public function testRejectsAllOriginsByDefault(): void
+    {
+        $request = new ServerRequest('GET', '/ws', [
+            'Origin' => 'https://example.com',
+        ]);
+
+        $config = new WebSocketConfig(validateOrigin: true);
+
+        $this->assertFalse(Handshake::validateOrigin($request, $config));
+    }
+
+    public function testSkipsOriginValidationWhenDisabled(): void
     {
         $request = new ServerRequest('GET', '/ws', [
             'Origin' => 'https://any-domain.com',
         ]);
 
-        $config = new WebSocketConfig(validateOrigin: false);
+        $config = new WebSocketConfig(validateOrigin: false, allowedOrigins: ['*']);
 
         $this->assertTrue(Handshake::validateOrigin($request, $config));
     }
 
-    #[Test]
-    public function rejects_missing_origin_when_validation_enabled(): void
+    public function testRejectsMissingOriginWhenValidationEnabled(): void
     {
         $request = new ServerRequest('GET', '/ws', []);
 
@@ -233,9 +228,7 @@ class HandshakeTest extends TestCase
         $this->assertFalse(Handshake::validateOrigin($request, $config));
     }
 
-
-    #[Test]
-    public function detects_insecure_config_when_validation_disabled_with_wildcard(): void
+    public function testDetectsInsecureConfigWhenValidationDisabledWithWildcard(): void
     {
         $config = new WebSocketConfig(
             validateOrigin: false,
@@ -245,25 +238,91 @@ class HandshakeTest extends TestCase
         $this->assertTrue(Handshake::isInsecureConfig($config));
     }
 
-    #[Test]
-    public function detects_secure_config_when_validation_enabled(): void
+    public function testDetectsInsecureConfigWhenValidationDisabledWithEmptyOrigins(): void
+    {
+        $config = new WebSocketConfig(
+            validateOrigin: false,
+        );
+
+        $this->assertTrue(Handshake::isInsecureConfig($config));
+    }
+
+    public function testDetectsSecureConfigWhenValidationEnabledWithSpecificOrigins(): void
     {
         $config = new WebSocketConfig(
             validateOrigin: true,
-            allowedOrigins: ['*'],
+            allowedOrigins: ['https://example.com'],
         );
 
         $this->assertFalse(Handshake::isInsecureConfig($config));
     }
 
-    #[Test]
-    public function detects_secure_config_when_validation_disabled_without_wildcard(): void
+    public function testDetectsSecureConfigByDefault(): void
     {
+        $config = new WebSocketConfig(validateOrigin: true);
+
+        $this->assertFalse(Handshake::isInsecureConfig($config));
+    }
+
+    public function testAuditLoggerLogsWebSocketConnectionAccepted(): void
+    {
+        $request = new ServerRequest('GET', '/ws', [
+            'Origin' => 'https://example.com',
+        ]);
+
         $config = new WebSocketConfig(
-            validateOrigin: false,
+            validateOrigin: true,
             allowedOrigins: ['https://example.com'],
         );
 
-        $this->assertFalse(Handshake::isInsecureConfig($config));
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->once())
+            ->method('logWebSocketConnection')
+            ->with(
+                $this->callback(fn(string $ip): bool => true),
+                'https://example.com',
+                true,
+            );
+
+        Handshake::validateOrigin($request, $config, $auditLogger);
+    }
+
+    public function testAuditLoggerLogsWebSocketConnectionRejected(): void
+    {
+        $request = new ServerRequest('GET', '/ws', [
+            'Origin' => 'https://evil.com',
+        ]);
+
+        $config = new WebSocketConfig(
+            validateOrigin: true,
+            allowedOrigins: ['https://example.com'],
+        );
+
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->once())
+            ->method('logWebSocketConnection')
+            ->with(
+                $this->callback(fn(string $ip): bool => true),
+                'https://evil.com',
+                false,
+            );
+
+        Handshake::validateOrigin($request, $config, $auditLogger);
+    }
+
+    public function testAuditLoggerLogsInvalidOriginWhenMissing(): void
+    {
+        $request = new ServerRequest('GET', '/ws', []);
+
+        $config = new WebSocketConfig(
+            validateOrigin: true,
+            allowedOrigins: ['https://example.com'],
+        );
+
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->once())
+            ->method('logInvalidOrigin');
+
+        Handshake::validateOrigin($request, $config, $auditLogger);
     }
 }

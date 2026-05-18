@@ -4,12 +4,13 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Handler;
 
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use stdClass;
 
-class StaticFileHandler
+final class StaticFileHandler
 {
     /** @var array<string, string> */
     private const array MIME_TYPES = [
@@ -47,25 +48,26 @@ class StaticFileHandler
         private readonly bool $enableCache = true,
         private readonly int $maxCacheSize = 52428800,
         private readonly int $maxCacheFiles = 1000,
+        private readonly ?AuditLoggerInterface $auditLogger = null,
     ) {}
 
     public function isStaticFile(ServerRequestInterface $request): bool
     {
         $path = $request->getUri()->getPath();
 
-        if ($path === '/' || $path === '') {
+        if ('/' === $path || '' === $path) {
             return false;
         }
 
         $filePath = $this->publicPath . $path;
         $realPath = realpath($filePath);
 
-        if ($realPath === false) {
+        if (false === $realPath) {
             return false;
         }
 
         $realPublicPath = realpath($this->publicPath);
-        if ($realPublicPath === false) {
+        if (false === $realPublicPath) {
             return false;
         }
 
@@ -80,12 +82,17 @@ class StaticFileHandler
 
         $realPath = realpath($filePath);
 
-        if ($realPath === false) {
+        if (false === $realPath) {
             return null;
         }
 
         $realPublicPath = realpath($this->publicPath);
-        if ($realPublicPath === false || !str_starts_with($realPath, $realPublicPath)) {
+        if (false === $realPublicPath) {
+            return null;
+        }
+
+        if (!str_starts_with($realPath, $realPublicPath)) {
+            $this->auditLogger?->logPathTraversalAttempt($this->getClientIp($request), $path);
             return null;
         }
 
@@ -98,25 +105,25 @@ class StaticFileHandler
         }
 
         $mtime = filemtime($realPath);
-        if ($mtime === false) {
+        if (false === $mtime) {
             return new Response(500, [], 'Internal Server Error');
         }
 
         $filesize = filesize($realPath);
-        if ($filesize === false) {
+        if (false === $filesize) {
             return new Response(500, [], 'Internal Server Error');
         }
 
         $etag = sprintf('"%x-%x"', $mtime, $filesize);
 
         $ifNoneMatch = $request->getHeaderLine('If-None-Match');
-        if ($ifNoneMatch === $etag) {
+        if ($etag === $ifNoneMatch) {
             return new Response(304);
         }
 
         $ifModifiedSince = $request->getHeaderLine('If-Modified-Since');
         $modifiedTime = strtotime($ifModifiedSince);
-        if ($ifModifiedSince !== '' && $modifiedTime !== false && $modifiedTime >= $mtime) {
+        if ('' !== $ifModifiedSince && false !== $modifiedTime && $modifiedTime >= $mtime) {
             return new Response(304);
         }
 
@@ -127,7 +134,7 @@ class StaticFileHandler
         }
 
         $content = $this->getFileContent($realPath, $mtime, $etag, $filesize);
-        if ($content === null) {
+        if (null === $content) {
             return new Response(500, [], 'Internal Server Error');
         }
 
@@ -144,6 +151,32 @@ class StaticFileHandler
         );
     }
 
+    private function getClientIp(ServerRequestInterface $request): string
+    {
+        $serverParams = $request->getServerParams();
+
+        if (isset($serverParams['HTTP_X_FORWARDED_FOR']) && is_string($serverParams['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $serverParams['HTTP_X_FORWARDED_FOR']);
+            $ip = trim($ips[0]);
+            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        if (isset($serverParams['HTTP_X_REAL_IP']) && is_string($serverParams['HTTP_X_REAL_IP'])) {
+            $ip = $serverParams['HTTP_X_REAL_IP'];
+            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
+                return $ip;
+            }
+        }
+
+        if (isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR'])) {
+            return $serverParams['REMOTE_ADDR'];
+        }
+
+        return 'unknown';
+    }
+
     private function streamFile(
         string $filePath,
         string $mimeType,
@@ -152,7 +185,7 @@ class StaticFileHandler
         int $filesize,
     ): ResponseInterface {
         $handle = fopen($filePath, 'r');
-        if ($handle === false) {
+        if (false === $handle) {
             return new Response(500, [], 'Failed to open file');
         }
         $stream = \Nyholm\Psr7\Stream::create($handle);
@@ -172,9 +205,9 @@ class StaticFileHandler
 
     private function getFileContent(string $filePath, int $mtime, string $etag, int $filesize): ?string
     {
-        if (!$this->enableCache) {
+        if (false === $this->enableCache) {
             $content = file_get_contents($filePath);
-            return $content !== false ? $content : null;
+            return false !== $content ? $content : null;
         }
 
         if (isset($this->cache[$filePath])) {
@@ -192,11 +225,11 @@ class StaticFileHandler
 
         if ($this->cacheSize + $filesize > $this->maxCacheSize) {
             $content = file_get_contents($filePath);
-            return $content !== false ? $content : null;
+            return false !== $content ? $content : null;
         }
 
         $content = file_get_contents($filePath);
-        if ($content === false) {
+        if (false === $content) {
             return null;
         }
 

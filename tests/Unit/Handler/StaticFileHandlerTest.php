@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Handler;
 
 use Duyler\HttpServer\Handler\StaticFileHandler;
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Nyholm\Psr7\ServerRequest;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class StaticFileHandlerTest extends TestCase
@@ -30,8 +30,7 @@ class StaticFileHandlerTest extends TestCase
         $this->removeDirectory($this->tempDir);
     }
 
-    #[Test]
-    public function returns_null_for_non_existent_file(): void
+    public function testReturnsNullForNonExistentFile(): void
     {
         $request = new ServerRequest('GET', '/nonexistent.txt');
 
@@ -40,8 +39,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertNull($response);
     }
 
-    #[Test]
-    public function serves_existing_file(): void
+    public function testServesExistingFile(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'Hello World');
@@ -54,8 +52,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('Hello World', (string) $response->getBody());
     }
 
-    #[Test]
-    public function sets_correct_content_type(): void
+    public function testSetsCorrectContentType(): void
     {
         $file = $this->tempDir . '/test.html';
         file_put_contents($file, '<html></html>');
@@ -66,8 +63,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('text/html', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function sets_cache_headers(): void
+    public function testSetsCacheHeaders(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'test');
@@ -80,8 +76,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertTrue($response->hasHeader('Cache-Control'));
     }
 
-    #[Test]
-    public function returns_304_for_matching_etag(): void
+    public function testReturns304ForMatchingEtag(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'test');
@@ -98,8 +93,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(304, $response->getStatusCode());
     }
 
-    #[Test]
-    public function caches_file_content(): void
+    public function testCachesFileContent(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'cached content');
@@ -115,8 +109,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertGreaterThan(0, $stats['size']);
     }
 
-    #[Test]
-    public function clears_cache(): void
+    public function testClearsCache(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'test');
@@ -131,8 +124,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(0, $stats['size']);
     }
 
-    #[Test]
-    public function prevents_directory_traversal(): void
+    public function testPreventsDirectoryTraversal(): void
     {
         $file = $this->tempDir . '/../outside.txt';
         file_put_contents($file, 'outside');
@@ -145,8 +137,7 @@ class StaticFileHandlerTest extends TestCase
         @unlink($file);
     }
 
-    #[Test]
-    public function caches_small_files(): void
+    public function testCachesSmallFiles(): void
     {
         $file = $this->tempDir . '/small.txt';
         $content = str_repeat('a', 1024);
@@ -162,8 +153,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(1, $stats['entries']);
     }
 
-    #[Test]
-    public function streams_large_files_without_caching(): void
+    public function testStreamsLargeFilesWithoutCaching(): void
     {
         $file = $this->tempDir . '/large.bin';
         $size = 2 * 1024 * 1024;
@@ -180,8 +170,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(0, $stats['entries'], 'Large files should not be cached');
     }
 
-    #[Test]
-    public function streams_file_at_cache_boundary(): void
+    public function testStreamsFileAtCacheBoundary(): void
     {
         $file = $this->tempDir . '/boundary.bin';
         $size = 1048577;
@@ -197,8 +186,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(0, $stats['entries'], 'Files larger than cache should be streamed');
     }
 
-    #[Test]
-    public function does_not_cache_when_cache_full(): void
+    public function testDoesNotCacheWhenCacheFull(): void
     {
         $file1 = $this->tempDir . '/file1.bin';
         $file2 = $this->tempDir . '/file2.bin';
@@ -218,8 +206,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertLessThanOrEqual($this->handler->getCacheStats()['max_size'], $stats['size']);
     }
 
-    #[Test]
-    public function streams_file_preserves_mime_type(): void
+    public function testStreamsFilePreservesMimeType(): void
     {
         $file = $this->tempDir . '/large.pdf';
         $size = 2 * 1024 * 1024;
@@ -232,8 +219,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('application/pdf', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function lru_evicts_least_recently_used_file(): void
+    public function testLruEvictsLeastRecentlyUsedFile(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 3);
 
@@ -266,8 +252,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(200, $response->getStatusCode());
     }
 
-    #[Test]
-    public function lru_updates_access_time_on_cache_hit(): void
+    public function testLruUpdatesAccessTimeOnCacheHit(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 2);
 
@@ -299,8 +284,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('content3', (string) $response3->getBody());
     }
 
-    #[Test]
-    public function lru_respects_max_files_limit(): void
+    public function testLruRespectsMaxFilesLimit(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 10485760, 5);
 
@@ -315,8 +299,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertLessThanOrEqual(5, $stats['entries']);
     }
 
-    #[Test]
-    public function lru_evicts_when_size_limit_reached(): void
+    public function testLruEvictsWhenSizeLimitReached(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 2048, 100);
 
@@ -339,8 +322,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertLessThanOrEqual(3, $stats['entries']);
     }
 
-    #[Test]
-    public function lru_cache_stats_include_max_files(): void
+    public function testLruCacheStatsIncludeMaxFiles(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 50);
 
@@ -350,8 +332,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(50, $stats['max_files']);
     }
 
-    #[Test]
-    public function lru_eviction_preserves_most_recent_files(): void
+    public function testLruEvictionPreservesMostRecentFiles(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 3);
 
@@ -374,8 +355,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('content5', (string) $response5->getBody());
     }
 
-    #[Test]
-    public function is_static_file_returns_true_for_existing_file(): void
+    public function testIsStaticFileReturnsTrueForExistingFile(): void
     {
         $file = $this->tempDir . '/test.txt';
         file_put_contents($file, 'content');
@@ -384,29 +364,25 @@ class StaticFileHandlerTest extends TestCase
         $this->assertTrue($this->handler->isStaticFile($request));
     }
 
-    #[Test]
-    public function is_static_file_returns_false_for_root(): void
+    public function testIsStaticFileReturnsFalseForRoot(): void
     {
         $request = new ServerRequest('GET', '/');
         $this->assertFalse($this->handler->isStaticFile($request));
     }
 
-    #[Test]
-    public function is_static_file_returns_false_for_empty_path(): void
+    public function testIsStaticFileReturnsFalseForEmptyPath(): void
     {
         $request = new ServerRequest('GET', '');
         $this->assertFalse($this->handler->isStaticFile($request));
     }
 
-    #[Test]
-    public function is_static_file_returns_false_for_non_existent(): void
+    public function testIsStaticFileReturnsFalseForNonExistent(): void
     {
         $request = new ServerRequest('GET', '/nonexistent.txt');
         $this->assertFalse($this->handler->isStaticFile($request));
     }
 
-    #[Test]
-    public function serves_file_without_cache_when_disabled(): void
+    public function testServesFileWithoutCacheWhenDisabled(): void
     {
         $handler = new StaticFileHandler($this->tempDir, false, 1048576);
         $file = $this->tempDir . '/nocache.txt';
@@ -422,8 +398,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(0, $stats['entries']);
     }
 
-    #[Test]
-    public function returns_304_for_if_modified_since(): void
+    public function testReturns304ForIfModifiedSince(): void
     {
         $file = $this->tempDir . '/modified.txt';
         file_put_contents($file, 'modified content');
@@ -438,8 +413,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(304, $response->getStatusCode());
     }
 
-    #[Test]
-    public function invalidates_cache_on_file_change(): void
+    public function testInvalidatesCacheOnFileChange(): void
     {
         $file = $this->tempDir . '/changing.txt';
         file_put_contents($file, 'original');
@@ -457,8 +431,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('modified', (string) $response2->getBody());
     }
 
-    #[Test]
-    public function lru_single_entry_eviction(): void
+    public function testLruSingleEntryEviction(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1024, 1);
 
@@ -476,8 +449,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(1, $stats['entries']);
     }
 
-    #[Test]
-    public function lru_access_same_file_twice(): void
+    public function testLruAccessSameFileTwice(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 3);
 
@@ -492,8 +464,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(1, $stats['entries']);
     }
 
-    #[Test]
-    public function mime_type_for_various_extensions(): void
+    public function testMimeTypeForVariousExtensions(): void
     {
         $extensions = [
             'css' => 'text/css',
@@ -514,8 +485,7 @@ class StaticFileHandlerTest extends TestCase
         }
     }
 
-    #[Test]
-    public function unknown_extension_returns_octet_stream(): void
+    public function testUnknownExtensionReturnsOctetStream(): void
     {
         $file = $this->tempDir . '/test.unknownext';
         file_put_contents($file, 'content');
@@ -526,8 +496,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('application/octet-stream', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function cache_size_exceeds_limit_returns_uncached(): void
+    public function testCacheSizeExceedsLimitReturnsUncached(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 100, 100);
 
@@ -544,8 +513,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(0, $stats['entries']);
     }
 
-    #[Test]
-    public function file_larger_than_max_cache_size_is_streamed(): void
+    public function testFileLargerThanMaxCacheSizeIsStreamed(): void
     {
         $file = $this->tempDir . '/streamed.css';
         $content = str_repeat('body { margin: 0; } ', 100000);
@@ -558,8 +526,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame('text/css', $response->getHeaderLine('Content-Type'));
     }
 
-    #[Test]
-    public function if_modified_since_future_returns_200(): void
+    public function testIfModifiedSinceFutureReturns200(): void
     {
         $file = $this->tempDir . '/future.txt';
         file_put_contents($file, 'future content');
@@ -574,8 +541,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(304, $response->getStatusCode());
     }
 
-    #[Test]
-    public function invalidates_single_cached_file_on_change(): void
+    public function testInvalidatesSingleCachedFileOnChange(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576, 1);
 
@@ -596,8 +562,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertSame(1, $stats['entries']);
     }
 
-    #[Test]
-    public function eviction_removes_correct_size_from_cache(): void
+    public function testEvictionRemovesCorrectSizeFromCache(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 500, 3);
 
@@ -614,8 +579,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertLessThanOrEqual(500, $stats['size']);
     }
 
-    #[Test]
-    public function handle_nonexistent_public_path_returns_null(): void
+    public function testHandleNonexistentPublicPathReturnsNull(): void
     {
         $nonExistentDir = sys_get_temp_dir() . '/nonexistent_' . uniqid();
         $handler = new StaticFileHandler($nonExistentDir, true, 1048576);
@@ -626,8 +590,7 @@ class StaticFileHandlerTest extends TestCase
         $this->assertNull($response);
     }
 
-    #[Test]
-    public function handle_unreadable_file_returns_403(): void
+    public function testHandleUnreadableFileReturns403(): void
     {
         if (0 === posix_getuid()) {
             $this->markTestSkipped('Cannot test unreadable files as root');
@@ -646,8 +609,7 @@ class StaticFileHandlerTest extends TestCase
         chmod($file, 0644);
     }
 
-    #[Test]
-    public function lru_performance_with_many_files(): void
+    public function testLruPerformanceWithManyFiles(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 10485760, 100);
 
@@ -683,5 +645,54 @@ class StaticFileHandlerTest extends TestCase
             is_dir($path) ? $this->removeDirectory($path) : unlink($path);
         }
         rmdir($dir);
+    }
+
+    public function testLogsPathTraversalAttempt(): void
+    {
+        $file = $this->tempDir . '/test.txt';
+        file_put_contents($file, 'Hello World');
+
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->once())
+            ->method('logPathTraversalAttempt')
+            ->with(
+                $this->callback(fn(string $ip): bool => true),
+                '/../../../etc/passwd',
+            );
+
+        $handler = new StaticFileHandler(
+            $this->tempDir,
+            true,
+            1048576,
+            1000,
+            $auditLogger,
+        );
+
+        $request = new ServerRequest('GET', '/../../../etc/passwd');
+
+        $response = $handler->handle($request);
+
+        $this->assertNull($response);
+    }
+
+    public function testDoesNotLogPathTraversalForNonExistentFile(): void
+    {
+        $auditLogger = $this->createMock(AuditLoggerInterface::class);
+        $auditLogger->expects($this->never())
+            ->method('logPathTraversalAttempt');
+
+        $handler = new StaticFileHandler(
+            $this->tempDir,
+            true,
+            1048576,
+            1000,
+            $auditLogger,
+        );
+
+        $request = new ServerRequest('GET', '/nonexistent.txt');
+
+        $response = $handler->handle($request);
+
+        $this->assertNull($response);
     }
 }

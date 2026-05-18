@@ -7,17 +7,17 @@ namespace Duyler\HttpServer\WebSocket;
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketFrameException;
 
-class Frame
+final readonly class Frame
 {
     public function __construct(
-        public readonly Opcode $opcode,
-        public readonly string $payload,
-        public readonly bool $fin = true,
-        public readonly bool $masked = false,
-        public readonly ?string $maskingKey = null,
+        public Opcode $opcode,
+        public string $payload,
+        public bool $fin = true,
+        public bool $masked = false,
+        public ?string $maskingKey = null,
     ) {
         if ($this->masked) {
-            if ($this->maskingKey === null) {
+            if (null === $this->maskingKey) {
                 throw new InvalidWebSocketFrameException('Masked frame must have masking key');
             }
 
@@ -69,7 +69,7 @@ class Frame
         $opcodeValue = $byte1 & 0x0F;
         $opcode = Opcode::tryFrom($opcodeValue);
 
-        if ($opcode === null) {
+        if (null === $opcode) {
             throw new InvalidWebSocketFrameException("Unknown opcode: {$opcodeValue}");
         }
 
@@ -83,22 +83,22 @@ class Frame
                 return null;
             }
             $unpacked = unpack('n', substr($data, $offset, 2));
-            if ($unpacked === false || !isset($unpacked[1])) {
+            if (false === $unpacked || !isset($unpacked[1])) {
                 throw new InvalidWebSocketFrameException('Failed to unpack 16-bit payload length');
             }
+            /** @var int $payloadLength */
             $payloadLength = $unpacked[1];
-            assert(is_int($payloadLength));
             $offset += 2;
         } elseif ($payloadLength === 127) {
             if (strlen($data) < $offset + 8) {
                 return null;
             }
             $unpacked = unpack('J', substr($data, $offset, 8));
-            if ($unpacked === false || !isset($unpacked[1])) {
+            if (false === $unpacked || !isset($unpacked[1])) {
                 throw new InvalidWebSocketFrameException('Failed to unpack 64-bit payload length');
             }
+            /** @var int $payloadLength */
             $payloadLength = $unpacked[1];
-            assert(is_int($payloadLength));
             $offset += 8;
         }
 
@@ -117,7 +117,7 @@ class Frame
 
         $payload = substr($data, $offset, $payloadLength);
 
-        if ($masked && $maskingKey !== null) {
+        if ($masked && null !== $maskingKey) {
             $payload = self::unmask($payload, $maskingKey);
         }
 

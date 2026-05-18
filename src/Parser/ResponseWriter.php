@@ -4,10 +4,18 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Parser;
 
+use Duyler\HttpServer\Security\SecurityHeadersService;
 use Psr\Http\Message\ResponseInterface;
 
-class ResponseWriter
+final class ResponseWriter
 {
+    private ?SecurityHeadersService $securityHeadersService = null;
+
+    public function setSecurityHeadersService(SecurityHeadersService $service): void
+    {
+        $this->securityHeadersService = $service;
+    }
+
     /** @var array<int, string> */
     private const array HTTP_STATUS_PHRASES = [
         100 => 'Continue',
@@ -34,6 +42,8 @@ class ResponseWriter
 
     public function write(ResponseInterface $response): string
     {
+        $response = $this->applySecurityHeaders($response);
+
         $parts = [];
         $parts[] = $this->buildStatusLine($response);
         $parts[] = $this->buildHeaders($response);
@@ -45,6 +55,8 @@ class ResponseWriter
 
     public function writeChunked(ResponseInterface $response, callable $callback): void
     {
+        $response = $this->applySecurityHeaders($response);
+
         $parts = [];
         $parts[] = $this->buildStatusLine($response);
 
@@ -59,9 +71,9 @@ class ResponseWriter
 
         $chunkSize = 8192;
 
-        while (!$body->eof()) {
+        while (false === $body->eof()) {
             $chunk = $body->read($chunkSize);
-            if ($chunk === '') {
+            if ('' === $chunk) {
                 break;
             }
 
@@ -73,6 +85,8 @@ class ResponseWriter
 
     public function writeBuffered(ResponseInterface $response, callable $callback, int $bufferSize = 8192): void
     {
+        $response = $this->applySecurityHeaders($response);
+
         $parts = [];
         $parts[] = $this->buildStatusLine($response);
         $parts[] = $this->buildHeaders($response);
@@ -84,7 +98,7 @@ class ResponseWriter
 
         $bodySize = $body->getSize();
 
-        if ($bodySize === null || $bodySize <= $bufferSize) {
+        if (null === $bodySize || $bufferSize >= $bodySize) {
             $callback($headers . $body->getContents());
             return;
         }
@@ -92,9 +106,9 @@ class ResponseWriter
         $buffer = $headers;
         $bufferLength = strlen($headers);
 
-        while (!$body->eof()) {
+        while (false === $body->eof()) {
             $chunk = $body->read($bufferSize - $bufferLength);
-            if ($chunk === '') {
+            if ('' === $chunk) {
                 break;
             }
 
@@ -118,7 +132,7 @@ class ResponseWriter
         $statusCode = $response->getStatusCode();
         $reasonPhrase = $response->getReasonPhrase();
 
-        if ($reasonPhrase === '') {
+        if ('' === $reasonPhrase) {
             $reasonPhrase = self::HTTP_STATUS_PHRASES[$statusCode] ?? 'Unknown';
         }
 
@@ -148,5 +162,14 @@ class ResponseWriter
         $body = $response->getBody();
         $body->rewind();
         return $body->getContents();
+    }
+
+    private function applySecurityHeaders(ResponseInterface $response): ResponseInterface
+    {
+        if (null === $this->securityHeadersService) {
+            return $response;
+        }
+
+        return $this->securityHeadersService->addSecurityHeaders($response);
     }
 }

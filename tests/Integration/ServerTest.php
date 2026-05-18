@@ -5,15 +5,16 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Config\ServerConfig;
+use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
-use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
 class ServerTest extends TestCase
 {
-    private Server $server;
+    private ?Server $server = null;
     private int $port;
 
     #[Override]
@@ -34,11 +35,18 @@ class ServerTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        $this->server->stop();
+        if (null !== $this->server) {
+            try {
+                $this->server->stop();
+                $this->server->reset();
+            } catch (Throwable) {
+            }
+            $this->server = null;
+        }
+        parent::tearDown();
     }
 
-    #[Test]
-    public function starts_and_stops_server(): void
+    public function testStartsAndStopsServer(): void
     {
         $this->server->start();
 
@@ -49,8 +57,7 @@ class ServerTest extends TestCase
         $this->assertTrue(true);
     }
 
-    #[Test]
-    public function receives_get_request(): void
+    public function testReceivesGetRequest(): void
     {
         $this->server->start();
 
@@ -60,14 +67,14 @@ class ServerTest extends TestCase
 
         $this->assertTrue($this->server->hasRequest());
 
-        $request = $this->server->getRequest();
+        $requestData = $this->server->getRequest();
+        assert($requestData !== null);
 
-        $this->assertSame('GET', $request->getMethod());
-        $this->assertSame('/', $request->getUri()->getPath());
+        $this->assertSame('GET', $requestData->request->getMethod());
+        $this->assertSame('/', $requestData->request->getUri()->getPath());
     }
 
-    #[Test]
-    public function sends_response(): void
+    public function testSendsResponse(): void
     {
         $this->server->start();
 
@@ -77,22 +84,22 @@ class ServerTest extends TestCase
         usleep(100000);
 
         if ($this->server->hasRequest()) {
-            $request = $this->server->getRequest();
+            $requestData = $this->server->getRequest();
+            assert($requestData !== null);
 
             $response = new Response(200, ['Content-Type' => 'text/plain'], 'Hello World');
-            $this->server->respond($response);
+            $this->server->respond(new ResponseData($requestData->id, $response));
 
-            $responseData = fread($client, 8192);
+            $responseOutput = fread($client, 8192);
 
-            $this->assertStringContainsString('HTTP/1.1 200 OK', $responseData);
-            $this->assertStringContainsString('Hello World', $responseData);
+            $this->assertStringContainsString('HTTP/1.1 200 OK', $responseOutput);
+            $this->assertStringContainsString('Hello World', $responseOutput);
         }
 
         fclose($client);
     }
 
-    #[Test]
-    public function handles_multiple_requests(): void
+    public function testHandlesMultipleRequests(): void
     {
         $this->server->start();
 
@@ -102,9 +109,10 @@ class ServerTest extends TestCase
         usleep(100000);
 
         if ($this->server->hasRequest()) {
-            $request = $this->server->getRequest();
+            $requestData = $this->server->getRequest();
+            assert($requestData !== null);
             $response = new Response(200, [], 'First');
-            $this->server->respond($response);
+            $this->server->respond(new ResponseData($requestData->id, $response));
 
             usleep(50000);
 
@@ -113,9 +121,10 @@ class ServerTest extends TestCase
             usleep(100000);
 
             if ($this->server->hasRequest()) {
-                $request = $this->server->getRequest();
+                $requestData = $this->server->getRequest();
+                assert($requestData !== null);
                 $response = new Response(200, [], 'Second');
-                $this->server->respond($response);
+                $this->server->respond(new ResponseData($requestData->id, $response));
             }
         }
 

@@ -6,7 +6,7 @@ namespace Duyler\HttpServer\Metrics;
 
 use Duyler\HttpServer\Constants;
 
-class ServerMetrics
+final class ServerMetrics
 {
     private int $totalRequests = 0;
     private int $successfulRequests = 0;
@@ -76,7 +76,7 @@ class ServerMetrics
     {
         $this->totalRequestDuration += $duration;
 
-        if ($this->minRequestDuration === 0.0 || $duration < $this->minRequestDuration) {
+        if (0.0 === $this->minRequestDuration || $this->minRequestDuration > $duration) {
             $this->minRequestDuration = $duration;
         }
 
@@ -134,7 +134,7 @@ class ServerMetrics
     private function getCacheHitRate(): float
     {
         $total = $this->cacheHits + $this->cacheMisses;
-        if ($total === 0) {
+        if (0 === $total) {
             return 0.0;
         }
         return round(((float) $this->cacheHits / (float) $total) * (float) Constants::PERCENT_MULTIPLIER, 2);
