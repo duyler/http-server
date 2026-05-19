@@ -87,16 +87,20 @@ use Duyler\HttpServer\Config\ServerConfig;
 
 $config = new ServerConfig(
     // Network
-    host: '0.0.0.0',              // Bind address
-    port: 8080,                    // Bind port
+    host: '0.0.0.0',              // Bind address (IP or hostname)
+    port: 8080,                    // Bind port (1-65535)
+    socketBacklog: 511,            // TCP backlog queue size
+    maxAcceptsPerCycle: 10,        // Max new connections per event cycle
     
     // SSL/TLS
     ssl: false,                    // Enable HTTPS
-    sslCert: null,                 // Path to SSL certificate
-    sslKey: null,                  // Path to SSL private key
+    sslCert: null,                 // Path to SSL certificate file
+    sslKey: null,                  // Path to SSL private key file
     
     // Static Files
-    publicPath: null,              // Path to public directory
+    publicPath: null,              // Path to public directory for static serving
+    enableStaticCache: true,       // Enable in-memory static file cache
+    staticCacheSize: 52428800,     // Max cache size (50MB)
     
     // Timeouts
     requestTimeout: 30,            // Request timeout in seconds
@@ -104,29 +108,263 @@ $config = new ServerConfig(
     
     // Limits
     maxConnections: 1000,          // Maximum concurrent connections
-    maxRequestSize: 10485760,      // Max request size (10MB)
-    bufferSize: 8192,              // Read buffer size
+    maxRequestSize: 10485760,      // Max request body size (10MB)
+    bufferSize: 8192,              // Read buffer size in bytes
+    headerCacheLimit: 100,         // Max cached header strings
+    memoryLimit: 134217728,        // Memory limit in bytes (128MB)
     
     // Keep-Alive
-    enableKeepAlive: true,         // Enable persistent connections
+    enableKeepAlive: true,         // Enable HTTP persistent connections
     keepAliveTimeout: 30,          // Keep-alive timeout in seconds
-    keepAliveMaxRequests: 100,     // Max requests per connection
-    
-    // Static Cache
-    enableStaticCache: true,       // Enable in-memory static file cache
-    staticCacheSize: 52428800,     // Max cache size (50MB)
+    keepAliveMaxRequests: 100,     // Max requests per keep-alive connection
     
     // Rate Limiting
-    enableRateLimit: false,        // Enable rate limiting
+    enableRateLimit: false,        // Enable rate limiting per IP
     rateLimitRequests: 100,        // Max requests per window
     rateLimitWindow: 60,           // Rate limit window in seconds
     
-    // Performance
-    maxAcceptsPerCycle: 10,        // Max new connections per cycle
+    // CORS
+    enableCors: false,             // Enable CORS handling
+    corsAllowedOrigins: [],        // Allowed origins (required when enabled)
+    corsAllowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    corsAllowedHeaders: ['Content-Type', 'Authorization'],
+    corsAllowCredentials: false,   // Allow credentials (no wildcard origin)
+    corsMaxAge: 86400,             // Preflight cache duration
+    corsExposeHeaders: [],         // Headers exposed to client
+    
+    // CSP (Content Security Policy)
+    contentSecurityPolicy: null,   // CSP directives as array
+    contentSecurityPolicyReportOnly: null, // Report-only CSP directives
+    enableCspNonce: false,         // Generate per-request CSP nonce
+    
+    // HSTS (HTTP Strict Transport Security)
+    enableHsts: false,             // Enable HSTS header (requires SSL)
+    hstsMaxAge: 31536000,          // HSTS max-age in seconds
+    hstsIncludeSubDomains: false,  // Include subdomains in HSTS
+    hstsPreload: false,            // Opt-in to HSTS preload lists
+    
+    // Security Headers
+    enableSecurityHeaders: true,   // Enable automatic security headers
+    frameOptions: 'DENY',          // X-Frame-Options: DENY or SAMEORIGIN
+    referrerPolicy: 'strict-origin-when-cross-origin', // Referrer-Policy value
+    permissionsPolicy: 'geolocation=(), microphone=(), camera=()', // Permissions-Policy
     
     // Debug
     debugMode: false,              // Enable debug logging mode
 );
+```
+
+## Security Configuration
+
+### CORS (Cross-Origin Resource Sharing)
+
+```php
+$config = new ServerConfig(
+    enableCors: true,
+    corsAllowedOrigins: ['https://example.com', 'https://app.example.com'],
+    corsAllowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    corsAllowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    corsAllowCredentials: false,
+    corsMaxAge: 86400,
+    corsExposeHeaders: ['X-Custom-Header'],
+);
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enableCors` | `bool` | `false` | Enable CORS handling |
+| `corsAllowedOrigins` | `list<string>` | `[]` | Allowed origin URLs (required when enabled) |
+| `corsAllowedMethods` | `list<string>` | `['GET','POST','PUT','DELETE','OPTIONS']` | Allowed HTTP methods |
+| `corsAllowedHeaders` | `list<string>` | `['Content-Type','Authorization']` | Allowed request headers |
+| `corsAllowCredentials` | `bool` | `false` | Allow cookies/auth headers (incompatible with wildcard origin) |
+| `corsMaxAge` | `int` | `86400` | Preflight cache duration in seconds |
+| `corsExposeHeaders` | `list<string>` | `[]` | Headers exposed to JavaScript |
+
+### Content Security Policy (CSP)
+
+```php
+$config = new ServerConfig(
+    contentSecurityPolicy: [
+        'default-src' => ["'self'"],
+        'script-src' => ["'self'", "'nonce-{{NONCE}}'"],
+        'style-src' => ["'self'", "'unsafe-inline'"],
+        'img-src' => ["'self'", 'data:', 'https:'],
+        'connect-src' => ["'self'", 'wss://example.com'],
+    ],
+    enableCspNonce: true,
+);
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `contentSecurityPolicy` | `?array` | `null` | CSP directives as key-value map |
+| `contentSecurityPolicyReportOnly` | `?array` | `null` | Report-only CSP directives |
+| `enableCspNonce` | `bool` | `false` | Generate per-request CSP nonce (placeholder: `{{NONCE}}`) |
+
+### HTTP Strict Transport Security (HSTS)
+
+```php
+$config = new ServerConfig(
+    ssl: true,
+    enableHsts: true,
+    hstsMaxAge: 31536000,
+    hstsIncludeSubDomains: true,
+    hstsPreload: false,
+);
+```
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enableHsts` | `bool` | `false` | Enable HSTS header |
+| `hstsMaxAge` | `int` | `31536000` | Max-age in seconds (1 year default) |
+| `hstsIncludeSubDomains` | `bool` | `false` | Include all subdomains |
+| `hstsPreload` | `bool` | `false` | Opt-in to browser HSTS preload lists |
+
+### Permissions Policy
+
+```php
+$config = new ServerConfig(
+    permissionsPolicy: 'geolocation=(), microphone=(), camera=(), payment=(self)',
+);
+```
+
+### Other Security Headers
+
+The server automatically adds these headers when `enableSecurityHeaders` is true (default):
+
+| Header | Default Value |
+|--------|---------------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` (configurable: `DENY` or `SAMEORIGIN`) |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+```php
+$config = new ServerConfig(
+    enableSecurityHeaders: true,
+    frameOptions: 'SAMEORIGIN',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+);
+```
+
+## Architecture Overview
+
+### Request Processing Pipeline
+
+```
+Client Request
+      |
+      v
++-------------+     +------------------+     +----------------+
+|   Server    |---->|  ConnectionPool  |---->|  HttpParser    |
+|  (accept)   |     |  (manage conns)  |     |  (parse HTTP)  |
++-------------+     +------------------+     +----------------+
+                                                      |
+                                                      v
+                         +------------------+     +----------------+
+                         |  CorsService     |---->|  RateLimiter   |
+                         |  (CORS check)    |     |  (throttle)    |
+                         +------------------+     +----------------+
+                                                      |
+                                                      v
+                         +------------------+     +----------------+
+                         | SecurityHeaders  |---->|  AuditLogger   |
+                         |  (add headers)   |     |  (log request) |
+                         +------------------+     +----------------+
+                                                      |
+                                                      v
+                         +------------------+     +----------------+
+                         |  RequestQueue    |---->| ResponseSender |
+                         |  (enqueue)       |     |  (send)        |
+                         +------------------+     +----------------+
+                                                      |
+                                                      v
+                                              Client Response
+```
+
+### Component Responsibilities
+
+| Component | Responsibility |
+|-----------|---------------|
+| `Server` | Entry point. Accepts connections, delegates to processor |
+| `HttpRequestProcessor` | Orchestrates request lifecycle: read, parse, security check, enqueue |
+| `ConnectionPool` | Manages connection lifecycle, enforces max connections |
+| `RequestQueue` | Thread-safe request queue with ID-based response mapping |
+| `ResponseSender` | Writes HTTP responses back to client connections |
+| `ClientIpResolver` | Resolves real client IP from X-Forwarded-For chain |
+| `CorsService` | Validates CORS requests and adds response headers |
+| `SecurityHeadersService` | Adds CSP, HSTS, X-Frame-Options, Permissions-Policy |
+| `RateLimiter` | Sliding window rate limiting per client IP |
+| `AuditLogger` | PSR-3 audit logging for security events |
+
+### ServerInterface Decomposition
+
+```
+                    ServerInterface
+                         |
+         +---------------+---------------+
+         |               |               |
+RequestLifecycle   ServerLifecycle   Metrics
+    Interface          Interface      Interface
+         |
+WorkerPoolIntegration
+      Interface
+```
+
+- **RequestLifecycleInterface** -- `hasRequest()`, `getRequest()`, `respond()`, `hasPendingResponse()`
+- **ServerLifecycleInterface** -- `start()`, `stop()`, `reset()`, `restart()`, `shutdown()`
+- **WorkerPoolIntegrationInterface** -- `setWorkerId()`, `addExternalConnection()`, `enableNotification()`, `getSocketResource()`
+- **MetricsInterface** -- `getMetrics()`
+
+### WebSocket Pipeline
+
+```
+HTTP Upgrade Request
+         |
+         v
++------------------+
+|    Handshake     | (validate Origin, compute accept key)
++------------------+
+         |
+         v
++------------------+
+| WebSocketHandler | (frame parsing, message dispatch)
++------------------+
+         |
+         v
++------------------+
+| WebSocketServer  | (connection management, broadcast)
++------------------+
+         |
+    +----+----+
+    |         |
+    v         v
+  onMessage  onClose
+    |         |
+    v         v
+ Connection  Cleanup
+```
+
+### Worker Pool Integration
+
+```
++-------------------+
+|  Worker Pool      |
+|  Master Process   |
++-------------------+
+         |
+    +----+----+----+
+    |         |    |
+    v         v    v
++--------+ +--------+ +--------+
+|Worker 1| |Worker 2| |Worker N|
+| Server | | Server | | Server |
++--------+ +--------+ +--------+
+    |         |         |
+    +----Shared Socket Pool----+
+              |
+              v
+        Client Requests
 ```
 
 ## Advanced Usage

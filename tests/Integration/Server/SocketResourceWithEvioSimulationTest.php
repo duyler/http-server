@@ -40,19 +40,21 @@ class SocketResourceWithEvioSimulationTest extends TestCase
             $this->markTestSkipped('ev extension not loaded');
         }
 
-        $config = new ServerConfig(port: 18083);
+        $certPath = sys_get_temp_dir() . '/test_evio_ssl_' . uniqid() . '.pem';
+        $this->generateTestCertificate($certPath);
+
+        $config = new ServerConfig(
+            port: 18083,
+            ssl: true,
+            sslCert: $certPath,
+            sslKey: $certPath,
+        );
         $this->server = new Server($config);
         $this->server->start();
 
         $resource = $this->server->getSocketResource();
         $this->assertNotNull($resource);
-
-        if ($resource instanceof Socket) {
-            $this->markTestSkipped(
-                'EvIo does not support Socket objects in this PHP version. '
-                . 'Use SSL mode (stream resource) for EvIo compatibility.',
-            );
-        }
+        $this->assertIsNotSocket($resource);
 
         $ioCallbackCalled = false;
 
@@ -70,13 +72,19 @@ class SocketResourceWithEvioSimulationTest extends TestCase
 
         $this->assertFalse($ioCallbackCalled, 'No data, callback should not be called');
 
-        $ch = curl_init("http://127.0.0.1:18083/");
+        $ch = curl_init("https://127.0.0.1:18083/");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         curl_exec($ch);
 
         $ioWatcher->start();
         Ev::run(Ev::RUN_NOWAIT);
+
+        if (file_exists($certPath)) {
+            unlink($certPath);
+        }
     }
 
     #[Test]
@@ -86,24 +94,30 @@ class SocketResourceWithEvioSimulationTest extends TestCase
             $this->markTestSkipped('ev extension not loaded');
         }
 
-        $config = new ServerConfig(port: 18084);
+        $certPath = sys_get_temp_dir() . '/test_evio_ssl2_' . uniqid() . '.pem';
+        $this->generateTestCertificate($certPath);
+
+        $config = new ServerConfig(
+            port: 18084,
+            ssl: true,
+            sslCert: $certPath,
+            sslKey: $certPath,
+        );
         $this->server = new Server($config);
         $this->server->start();
 
         $resource = $this->server->getSocketResource();
-
-        if ($resource instanceof Socket) {
-            $this->markTestSkipped(
-                'EvIo does not support Socket objects in this PHP version. '
-                . 'Use SSL mode (stream resource) for EvIo compatibility.',
-            );
-        }
+        $this->assertIsNotSocket($resource);
 
         $ioWatcher = new EvIo($resource, Ev::READ, function (): void {});
 
         $this->assertInstanceOf(EvIo::class, $ioWatcher);
 
         $ioWatcher->stop();
+
+        if (file_exists($certPath)) {
+            unlink($certPath);
+        }
     }
 
     #[Test]

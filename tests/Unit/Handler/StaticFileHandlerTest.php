@@ -630,12 +630,8 @@ class StaticFileHandlerTest extends TestCase
     }
 
     #[Test]
-    public function handle_unreadable_file_returns_403(): void
+    public function handle_unreadable_file_returns_403_or_served_as_root(): void
     {
-        if (0 === posix_getuid()) {
-            $this->markTestSkipped('Cannot test unreadable files as root');
-        }
-
         $file = $this->tempDir . '/unreadable.txt';
         file_put_contents($file, 'unreadable content');
         chmod($file, 0000);
@@ -644,7 +640,12 @@ class StaticFileHandlerTest extends TestCase
         $response = $this->handler->handle($request);
 
         $this->assertNotNull($response);
-        $this->assertSame(403, $response->getStatusCode());
+
+        if (0 === posix_getuid()) {
+            $this->assertSame(200, $response->getStatusCode());
+        } else {
+            $this->assertSame(403, $response->getStatusCode());
+        }
 
         chmod($file, 0644);
     }

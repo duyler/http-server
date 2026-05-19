@@ -61,27 +61,21 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $conn = $reflection->newInstanceWithoutConstructor();
 
         $idProp = $reflection->getProperty('id');
-        $idProp->setAccessible(true);
         $idProp->setValue($conn, $id);
 
         $stateProp = $reflection->getProperty('state');
-        $stateProp->setAccessible(true);
         $stateProp->setValue($conn, ConnectionState::OPEN);
 
         $tcpProp = $reflection->getProperty('tcpConnection');
-        $tcpProp->setAccessible(true);
         $tcpProp->setValue($conn, $tcpConnection);
 
         $serverProp = $reflection->getProperty('server');
-        $serverProp->setAccessible(true);
         $serverProp->setValue($conn, $this->server);
 
         $requestProp = $reflection->getProperty('upgradeRequest');
-        $requestProp->setAccessible(true);
         $requestProp->setValue($conn, $request);
 
         $pongProp = $reflection->getProperty('lastPong');
-        $pongProp->setAccessible(true);
         $pongProp->setValue($conn, microtime(true));
 
         return $conn;
@@ -133,7 +127,6 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $conn = $this->createWsConnection('conn_1');
 
         $roomsProp = new ReflectionProperty($conn, 'rooms');
-        $roomsProp->setAccessible(true);
         $roomsProp->setValue($conn, ['room1', 'room2']);
 
         $this->server->addConnection($conn);
@@ -165,13 +158,14 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $closedConn = $this->createWsConnection('conn_closed');
 
         $stateProp = new ReflectionProperty($closedConn, 'state');
-        $stateProp->setAccessible(true);
         $stateProp->setValue($closedConn, ConnectionState::CLOSED);
 
         $this->server->addConnection($openConn);
         $this->server->addConnection($closedConn);
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->broadcast('hello');
+        error_reporting($previousErrorReporting);
 
         $this->expectNotToPerformAssertions();
     }
@@ -185,7 +179,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnection($conn1);
         $this->server->addConnection($conn2);
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->broadcast('hello', $conn1);
+        error_reporting($previousErrorReporting);
 
         $this->expectNotToPerformAssertions();
     }
@@ -260,7 +256,6 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $closedConn = $this->createWsConnection('conn_closed');
 
         $stateProp = new ReflectionProperty($closedConn, 'state');
-        $stateProp->setAccessible(true);
         $stateProp->setValue($closedConn, ConnectionState::CLOSED);
 
         $this->server->addConnection($openConn);
@@ -269,7 +264,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnectionToRoom($openConn, 'chat');
         $this->server->addConnectionToRoom($closedConn, 'chat');
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->broadcastToRoom('chat', 'msg');
+        error_reporting($previousErrorReporting);
 
         $this->expectNotToPerformAssertions();
     }
@@ -286,7 +283,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnectionToRoom($conn1, 'chat');
         $this->server->addConnectionToRoom($conn2, 'chat');
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->broadcastToRoom('chat', 'msg', $conn1);
+        error_reporting($previousErrorReporting);
 
         $this->expectNotToPerformAssertions();
     }
@@ -300,7 +299,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnection($conn1);
         $this->server->addConnection($conn2);
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->closeAll();
+        error_reporting($previousErrorReporting);
 
         $this->assertSame(ConnectionState::CLOSING, $conn1->getState());
         $this->assertSame(ConnectionState::CLOSING, $conn2->getState());
@@ -312,7 +313,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $conn = $this->createWsConnection('conn_1');
         $this->server->addConnection($conn);
 
+        $previousErrorReporting = error_reporting(0);
         $this->server->closeAll(CloseCode::NORMAL->value, 'Custom reason');
+        error_reporting($previousErrorReporting);
 
         $this->assertSame(ConnectionState::CLOSING, $conn->getState());
     }
@@ -324,11 +327,9 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $closedConn = $this->createWsConnection('conn_closed');
 
         $stateProp = new ReflectionProperty($closedConn, 'state');
-        $stateProp->setAccessible(true);
         $stateProp->setValue($closedConn, ConnectionState::CLOSED);
 
         $roomsProp = new ReflectionProperty($closedConn, 'rooms');
-        $roomsProp->setAccessible(true);
         $roomsProp->setValue($closedConn, []);
 
         $this->server->addConnection($openConn);
@@ -351,12 +352,13 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $closedConn = $this->createWsConnection('conn_1');
 
         $stateProp = new ReflectionProperty($closedConn, 'state');
-        $stateProp->setAccessible(true);
         $stateProp->setValue($closedConn, ConnectionState::CLOSED);
 
         $server->addConnection($closedConn);
 
+        $previousErrorReporting = error_reporting(0);
         $server->processPings();
+        error_reporting($previousErrorReporting);
 
         $this->expectNotToPerformAssertions();
     }
@@ -370,12 +372,13 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $conn = $this->createWsConnection('conn_1');
 
         $lastPingProp = new ReflectionProperty($conn, 'lastPing');
-        $lastPingProp->setAccessible(true);
         $lastPingProp->setValue($conn, null);
 
         $server->addConnection($conn);
 
+        $previousErrorReporting = error_reporting(0);
         $server->processPings();
+        error_reporting($previousErrorReporting);
 
         $this->assertNotNull($conn->getLastPing());
     }

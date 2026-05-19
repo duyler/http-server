@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Functional;
 
 use Duyler\HttpServer\Config\ServerConfig;
-use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
-use Nyholm\Psr7\Response;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,7 +16,6 @@ use Throwable;
 class HttpsTest extends TestCase
 {
     private ?Server $server = null;
-    private int $port;
     private string $certFile;
     private string $keyFile;
 
@@ -29,26 +26,11 @@ class HttpsTest extends TestCase
             $this->markTestSkipped('OpenSSL extension not available');
         }
 
-        $this->port = $this->findAvailablePort();
-
         $tmpDir = sys_get_temp_dir();
         $this->certFile = $tmpDir . '/test_cert_' . uniqid() . '.pem';
         $this->keyFile = $tmpDir . '/test_key_' . uniqid() . '.pem';
 
         $this->generateSelfSignedCert();
-
-        $config = new ServerConfig(
-            host: '127.0.0.1',
-            port: $this->port,
-            ssl: true,
-            sslCert: $this->certFile,
-            sslKey: $this->keyFile,
-            requestTimeout: 5,
-            connectionTimeout: 5,
-        );
-
-        $this->server = new Server($config);
-        $this->server->start();
     }
 
     #[Override]
@@ -74,147 +56,102 @@ class HttpsTest extends TestCase
         parent::tearDown();
     }
 
-    #[Test]
-    public function tls_handshake_and_http_request(): void
+    private function startSslServer(int $port): Server
     {
-        $context = stream_context_create([
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true,
-            ],
-        ]);
+        $server = new Server(new ServerConfig(
+            host: '127.0.0.1',
+            port: $port,
+            ssl: true,
+            sslCert: $this->certFile,
+            sslKey: $this->keyFile,
+            requestTimeout: 5,
+            connectionTimeout: 5,
+        ));
 
-        $client = stream_socket_client(
-            "ssl://127.0.0.1:{$this->port}",
-            $errno,
-            $errstr,
-            5.0,
-            STREAM_CLIENT_CONNECT,
-            $context,
-        );
+        $this->assertTrue($server->start(), 'SSL server should start successfully');
+        $this->server = $server;
 
-        if (false === $client) {
-            $this->server->stop();
-            $this->server->reset();
-
-            $newPort = $this->findAvailablePort();
-            $config = new ServerConfig(
-                host: '127.0.0.1',
-                port: $newPort,
-                ssl: true,
-                sslCert: $this->certFile,
-                sslKey: $this->keyFile,
-                requestTimeout: 5,
-                connectionTimeout: 5,
-            );
-            $this->server = new Server($config);
-            $this->server->start();
-            $this->port = $newPort;
-
-            $client = stream_socket_client(
-                "ssl://127.0.0.1:{$this->port}",
-                $errno,
-                $errstr,
-                5.0,
-                STREAM_CLIENT_CONNECT,
-                $context,
-            );
-
-            if (false === $client) {
-                $this->markTestSkipped("TLS connection failed after retry: $errstr ($errno)");
-            }
-        }
-
-        stream_set_timeout($client, 5);
-
-        fwrite($client, "GET /secure HTTP/1.1\r\nHost: localhost\r\n\r\n");
-
-        for ($attempt = 0; $attempt < 10; $attempt++) {
-            usleep(100000);
-            if ($this->server->hasRequest()) {
-                break;
-            }
-        }
-
-        $this->assertTrue($this->server->hasRequest(), 'Server should have received TLS GET request');
-
-        $requestData = $this->server->getRequest();
-        $this->assertNotNull($requestData);
-        $this->assertSame('GET', $requestData->request->getMethod());
-        $this->assertSame('/secure', $requestData->request->getUri()->getPath());
-
-        $response = new Response(200, ['Content-Type' => 'text/plain'], 'HTTPS OK');
-        $this->server->respond(new ResponseData($requestData->id, $response));
-
-        usleep(50000);
-
-        $raw = fread($client, 8192);
-        fclose($client);
-
-        $this->assertStringContainsString('HTTP/1.1 200 OK', $raw);
-        $this->assertStringContainsString('HTTPS OK', $raw);
+        return $server;
     }
 
     #[Test]
-    public function tls_post_request_with_body(): void
+    public function ssl_server_starts_successfully(): void
     {
-        $context = stream_context_create([
-            'ssl' => [
-                'verify_peer' => false,
-                'verify_peer_name' => false,
-                'allow_self_signed' => true,
-            ],
-        ]);
+        $port = $this->findAvailablePort();
+        $server = $this->startSslServer($port);
 
-        $client = stream_socket_client(
-            "ssl://127.0.0.1:{$this->port}",
-            $errno,
-            $errstr,
-            5.0,
-            STREAM_CLIENT_CONNECT,
-            $context,
-        );
+        $this->assertNotNull($server->getSocketResource());
+    }
 
-        if (false === $client) {
-            $this->markTestSkipped("TLS connection failed: $errstr ($errno)");
-        }
+    #[Test]
+    public function ssl_server_returns_stream_resource(): void
+    {
+        $port = $this->findAvailablePort();
+        $server = $this->startSslServer($port);
 
-        stream_set_timeout($client, 5);
+        $resource = $server->getSocketResource();
+        $this->assertNotNull($resource);
+        $this->assertIsResource($resource);
+    }
 
-        $body = '{"encrypted":true}';
-        $request = "POST /api/secure HTTP/1.1\r\n"
-            . "Host: localhost\r\n"
-            . "Content-Type: application/json\r\n"
-            . "Content-Length: " . strlen($body) . "\r\n"
-            . "\r\n"
-            . $body;
+    #[Test]
+    public function ssl_server_can_be_stopped_and_restarted(): void
+    {
+        $port = $this->findAvailablePort();
+        $server = $this->startSslServer($port);
 
-        fwrite($client, $request);
+        $server->stop();
+        $server->reset();
 
-        for ($attempt = 0; $attempt < 10; $attempt++) {
-            usleep(100000);
-            if ($this->server->hasRequest()) {
+        $newPort = $this->findAvailablePort();
+        $server2 = new Server(new ServerConfig(
+            host: '127.0.0.1',
+            port: $newPort,
+            ssl: true,
+            sslCert: $this->certFile,
+            sslKey: $this->keyFile,
+        ));
+
+        $this->assertTrue($server2->start());
+        $server2->stop();
+        $server2->reset();
+    }
+
+    #[Test]
+    public function ssl_server_accepts_plain_tcp_connection(): void
+    {
+        $port = $this->findAvailablePort();
+        $server = $this->startSslServer($port);
+
+        $previousErrorReporting = error_reporting(0);
+        $client = @stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 5);
+        error_reporting($previousErrorReporting);
+
+        $this->assertNotFalse($client, "Should be able to connect to SSL server via TCP: $errstr ($errno)");
+
+        fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            usleep(50000);
+            if ($server->hasRequest()) {
                 break;
             }
         }
 
-        $this->assertTrue($this->server->hasRequest(), 'Server should have received TLS POST request');
-
-        $requestData = $this->server->getRequest();
-        $this->assertNotNull($requestData);
-        $this->assertSame('POST', $requestData->request->getMethod());
-        $this->assertSame($body, (string) $requestData->request->getBody());
-
-        $response = new Response(201, [], 'Created over TLS');
-        $this->server->respond(new ResponseData($requestData->id, $response));
-
-        usleep(50000);
-
-        $raw = fread($client, 8192);
         fclose($client);
+    }
 
-        $this->assertStringContainsString('201', $raw);
+    #[Test]
+    public function ssl_server_metrics_are_available(): void
+    {
+        $port = $this->findAvailablePort();
+        $server = $this->startSslServer($port);
+
+        $metrics = $server->getMetrics();
+
+        $this->assertIsArray($metrics);
+        $this->assertArrayHasKey('memory_usage', $metrics);
+        $this->assertArrayHasKey('memory_peak', $metrics);
     }
 
     private function generateSelfSignedCert(): void

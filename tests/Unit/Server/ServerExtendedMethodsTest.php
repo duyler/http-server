@@ -6,22 +6,38 @@ namespace Duyler\HttpServer\Tests\Unit\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
+use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
 use Duyler\HttpServer\Server;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 class ServerExtendedMethodsTest extends TestCase
 {
+    private ErrorHandlerInterface&MockObject $errorHandler;
+
+    #[Override]
+    protected function setUp(): void
+    {
+        $this->errorHandler = $this->createMock(ErrorHandlerInterface::class);
+        $this->errorHandler->method('handleError')->willReturn(false);
+    }
+
     private function createServer(int $port = 18080): Server
     {
-        return new Server(new ServerConfig(
-            host: '127.0.0.1',
-            port: $port,
-            memoryLimit: 134217728,
-        ));
+        return new Server(
+            new ServerConfig(
+                host: '127.0.0.1',
+                port: $port,
+                memoryLimit: 134217728,
+            ),
+            errorHandler: $this->errorHandler,
+        );
     }
 
     #[Test]
@@ -156,7 +172,9 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '127.0.0.1',
         ];
 
+        $previousErrorReporting = error_reporting(0);
         $server->addExternalConnection($socket, $metadata);
+        error_reporting($previousErrorReporting);
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $this->assertSame(1, $server->getWorkerId());
@@ -197,7 +215,9 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '10.0.0.1',
         ];
 
+        $previousErrorReporting = error_reporting(0);
         $server->addExternalConnection($socket, $metadata);
+        error_reporting($previousErrorReporting);
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $server->stop();
