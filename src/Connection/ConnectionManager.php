@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Connection;
 
+use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Metrics\ServerMetrics;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
@@ -17,7 +18,14 @@ use Socket;
 
 final class ConnectionManager implements ConnectionManagerInterface
 {
-    public function __construct(private readonly ConnectionPool $pool, private readonly HttpParser $httpParser, private readonly HttpRequestProcessor $requestProcessor, private readonly ServerMetrics $metrics, private LoggerInterface $logger = new NullLogger()) {}
+    public function __construct(
+        private readonly ConnectionPool $pool,
+        private readonly HttpParser $httpParser,
+        private readonly HttpRequestProcessor $requestProcessor,
+        private readonly ServerMetrics $metrics,
+        private readonly ServerConfig $config,
+        private LoggerInterface $logger = new NullLogger(),
+    ) {}
 
     public function setLogger(LoggerInterface $logger): void
     {
@@ -121,6 +129,12 @@ final class ConnectionManager implements ConnectionManagerInterface
         }
 
         $connection->appendToBuffer($data);
+
+        if ($connection->isClosed()) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
         $onDataCallback($connection);
 
         return true;
@@ -162,7 +176,7 @@ final class ConnectionManager implements ConnectionManagerInterface
                 }
             }
 
-            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort);
+            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort, $this->config->maxRequestSize);
             $this->pool->add($connection);
             $this->metrics->incrementTotalConnections();
 

@@ -45,6 +45,7 @@ class ConnectionManagerTest extends TestCase
             $httpParser,
             $requestProcessor,
             $metrics,
+            $config,
             new NullLogger(),
         );
     }
