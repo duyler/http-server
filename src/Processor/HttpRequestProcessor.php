@@ -374,29 +374,14 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         }
     }
 
-    public function clearRequestQueue(): void
+    public function reset(): void
     {
         while (false === $this->requestQueue->isEmpty()) {
             $this->requestQueue->dequeue();
         }
-    }
-
-    public function reset(): void
-    {
-        $this->clearRequestQueue();
         $this->requestConnections = [];
         $this->requestIdCounter = 0;
         $this->tempFileManager->cleanup();
-    }
-
-    public function cleanupInvalidConnections(): void
-    {
-        foreach ($this->requestConnections as $requestId => $data) {
-            if (false === $data['connection']->isValid()) {
-                unset($this->requestConnections[$requestId]);
-                $this->closeConnection($data['connection']);
-            }
-        }
     }
 
     public function getPendingRequestCount(): int
