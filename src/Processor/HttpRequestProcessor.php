@@ -15,6 +15,7 @@ use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\RateLimit\RateLimiter;
+use Duyler\HttpServer\Security\CorsService;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Duyler\HttpServer\WebSocket\Handshake;
 use Nyholm\Psr7\Response;
@@ -32,7 +33,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
     private readonly SplQueue $requestQueue;
 
-    /** @var array<string, array{connection: ConnectionInterface, timestamp: float}> */
+    /** @var array<string, array{connection: ConnectionInterface, timestamp: float, cors_origin: ?string}> */
     private array $requestConnections = [];
 
     /** @var callable(ConnectionInterface, ServerRequestInterface): void|null */
@@ -40,6 +41,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
     /** @var callable(): void|null */
     private $notifyEventLoopCallback = null;
+
+    private ?CorsService $corsService = null;
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -70,6 +73,11 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     public function setNotifyEventLoopCallback(callable $callback): void
     {
         $this->notifyEventLoopCallback = $callback;
+    }
+
+    public function setCorsService(CorsService $corsService): void
+    {
+        $this->corsService = $corsService;
     }
 
     #[Override]
@@ -173,9 +181,12 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
             $this->requestQueue->enqueue($requestData);
 
+            $corsOrigin = $this->resolveCorsOrigin($request);
+
             $this->requestConnections[$requestId] = [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
+                'cors_origin' => $corsOrigin,
             ];
 
             $this->metrics->incrementRequests();
@@ -315,8 +326,15 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         }
 
         try {
-            $this->sendResponse($connection, $responseData->response);
-            if ($responseData->response->getStatusCode() < 400) {
+            $response = $responseData->response;
+
+            $corsOrigin = $data['cors_origin'] ?? null;
+            if (null !== $this->corsService && null !== $corsOrigin) {
+                $response = $this->corsService->addCorsHeaders($response, $corsOrigin);
+            }
+
+            $this->sendResponse($connection, $response);
+            if ($response->getStatusCode() < 400) {
                 $this->metrics->incrementSuccessfulRequests();
             } else {
                 $this->metrics->incrementFailedRequests();
@@ -411,5 +429,28 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         $connection->close();
         $this->connectionPool->remove($connection);
         $this->metrics->incrementClosedConnections();
+    }
+
+    private function resolveCorsOrigin(ServerRequestInterface $request): ?string
+    {
+        if (null === $this->corsService) {
+            return null;
+        }
+
+        if (false === $this->corsService->isCorsRequest($request)) {
+            return null;
+        }
+
+        $origin = $request->getHeaderLine('Origin');
+
+        if ($this->corsService->isOriginAllowed($origin)) {
+            return $origin;
+        }
+
+        $this->logger->warning('CORS request rejected: origin not allowed', [
+            'origin' => $origin,
+        ]);
+
+        return null;
     }
 }

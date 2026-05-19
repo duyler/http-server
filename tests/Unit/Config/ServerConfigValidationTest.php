@@ -316,6 +316,13 @@ class ServerConfigValidationTest extends TestCase
         $this->assertSame(10, $config->maxAcceptsPerCycle);
         $this->assertSame(511, $config->socketBacklog);
         $this->assertSame(100, $config->headerCacheLimit);
+        $this->assertFalse($config->enableCors);
+        $this->assertSame([], $config->corsAllowedOrigins);
+        $this->assertSame(['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], $config->corsAllowedMethods);
+        $this->assertSame(['Content-Type', 'Authorization'], $config->corsAllowedHeaders);
+        $this->assertFalse($config->corsAllowCredentials);
+        $this->assertSame(86400, $config->corsMaxAge);
+        $this->assertSame([], $config->corsExposeHeaders);
         $this->assertFalse($config->debugMode);
         $this->assertSame(134217728, $config->memoryLimit);
     }

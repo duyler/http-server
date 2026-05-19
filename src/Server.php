@@ -25,6 +25,7 @@ use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\RateLimit\RateLimiter;
+use Duyler\HttpServer\Security\CorsService;
 use Duyler\HttpServer\Security\SecurityHeadersService;
 use Duyler\HttpServer\Socket\ExistingSocket;
 use Duyler\HttpServer\Socket\SocketInterface;
@@ -39,6 +40,7 @@ use Ev;
 use EvIo;
 use Fiber;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7\Response;
 use Override;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -63,6 +65,7 @@ final class Server implements ServerInterface
     private readonly MemoryMonitor $memoryMonitor;
     private ?StaticFileHandler $staticFileHandler = null;
     private ?RateLimiter $rateLimiter = null;
+    private ?CorsService $corsService = null;
 
     private bool $isRunning = false;
     private bool $isShuttingDown = false;
@@ -134,6 +137,17 @@ final class Server implements ServerInterface
             );
         }
 
+        if ($this->config->enableCors) {
+            $this->corsService = new CorsService(
+                allowedOrigins: $this->config->corsAllowedOrigins,
+                allowedMethods: $this->config->corsAllowedMethods,
+                allowedHeaders: $this->config->corsAllowedHeaders,
+                allowCredentials: $this->config->corsAllowCredentials,
+                maxAge: $this->config->corsMaxAge,
+                exposeHeaders: $this->config->corsExposeHeaders,
+            );
+        }
+
         $this->requestProcessor = new HttpRequestProcessor(
             $this->config,
             $this->httpParser,
@@ -152,6 +166,10 @@ final class Server implements ServerInterface
             $this->requestProcessor,
         );
         $this->webSocketHandler->setLogger($this->logger);
+
+        if (null !== $this->corsService) {
+            $this->requestProcessor->setCorsService($this->corsService);
+        }
 
         $this->connectionManager = new ConnectionManager(
             $this->connectionPool,
@@ -607,7 +625,9 @@ final class Server implements ServerInterface
                 $this->config->bufferSize,
                 function (ConnectionInterface $conn): void {
                     if ($this->httpParser->hasCompleteHeaders($conn->getBuffer())) {
-                        $this->requestProcessor->processRequest($conn);
+                        if (false === $this->handleCorsPreflight($conn)) {
+                            $this->requestProcessor->processRequest($conn);
+                        }
                     }
                 },
             );
@@ -1062,6 +1082,10 @@ final class Server implements ServerInterface
         }
 
         try {
+            if ($this->handleCorsPreflight($connection)) {
+                return;
+            }
+
             $this->requestProcessor->processRequest($connection);
 
             $this->notifyEventLoop();
@@ -1122,5 +1146,52 @@ final class Server implements ServerInterface
     private function getConnectionId(ConnectionInterface $connection): int
     {
         return spl_object_id($connection->getSocket());
+    }
+
+    private function handleCorsPreflight(ConnectionInterface $connection): bool
+    {
+        if (null === $this->corsService) {
+            return false;
+        }
+
+        $buffer = $connection->getBuffer();
+
+        if (!str_starts_with($buffer, 'OPTIONS ')) {
+            return false;
+        }
+
+        $request = $this->requestParser->parse(
+            $buffer,
+            $connection->getRemoteAddress(),
+            $connection->getRemotePort(),
+        );
+
+        if (false === $this->corsService->isPreflightRequest($request)) {
+            return false;
+        }
+
+        $origin = $request->getHeaderLine('Origin');
+
+        if ($this->corsService->isOriginAllowed($origin)) {
+            $response = $this->corsService->createPreflightResponse($origin);
+        } else {
+            $this->logger->warning('CORS preflight rejected: origin not allowed', [
+                'origin' => $origin,
+            ]);
+            $response = new Response(204);
+        }
+
+        $connection->incrementRequestCount();
+
+        $connectionHeader = $request->getHeaderLine('Connection');
+        $keepAlive = $this->config->enableKeepAlive
+            && (strcasecmp($connectionHeader, 'close') !== 0)
+            && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
+        $connection->setKeepAlive($keepAlive);
+
+        $this->requestProcessor->sendResponse($connection, $response);
+        $connection->clearBuffer();
+
+        return true;
     }
 }

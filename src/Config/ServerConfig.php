@@ -9,6 +9,12 @@ use Duyler\HttpServer\Exception\InvalidConfigException;
 
 final readonly class ServerConfig
 {
+    /**
+     * @param list<string> $corsAllowedOrigins
+     * @param list<string> $corsAllowedMethods
+     * @param list<string> $corsAllowedHeaders
+     * @param list<string> $corsExposeHeaders
+     */
     public function __construct(
         public string $host = '0.0.0.0',
         public int $port = 8080,
@@ -32,6 +38,13 @@ final readonly class ServerConfig
         public int $maxAcceptsPerCycle = 10,
         public int $socketBacklog = 511,
         public int $headerCacheLimit = 100,
+        public bool $enableCors = false,
+        public array $corsAllowedOrigins = [],
+        public array $corsAllowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        public array $corsAllowedHeaders = ['Content-Type', 'Authorization'],
+        public bool $corsAllowCredentials = false,
+        public int $corsMaxAge = 86400,
+        public array $corsExposeHeaders = [],
         public bool $debugMode = false,
         public int $memoryLimit = 134217728,
         public bool $enableSecurityHeaders = true,
@@ -44,6 +57,23 @@ final readonly class ServerConfig
 
     private function validate(): void
     {
+        if ('' === $this->host) {
+            throw new InvalidConfigException('Host cannot be empty');
+        }
+
+        if (false === filter_var($this->host, FILTER_VALIDATE_IP)
+            && false === filter_var($this->host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+            throw new InvalidConfigException(sprintf('Invalid host: %s', $this->host));
+        }
+
+        if ($this->enableCors && [] === $this->corsAllowedOrigins) {
+            throw new InvalidConfigException('CORS enabled but no allowed origins specified');
+        }
+
+        if ($this->corsAllowCredentials && in_array('*', $this->corsAllowedOrigins, true)) {
+            throw new InvalidConfigException('CORS credentials are not allowed with wildcard origin');
+        }
+
         if ($this->port < Constants::MIN_PORT || $this->port > Constants::MAX_PORT) {
             throw new InvalidConfigException(sprintf(
                 'Port must be between %d and %d',

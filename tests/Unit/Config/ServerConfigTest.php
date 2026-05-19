@@ -218,4 +218,141 @@ class ServerConfigTest extends TestCase
 
         $this->assertSame('fullscreen=*', $config->permissionsPolicy);
     }
+
+    public function testHostValidationRejectsEmptyString(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('Host cannot be empty');
+
+        new ServerConfig(host: '');
+    }
+
+    public function testHostValidationRejectsInvalidHost(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('Invalid host');
+
+        new ServerConfig(host: 'not!valid!host');
+    }
+
+    public function testHostValidationAcceptsValidIp(): void
+    {
+        $config = new ServerConfig(host: '192.168.1.1');
+
+        $this->assertSame('192.168.1.1', $config->host);
+    }
+
+    public function testHostValidationAcceptsLocalhost(): void
+    {
+        $config = new ServerConfig(host: 'localhost');
+
+        $this->assertSame('localhost', $config->host);
+    }
+
+    public function testHostValidationAcceptsWildcardIp(): void
+    {
+        $config = new ServerConfig(host: '0.0.0.0');
+
+        $this->assertSame('0.0.0.0', $config->host);
+    }
+
+    public function testCorsEnabledWithoutOriginsThrows(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('CORS enabled but no allowed origins specified');
+
+        new ServerConfig(enableCors: true);
+    }
+
+    public function testCorsEnabledWithOriginsIsValid(): void
+    {
+        $config = new ServerConfig(
+            enableCors: true,
+            corsAllowedOrigins: ['https://example.com'],
+        );
+
+        $this->assertTrue($config->enableCors);
+        $this->assertSame(['https://example.com'], $config->corsAllowedOrigins);
+    }
+
+    public function testCorsDisabledByDefault(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertFalse($config->enableCors);
+    }
+
+    public function testCorsDefaultAllowedMethods(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame(
+            ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+            $config->corsAllowedMethods,
+        );
+    }
+
+    public function testCorsDefaultAllowedHeaders(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame(
+            ['Content-Type', 'Authorization'],
+            $config->corsAllowedHeaders,
+        );
+    }
+
+    public function testCorsDefaultMaxAge(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame(86400, $config->corsMaxAge);
+    }
+
+    public function testCorsDefaultAllowCredentials(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertFalse($config->corsAllowCredentials);
+    }
+
+    public function testCorsDefaultExposeHeaders(): void
+    {
+        $config = new ServerConfig();
+
+        $this->assertSame([], $config->corsExposeHeaders);
+    }
+
+    public function testCorsCustomConfiguration(): void
+    {
+        $config = new ServerConfig(
+            enableCors: true,
+            corsAllowedOrigins: ['https://example.com'],
+            corsAllowedMethods: ['GET', 'POST'],
+            corsAllowedHeaders: ['Content-Type'],
+            corsAllowCredentials: true,
+            corsMaxAge: 3600,
+            corsExposeHeaders: ['X-Custom'],
+        );
+
+        $this->assertTrue($config->enableCors);
+        $this->assertSame(['https://example.com'], $config->corsAllowedOrigins);
+        $this->assertSame(['GET', 'POST'], $config->corsAllowedMethods);
+        $this->assertSame(['Content-Type'], $config->corsAllowedHeaders);
+        $this->assertTrue($config->corsAllowCredentials);
+        $this->assertSame(3600, $config->corsMaxAge);
+        $this->assertSame(['X-Custom'], $config->corsExposeHeaders);
+    }
+
+    public function testCorsWildcardWithCredentialsThrowsException(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('CORS credentials are not allowed with wildcard origin');
+
+        new ServerConfig(
+            enableCors: true,
+            corsAllowedOrigins: ['*'],
+            corsAllowCredentials: true,
+        );
+    }
 }
