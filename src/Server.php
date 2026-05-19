@@ -24,6 +24,8 @@ use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
+use Duyler\HttpServer\Processor\RequestQueue;
+use Duyler\HttpServer\Processor\ResponseSender;
 use Duyler\HttpServer\RateLimit\RateLimiter;
 use Duyler\HttpServer\Security\AuditLogger;
 use Duyler\HttpServer\Security\CorsService;
@@ -163,6 +165,8 @@ final class Server implements ServerInterface
             $this->connectionPool,
             $this->metrics,
             $this->tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($this->config, $this->responseWriter),
             $this->staticFileHandler,
             $this->rateLimiter,
             $this->logger,
@@ -614,10 +618,8 @@ final class Server implements ServerInterface
 
     private function readFromConnections(): void
     {
-        $readSockets = [];
-        $socketToConnection = [];
-        $readStreams = [];
-        $streamToConnection = [];
+        $resources = [];
+        $resourceToConnection = [];
         $invalidConnections = [];
 
         foreach ($this->connectionPool as $connection) {
@@ -636,22 +638,19 @@ final class Server implements ServerInterface
                 continue;
             }
 
-            if ($internalResource instanceof Socket) {
-                $id = spl_object_id($internalResource);
-                $readSockets[$id] = $internalResource;
-                $socketToConnection[$id] = $connection;
-            } else {
-                $id = (int) $internalResource;
-                $readStreams[$id] = $internalResource;
-                $streamToConnection[$id] = $connection;
-            }
+            $key = $internalResource instanceof Socket
+                ? 'socket_' . spl_object_id($internalResource)
+                : 'stream_' . (int) $internalResource;
+
+            $resources[] = $internalResource;
+            $resourceToConnection[$key] = $connection;
         }
 
         foreach ($invalidConnections as $connection) {
             $this->connectionManager->closeConnectionWithMetrics($connection);
         }
 
-        if ([] === $readSockets && [] === $readStreams) {
+        if ([] === $resources) {
             return;
         }
 
@@ -663,58 +662,31 @@ final class Server implements ServerInterface
             }
         };
 
-        if ([] !== $readSockets) {
-            $write = null;
-            $except = null;
-            $socketList = array_values($readSockets);
-            $changed = socket_select($socketList, $write, $except, 0);
+        $ready = StreamSocketResource::select($resources);
 
-            if (false !== $changed && 0 < $changed) {
-                foreach ($socketList as $readySocket) {
-                    $id = spl_object_id($readySocket);
-                    $connection = $socketToConnection[$id] ?? null;
-                    if (null === $connection) {
-                        continue;
-                    }
-
-                    if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
-                        $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
-                        if (null !== $wsConn) {
-                            $this->webSocketHandler->processWebSocketDataDirect($connection, $wsConn);
-                        }
-                        continue;
-                    }
-
-                    $this->connectionManager->readFromConnectionDirect($connection, $this->config->bufferSize, $onDataCallback);
-                }
-            }
+        if (null === $ready) {
+            return;
         }
 
-        if ([] !== $readStreams) {
-            $write = null;
-            $except = null;
-            $streamList = array_values($readStreams);
-            $changed = stream_select($streamList, $write, $except, 0);
+        foreach ($ready as $readyResource) {
+            $key = $readyResource instanceof Socket
+                ? 'socket_' . spl_object_id($readyResource)
+                : 'stream_' . (int) $readyResource;
 
-            if (false !== $changed && 0 < $changed) {
-                foreach ($streamList as $readyStream) {
-                    $id = (int) $readyStream;
-                    $connection = $streamToConnection[$id] ?? null;
-                    if (null === $connection) {
-                        continue;
-                    }
-
-                    if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
-                        $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
-                        if (null !== $wsConn) {
-                            $this->webSocketHandler->processWebSocketDataDirect($connection, $wsConn);
-                        }
-                        continue;
-                    }
-
-                    $this->connectionManager->readFromConnectionDirect($connection, $this->config->bufferSize, $onDataCallback);
-                }
+            $connection = $resourceToConnection[$key] ?? null;
+            if (null === $connection) {
+                continue;
             }
+
+            if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
+                $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
+                if (null !== $wsConn) {
+                    $this->webSocketHandler->processWebSocketDataDirect($connection, $wsConn);
+                }
+                continue;
+            }
+
+            $this->connectionManager->readFromConnectionDirect($connection, $this->config->bufferSize, $onDataCallback);
         }
     }
 

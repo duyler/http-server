@@ -25,17 +25,11 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use SplQueue;
 use Throwable;
 
 final class HttpRequestProcessor implements RequestProcessorInterface
 {
     private int $requestIdCounter = 0;
-
-    private readonly SplQueue $requestQueue;
-
-    /** @var array<string, array{connection: ConnectionInterface, timestamp: float, cors_origin: ?string}> */
-    private array $requestConnections = [];
 
     /** @var callable(ConnectionInterface, ServerRequestInterface): void|null */
     private $webSocketHandler = null;
@@ -55,12 +49,12 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         private readonly ConnectionPool $connectionPool,
         private readonly ServerMetrics $metrics,
         private readonly TempFileManager $tempFileManager,
+        private readonly RequestQueueInterface $requestQueue,
+        private readonly ResponseSenderInterface $responseSender,
         private readonly ?StaticFileHandler $staticFileHandler = null,
         private readonly ?RateLimiter $rateLimiter = null,
         private LoggerInterface $logger = new NullLogger(),
-    ) {
-        $this->requestQueue = new SplQueue();
-    }
+    ) {}
 
     /**
      * @param callable(ConnectionInterface, ServerRequestInterface): void $handler
@@ -212,15 +206,13 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
             $requestData = new RequestData($requestId, $request, $connectionId);
 
-            $this->requestQueue->enqueue($requestData);
-
             $corsOrigin = $this->resolveCorsOrigin($request);
 
-            $this->requestConnections[$requestId] = [
+            $this->requestQueue->enqueue($requestData, [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
                 'cors_origin' => $corsOrigin,
-            ];
+            ]);
 
             $this->metrics->incrementRequests();
 
@@ -255,43 +247,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
             return;
         }
 
-        if (false === $response->hasHeader('Content-Length')) {
-            $body = $response->getBody();
-            $size = $body->getSize();
-
-            if (null !== $size) {
-                $response = $response->withHeader('Content-Length', (string) $size);
-            } else {
-                $bodyContents = (string) $body;
-                $size = strlen($bodyContents);
-                $response = $response->withHeader('Content-Length', (string) $size);
-
-                $newBody = \Nyholm\Psr7\Stream::create($bodyContents);
-                $response = $response->withBody($newBody);
-            }
-        }
-
-        if (false === $connection->isKeepAlive()) {
-            $response = $response->withHeader('Connection', 'close');
-        } else {
-            $response = $response->withHeader('Connection', 'keep-alive')
-                ->withHeader('Keep-Alive', sprintf(
-                    'timeout=%d, max=%d',
-                    $this->config->keepAliveTimeout,
-                    $this->config->keepAliveMaxRequests - $connection->getRequestCount(),
-                ));
-        }
-
-        $httpResponse = $this->responseWriter->write($response);
-        $written = $connection->write($httpResponse);
-
-        if (false === $written) {
-            $this->logger->warning('Failed to write response', [
-                'remote' => $connection->getRemoteAddress(),
-            ]);
-            $this->closeConnection($connection);
-            return;
-        }
+        $this->responseSender->send($connection, $response);
 
         if (false === $connection->isKeepAlive()) {
             $this->closeConnection($connection);
@@ -301,15 +257,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     #[Override]
     public function sendErrorResponse(ConnectionInterface $connection, int $statusCode, string $message): void
     {
-        $response = (new Response($statusCode))
-            ->withHeader('Content-Type', 'text/plain')
-            ->withHeader('Connection', 'close');
-
-        $response->getBody()->write($message);
-
-        $httpResponse = $this->responseWriter->write($response);
-        $connection->write($httpResponse);
-
+        $this->responseSender->sendError($connection, $statusCode, $message);
         $this->closeConnection($connection);
     }
 
@@ -321,37 +269,29 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
     public function hasRequest(): bool
     {
-        return false === $this->requestQueue->isEmpty();
+        return $this->requestQueue->hasRequest();
     }
 
     public function getRequest(): ?RequestData
     {
-        if ($this->requestQueue->isEmpty()) {
-            return null;
-        }
-
-        $request = $this->requestQueue->dequeue();
-        assert($request instanceof RequestData);
-
-        return $request;
+        return $this->requestQueue->dequeue();
     }
 
     public function respond(ResponseData $responseData): void
     {
         $requestId = $responseData->requestId;
 
-        if (!isset($this->requestConnections[$requestId])) {
+        $data = $this->requestQueue->getContext($requestId);
+
+        if (null === $data) {
             $this->logger->warning('respond() called with invalid request ID', [
                 'request_id' => $requestId,
-                'valid_ids' => array_keys($this->requestConnections),
             ]);
             return;
         }
 
-        $data = $this->requestConnections[$requestId];
         $connection = $data['connection'];
-
-        unset($this->requestConnections[$requestId]);
+        $this->requestQueue->remove($requestId);
 
         if (false === $connection->isValid()) {
             $this->closeConnection($connection);
@@ -385,73 +325,56 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
     public function hasPendingResponse(): bool
     {
-        return count($this->requestConnections) > 0;
+        return $this->requestQueue->hasPendingResponse();
     }
 
     public function getPendingRequestId(): ?string
     {
-        foreach ($this->requestConnections as $requestId => $data) {
-            return $requestId;
-        }
-
-        return null;
+        return $this->requestQueue->getPendingRequestId();
     }
 
     public function getRequestConnection(string $requestId): ?ConnectionInterface
     {
-        return $this->requestConnections[$requestId]['connection'] ?? null;
+        $context = $this->requestQueue->getContext($requestId);
+        return $context['connection'] ?? null;
     }
 
     public function removeRequestConnection(string $requestId): void
     {
-        if (isset($this->requestConnections[$requestId])) {
-            unset($this->requestConnections[$requestId]);
-        }
+        $this->requestQueue->remove($requestId);
     }
 
     public function removeConnectionsByConnection(ConnectionInterface $connection): void
     {
-        foreach ($this->requestConnections as $requestId => $data) {
-            if ($data['connection'] === $connection) {
-                unset($this->requestConnections[$requestId]);
-            }
-        }
+        $this->requestQueue->removeByConnection($connection);
     }
 
     public function cleanupStaleRequests(int $timeout): void
     {
-        $now = microtime(true);
+        $this->requestQueue->cleanupStale($timeout, function (ConnectionInterface $connection, string $requestId): void {
+            $this->closeConnection($connection);
 
-        foreach ($this->requestConnections as $requestId => $data) {
-            if (($now - $data['timestamp']) > $timeout) {
-                $this->closeConnection($data['connection']);
-                unset($this->requestConnections[$requestId]);
-
-                $this->logger->warning('Request timeout, cleaned up', [
-                    'request_id' => $requestId,
-                ]);
-            }
-        }
+            $this->logger->warning('Request timeout, cleaned up', [
+                'request_id' => $requestId,
+            ]);
+        });
     }
 
     public function reset(): void
     {
-        while (false === $this->requestQueue->isEmpty()) {
-            $this->requestQueue->dequeue();
-        }
-        $this->requestConnections = [];
+        $this->requestQueue->reset();
         $this->requestIdCounter = 0;
         $this->tempFileManager->cleanup();
     }
 
     public function getPendingRequestCount(): int
     {
-        return count($this->requestConnections);
+        return $this->requestQueue->getPendingRequestCount();
     }
 
     public function getQueueCount(): int
     {
-        return $this->requestQueue->count();
+        return $this->requestQueue->getQueueCount();
     }
 
     public function setLogger(LoggerInterface $logger): void

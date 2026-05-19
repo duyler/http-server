@@ -102,24 +102,10 @@ final class ConnectionManager implements ConnectionManagerInterface
             return false;
         }
 
-        if ($internalResource instanceof Socket) {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = socket_select($read, $write, $except, 0);
+        $ready = StreamSocketResource::select([$internalResource]);
 
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
-        } else {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = stream_select($read, $write, $except, 0);
-
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
+        if (null === $ready) {
+            return true;
         }
 
         $data = $connection->read($bufferSize);

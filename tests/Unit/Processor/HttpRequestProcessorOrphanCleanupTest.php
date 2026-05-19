@@ -12,6 +12,8 @@ use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
+use Duyler\HttpServer\Processor\RequestQueue;
+use Duyler\HttpServer\Processor\ResponseSender;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Override;
@@ -46,6 +48,8 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
             $connectionPool,
             $metrics,
             $this->tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($config, $responseWriter),
             null,
             null,
             new NullLogger(),
@@ -171,7 +175,9 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
 
     private function setRequestConnections(array $connections): void
     {
-        $reflection = new ReflectionProperty($this->processor, 'requestConnections');
-        $reflection->setValue($this->processor, $connections);
+        $queueReflection = new ReflectionProperty($this->processor, 'requestQueue');
+        $requestQueue = $queueReflection->getValue($this->processor);
+        $reflection = new ReflectionProperty($requestQueue, 'contexts');
+        $reflection->setValue($requestQueue, $connections);
     }
 }

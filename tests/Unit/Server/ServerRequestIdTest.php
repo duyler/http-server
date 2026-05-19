@@ -121,20 +121,23 @@ class ServerRequestIdTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
         $request = new \Nyholm\Psr7\ServerRequest('GET', '/test');
         $requestData = new RequestData('req_test', $request, 42);
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_test' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertArrayHasKey('req_test', $mapping);
 
         $response = new Response(200, [], 'OK');
@@ -142,7 +145,7 @@ class ServerRequestIdTest extends TestCase
 
         $this->server->respond($responseData);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertArrayNotHasKey('req_test', $mapping);
     }
 
@@ -159,10 +162,13 @@ class ServerRequestIdTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-
-        $property->setValue($requestProcessor, [
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
+        $contextsProperty->setValue($requestQueue, [
             'req_test' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
                 'timestamp' => microtime(true),
@@ -186,15 +192,18 @@ class ServerRequestIdTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
         $counterProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
         $counterProperty->setValue($requestProcessor, 100);
-        $connectionsProperty->setValue($requestProcessor, ['test' => []]);
+        $contextsProperty->setValue($requestQueue, ['test' => []]);
 
         $this->server->reset();
 
         self::assertSame(0, $counterProperty->getValue($requestProcessor));
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 }

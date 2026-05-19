@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Handler;
 
 use Duyler\HttpServer\Security\AuditLoggerInterface;
+use Duyler\HttpServer\Util\ClientIpResolver;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -94,7 +95,7 @@ final class StaticFileHandler
         }
 
         if (!str_starts_with($realPath, $this->realPublicPath)) {
-            $this->auditLogger?->logPathTraversalAttempt($this->getClientIp($request), $path);
+            $this->auditLogger?->logPathTraversalAttempt(ClientIpResolver::resolve($request), $path);
             return null;
         }
 
@@ -151,32 +152,6 @@ final class StaticFileHandler
             ],
             $content,
         );
-    }
-
-    private function getClientIp(ServerRequestInterface $request): string
-    {
-        $serverParams = $request->getServerParams();
-
-        if (isset($serverParams['HTTP_X_FORWARDED_FOR']) && is_string($serverParams['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $serverParams['HTTP_X_FORWARDED_FOR']);
-            $ip = trim($ips[0]);
-            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        if (isset($serverParams['HTTP_X_REAL_IP']) && is_string($serverParams['HTTP_X_REAL_IP'])) {
-            $ip = $serverParams['HTTP_X_REAL_IP'];
-            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        if (isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR'])) {
-            return $serverParams['REMOTE_ADDR'];
-        }
-
-        return 'unknown';
     }
 
     private function streamFile(

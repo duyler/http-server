@@ -67,9 +67,10 @@ class RequestIdPerformanceTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $iterations = 1000;
 
@@ -85,14 +86,14 @@ class RequestIdPerformanceTest extends TestCase
             $request = new ServerRequest('GET', "/perf-test-$i");
             $requestData = new RequestData($id, $request, $i);
 
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+            $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-            $mapping = $connectionsProperty->getValue($requestProcessor);
+            $mapping = $contextsProperty->getValue($requestQueue);
             $mapping[$id] = [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
             ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $contextsProperty->setValue($requestQueue, $mapping);
         }
 
         $enqueueTime = microtime(true) - $start;
@@ -111,7 +112,7 @@ class RequestIdPerformanceTest extends TestCase
         $processTime = microtime(true) - $start;
 
         self::assertLessThan(0.5, $processTime, 'Process 1000 requests should be under 0.5s');
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItHasLowMemoryOverhead(): void
@@ -125,9 +126,12 @@ class RequestIdPerformanceTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -145,7 +149,7 @@ class RequestIdPerformanceTest extends TestCase
             ];
         }
 
-        $connectionsProperty->setValue($requestProcessor, $mapping);
+        $contextsProperty->setValue($requestQueue, $mapping);
 
         $memoryAfter = memory_get_usage(true);
         $memoryDiff = $memoryAfter - $memoryBefore;
@@ -166,9 +170,10 @@ class RequestIdPerformanceTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -185,14 +190,14 @@ class RequestIdPerformanceTest extends TestCase
             $request = new ServerRequest('GET', "/memory-test-$i");
             $requestData = new RequestData($id, $request, $i);
 
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+            $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-            $mapping = $connectionsProperty->getValue($requestProcessor);
+            $mapping = $contextsProperty->getValue($requestQueue);
             $mapping[$id] = [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
             ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $contextsProperty->setValue($requestQueue, $mapping);
 
             $this->server->getRequest();
             $this->server->respond(new ResponseData($id, new Response(200)));
@@ -202,8 +207,8 @@ class RequestIdPerformanceTest extends TestCase
         $memoryAfter = memory_get_usage(true);
         $memoryDiff = $memoryAfter - $memoryBefore;
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
-        self::assertEmpty($queueProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
+        self::assertFalse($requestQueue->hasRequest());
         self::assertLessThanOrEqual(2 * 1024 * 1024, $memoryDiff, 'Memory overhead should be at most 2MB for 1000 requests');
     }
 
@@ -220,9 +225,10 @@ class RequestIdPerformanceTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -240,14 +246,14 @@ class RequestIdPerformanceTest extends TestCase
                 $request = new ServerRequest('GET', "/scale-$batchSize-$i");
                 $requestData = new RequestData($id, $request, $i);
 
-                $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+                $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-                $mapping = $connectionsProperty->getValue($requestProcessor);
+                $mapping = $contextsProperty->getValue($requestQueue);
                 $mapping[$id] = [
                     'connection' => $connection,
                     'timestamp' => microtime(true),
                 ];
-                $connectionsProperty->setValue($requestProcessor, $mapping);
+                $contextsProperty->setValue($requestQueue, $mapping);
             }
 
             for ($i = 0; $i < $batchSize; $i++) {
@@ -259,7 +265,7 @@ class RequestIdPerformanceTest extends TestCase
 
             $times[$batchSize] = microtime(true) - $start;
 
-            self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+            self::assertEmpty($contextsProperty->getValue($requestQueue));
         }
 
         self::assertGreaterThan(
@@ -288,9 +294,10 @@ class RequestIdPerformanceTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -306,9 +313,9 @@ class RequestIdPerformanceTest extends TestCase
         $request = $request->withBody(\Nyholm\Psr7\Stream::create($largeBody));
         $requestData = new RequestData($id, $request, 1);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+        $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             $id => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -324,7 +331,7 @@ class RequestIdPerformanceTest extends TestCase
         $time = microtime(true) - $start;
 
         self::assertLessThan(0.1, $time, 'Large body handling should be fast');
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItMaintainsPerformanceWithManyHeaders(): void
@@ -340,9 +347,10 @@ class RequestIdPerformanceTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -359,9 +367,9 @@ class RequestIdPerformanceTest extends TestCase
         $id = $requestProcessor->generateRequestId();
         $requestData = new RequestData($id, $request, 1);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+        $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             $id => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -381,7 +389,7 @@ class RequestIdPerformanceTest extends TestCase
         $time = microtime(true) - $start;
 
         self::assertLessThan(0.05, $time, 'Many headers handling should be fast');
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItBenchmarksRequestIdGeneration(): void
@@ -422,9 +430,12 @@ class RequestIdPerformanceTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-        // generateRequestId is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -442,12 +453,12 @@ class RequestIdPerformanceTest extends TestCase
             ];
         }
 
-        $connectionsProperty->setValue($requestProcessor, $mapping);
+        $contextsProperty->setValue($requestQueue, $mapping);
         $insertTime = microtime(true) - $start;
 
         $start = microtime(true);
 
-        $data = $connectionsProperty->getValue($requestProcessor);
+        $data = $contextsProperty->getValue($requestQueue);
         $found = 0;
         foreach (array_keys($mapping) as $id) {
             if (array_key_exists($id, $data)) {
@@ -463,7 +474,7 @@ class RequestIdPerformanceTest extends TestCase
         foreach (array_keys($mapping) as $id) {
             unset($data[$id]);
         }
-        $connectionsProperty->setValue($requestProcessor, $data);
+        $contextsProperty->setValue($requestQueue, $data);
 
         $deleteTime = microtime(true) - $start;
 

@@ -149,4 +149,61 @@ final class StreamSocketResource implements SocketResourceInterface
     {
         return $this->resource;
     }
+
+    /**
+     * Select for readable data on Socket or stream resources
+     *
+     * @param array<Socket|resource> $resources Resources to check for readability
+     * @param int $timeout Timeout in seconds (0 for non-blocking)
+     * @return array<Socket|resource>|null Changed resources, or null on error
+     */
+    public static function select(array $resources, int $timeout = 0): ?array
+    {
+        if ([] === $resources) {
+            return null;
+        }
+
+        $sockets = [];
+        $streams = [];
+
+        foreach ($resources as $resource) {
+            if ($resource instanceof Socket) {
+                $sockets[] = $resource;
+            } else {
+                $streams[] = $resource;
+            }
+        }
+
+        $ready = [];
+
+        if ([] !== $sockets) {
+            $write = null;
+            $except = null;
+            $changed = socket_select($sockets, $write, $except, $timeout);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($sockets as $socket) {
+                    $ready[] = $socket;
+                }
+            }
+        }
+
+        if ([] !== $streams) {
+            $write = null;
+            $except = null;
+            $changed = stream_select($streams, $write, $except, $timeout);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($streams as $stream) {
+                    $ready[] = $stream;
+                }
+            }
+        }
+
+        if ([] === $ready) {
+            return null;
+        }
+
+        return $ready;
+    }
 }

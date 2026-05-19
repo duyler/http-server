@@ -40,27 +40,30 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->expects($this->once())->method('close');
 
         $oldTimestamp = microtime(true) - 2;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_stale' => [
                 'connection' => $connection,
                 'timestamp' => $oldTimestamp,
             ],
         ]);
 
-        self::assertCount(1, $property->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertEmpty($property->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItClosesConnectionOnCleanup(): void
@@ -74,16 +77,19 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->expects($this->once())->method('close');
 
         $oldTimestamp = microtime(true) - 2;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_stale' => [
                 'connection' => $connection,
                 'timestamp' => $oldTimestamp,
@@ -104,15 +110,18 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
 
         $oldTimestamp = microtime(true) - 2;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_old' => [
                 'connection' => $connection,
                 'timestamp' => $oldTimestamp,
@@ -123,11 +132,11 @@ class RequestIdCleanupTest extends TestCase
             ],
         ]);
 
-        self::assertCount(2, $property->getValue($requestProcessor));
+        self::assertCount(2, $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertCount(1, $mapping);
         self::assertArrayNotHasKey('req_old', $mapping);
         self::assertArrayHasKey('req_new', $mapping);
@@ -144,25 +153,28 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_fresh' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
             ],
         ]);
 
-        self::assertCount(1, $property->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertCount(1, $property->getValue($requestProcessor));
-        self::assertArrayHasKey('req_fresh', $property->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
+        self::assertArrayHasKey('req_fresh', $contextsProperty->getValue($requestQueue));
     }
 
     public function testItRunsCleanupViaMethodCall(): void
@@ -176,27 +188,30 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
 
         $oldTimestamp = microtime(true) - 2;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_stale' => [
                 'connection' => $connection,
                 'timestamp' => $oldTimestamp,
             ],
         ]);
 
-        self::assertCount(1, $property->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertEmpty($property->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItRespectsRequestTimeoutConfig(): void
@@ -210,16 +225,19 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
 
         $fourSecondsAgo = microtime(true) - 4;
         $sixSecondsAgo = microtime(true) - 6;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_4s' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
                 'timestamp' => $fourSecondsAgo,
@@ -232,7 +250,7 @@ class RequestIdCleanupTest extends TestCase
 
         $requestProcessor->cleanupStaleRequests(5);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertCount(1, $mapping);
         self::assertArrayHasKey('req_4s', $mapping);
         self::assertArrayNotHasKey('req_6s', $mapping);
@@ -249,13 +267,16 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $oldTimestamp = microtime(true) - 2;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_stale_1' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
                 'timestamp' => $oldTimestamp,
@@ -274,11 +295,11 @@ class RequestIdCleanupTest extends TestCase
             ],
         ]);
 
-        self::assertCount(4, $property->getValue($requestProcessor));
+        self::assertCount(4, $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertCount(1, $mapping);
         self::assertArrayHasKey('req_fresh', $mapping);
     }
@@ -294,15 +315,18 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
-        $property->setValue($requestProcessor, []);
+        $contextsProperty->setValue($requestQueue, []);
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertEmpty($property->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItCleansUpOnBoundaryTimeout(): void
@@ -316,15 +340,18 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
 
         $exactlyTwoSecondsAgo = microtime(true) - 2.01;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_boundary' => [
                 'connection' => $connection,
                 'timestamp' => $exactlyTwoSecondsAgo,
@@ -333,7 +360,7 @@ class RequestIdCleanupTest extends TestCase
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertEmpty($property->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItDoesNotCleanupJustUnderTimeout(): void
@@ -347,15 +374,18 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-        // cleanupStaleRequests is now on requestProcessor
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $queueProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
 
         $justUnderTwoSeconds = microtime(true) - 1.9;
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_almost' => [
                 'connection' => $connection,
                 'timestamp' => $justUnderTwoSeconds,
@@ -364,6 +394,6 @@ class RequestIdCleanupTest extends TestCase
 
         $requestProcessor->cleanupStaleRequests(2);
 
-        self::assertCount(1, $property->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
     }
 }

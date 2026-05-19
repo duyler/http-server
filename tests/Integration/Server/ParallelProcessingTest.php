@@ -34,6 +34,7 @@ class ParallelProcessingTest extends TestCase
         }
         parent::tearDown();
     }
+
     public function testItProcessesRequestsInParallel(): void
     {
         $config = new ServerConfig(port: 18200);
@@ -47,8 +48,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $request1 = new ServerRequest('GET', '/slow');
         $request2 = new ServerRequest('GET', '/fast');
@@ -62,19 +65,8 @@ class ParallelProcessingTest extends TestCase
         $requestData1 = new RequestData('req_slow', $request1, 1);
         $requestData2 = new RequestData('req_fast', $request2, 2);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData1);
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData2);
-
-        $connectionsProperty->setValue($requestProcessor, [
-            'req_slow' => [
-                'connection' => $connection1,
-                'timestamp' => microtime(true),
-            ],
-            'req_fast' => [
-                'connection' => $connection2,
-                'timestamp' => microtime(true),
-            ],
-        ]);
+        $requestQueue->enqueue($requestData1, ['connection' => $connection1, 'timestamp' => microtime(true), 'cors_origin' => null]);
+        $requestQueue->enqueue($requestData2, ['connection' => $connection2, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
         $responses = [];
 
@@ -88,7 +80,7 @@ class ParallelProcessingTest extends TestCase
         self::assertSame('fast_done', $responses[0]);
         self::assertSame('slow_done', $responses[1]);
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItSendsResponsesOutOfOrder(): void
@@ -104,8 +96,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connections = [];
         $writeCalls = [];
@@ -127,14 +121,7 @@ class ParallelProcessingTest extends TestCase
         for ($i = 1; $i <= 3; $i++) {
             $request = new ServerRequest('GET', "/request-$i");
             $requestData = new RequestData("req_$i", $request, $i);
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
-
-            $mapping = $connectionsProperty->getValue($requestProcessor);
-            $mapping["req_$i"] = [
-                'connection' => $connections[$i],
-                'timestamp' => microtime(true),
-            ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $requestQueue->enqueue($requestData, ['connection' => $connections[$i], 'timestamp' => microtime(true), 'cors_origin' => null]);
         }
 
         $this->server->respond(new ResponseData('req_2', new Response(200, [], 'Second')));
@@ -145,7 +132,7 @@ class ParallelProcessingTest extends TestCase
         self::assertArrayHasKey(3, $writeCalls);
         self::assertArrayHasKey(1, $writeCalls);
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItHandlesMultipleConcurrentActors(): void
@@ -161,8 +148,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $actorCount = 10;
         $connections = [];
@@ -179,14 +168,7 @@ class ParallelProcessingTest extends TestCase
         for ($i = 0; $i < $actorCount; $i++) {
             $request = new ServerRequest('GET', "/concurrent-$i");
             $requestData = new RequestData("req_$i", $request, $i);
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
-
-            $mapping = $connectionsProperty->getValue($requestProcessor);
-            $mapping["req_$i"] = [
-                'connection' => $connections[$i],
-                'timestamp' => microtime(true),
-            ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $requestQueue->enqueue($requestData, ['connection' => $connections[$i], 'timestamp' => microtime(true), 'cors_origin' => null]);
         }
 
         for ($i = $actorCount - 1; $i >= 0; $i--) {
@@ -196,7 +178,7 @@ class ParallelProcessingTest extends TestCase
         }
 
         self::assertCount($actorCount, $processedOrder);
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItDoesNotBlockOnSlowRequests(): void
@@ -212,8 +194,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $slowConnection = $this->createMock(ConnectionInterface::class);
         $slowConnection->method('isValid')->willReturn(true);
@@ -231,24 +215,13 @@ class ParallelProcessingTest extends TestCase
         $slowRequestData = new RequestData('req_slow', $slowRequest, 1);
         $fastRequestData = new RequestData('req_fast', $fastRequest, 2);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($slowRequestData);
-        $queueProperty->getValue($requestProcessor)->enqueue($fastRequestData);
-
-        $connectionsProperty->setValue($requestProcessor, [
-            'req_slow' => [
-                'connection' => $slowConnection,
-                'timestamp' => microtime(true),
-            ],
-            'req_fast' => [
-                'connection' => $fastConnection,
-                'timestamp' => microtime(true),
-            ],
-        ]);
+        $requestQueue->enqueue($slowRequestData, ['connection' => $slowConnection, 'timestamp' => microtime(true), 'cors_origin' => null]);
+        $requestQueue->enqueue($fastRequestData, ['connection' => $fastConnection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
         $this->server->respond(new ResponseData('req_fast', new Response(200, [], 'Fast Response')));
         $this->server->respond(new ResponseData('req_slow', new Response(200, [], 'Slow Response')));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItCorrectlyMapsResponsesToConnections(): void
@@ -264,8 +237,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $responseMapping = [];
 
@@ -307,15 +282,9 @@ class ParallelProcessingTest extends TestCase
         $requestData2 = new RequestData('req_2', $request2, 2);
         $requestData3 = new RequestData('req_3', $request3, 3);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData1);
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData2);
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData3);
-
-        $connectionsProperty->setValue($requestProcessor, [
-            'req_1' => ['connection' => $connection1, 'timestamp' => microtime(true)],
-            'req_2' => ['connection' => $connection2, 'timestamp' => microtime(true)],
-            'req_3' => ['connection' => $connection3, 'timestamp' => microtime(true)],
-        ]);
+        $requestQueue->enqueue($requestData1, ['connection' => $connection1, 'timestamp' => microtime(true), 'cors_origin' => null]);
+        $requestQueue->enqueue($requestData2, ['connection' => $connection2, 'timestamp' => microtime(true), 'cors_origin' => null]);
+        $requestQueue->enqueue($requestData3, ['connection' => $connection3, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
         $this->server->respond(new ResponseData('req_3', new Response(200, [], 'User 3 deleted')));
         $this->server->respond(new ResponseData('req_1', new Response(200, [], 'User 1 data')));
@@ -329,7 +298,7 @@ class ParallelProcessingTest extends TestCase
         self::assertStringContainsString('User 2 created', $responseMapping['conn_2']);
         self::assertStringContainsString('User 3 deleted', $responseMapping['conn_3']);
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItHandlesFiberSuspensionCorrectly(): void
@@ -345,8 +314,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
@@ -356,13 +327,7 @@ class ParallelProcessingTest extends TestCase
         $request = new ServerRequest('GET', '/suspended');
         $requestData = new RequestData('req_suspended', $request, 1);
 
-        $queueProperty->getValue($requestProcessor)->enqueue($requestData);
-        $connectionsProperty->setValue($requestProcessor, [
-            'req_suspended' => [
-                'connection' => $connection,
-                'timestamp' => microtime(true),
-            ],
-        ]);
+        $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
         $suspensionCount = 0;
         $responseSent = false;
@@ -393,7 +358,7 @@ class ParallelProcessingTest extends TestCase
         self::assertSame(2, $suspensionCount);
         self::assertTrue($responseSent);
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
     public function testItProcesses100ConcurrentRequests(): void
@@ -409,8 +374,10 @@ class ParallelProcessingTest extends TestCase
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
         $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setAccessible(true);
 
         $requestCount = 100;
         $processedCount = 0;
@@ -423,17 +390,10 @@ class ParallelProcessingTest extends TestCase
 
             $request = new ServerRequest('GET', "/stress-test-$i");
             $requestData = new RequestData("req_$i", $request, $i);
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
-
-            $mapping = $connectionsProperty->getValue($requestProcessor);
-            $mapping["req_$i"] = [
-                'connection' => $connection,
-                'timestamp' => microtime(true),
-            ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
         }
 
-        self::assertCount($requestCount, $connectionsProperty->getValue($requestProcessor));
+        self::assertCount($requestCount, $contextsProperty->getValue($requestQueue));
 
         for ($i = 0; $i < $requestCount; $i++) {
             $response = new Response(200, [], "Response $i");
@@ -442,6 +402,6 @@ class ParallelProcessingTest extends TestCase
         }
 
         self::assertSame($requestCount, $processedCount);
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 }

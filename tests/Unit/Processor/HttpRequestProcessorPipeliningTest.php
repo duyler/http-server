@@ -12,6 +12,8 @@ use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
+use Duyler\HttpServer\Processor\RequestQueue;
+use Duyler\HttpServer\Processor\ResponseSender;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Nyholm\Psr7\Factory\Psr17Factory;
@@ -54,6 +56,8 @@ final class HttpRequestProcessorPipeliningTest extends TestCase
             $connectionPool,
             $metrics,
             $tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($config, $responseWriter),
             null,
             null,
             new NullLogger(),

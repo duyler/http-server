@@ -13,7 +13,6 @@ use Override;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Socket;
 use Throwable;
 
 final class WebSocketHandler implements WebSocketHandlerInterface
@@ -202,24 +201,10 @@ final class WebSocketHandler implements WebSocketHandlerInterface
             return false;
         }
 
-        if ($internalResource instanceof Socket) {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = socket_select($read, $write, $except, 0);
+        $ready = StreamSocketResource::select([$internalResource]);
 
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
-        } else {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = stream_select($read, $write, $except, 0);
-
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
+        if (null === $ready) {
+            return true;
         }
 
         try {

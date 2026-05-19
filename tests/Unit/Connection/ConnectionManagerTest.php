@@ -9,6 +9,8 @@ use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Metrics\ServerMetrics;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
+use Duyler\HttpServer\Processor\RequestQueue;
+use Duyler\HttpServer\Processor\ResponseSender;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -38,6 +40,8 @@ class ConnectionManagerTest extends TestCase
             $this->pool,
             $metrics,
             $tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($config, $responseWriter),
         );
 
         $this->manager = new ConnectionManager(
