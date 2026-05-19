@@ -69,12 +69,6 @@ class ConnectionManagerTest extends TestCase
     }
 
     #[Test]
-    public function get_pool_returns_pool(): void
-    {
-        $this->assertSame($this->pool, $this->manager->getPool());
-    }
-
-    #[Test]
     public function set_logger_sets_logger(): void
     {
         $logger = new NullLogger();

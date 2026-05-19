@@ -187,8 +187,4 @@ final class ConnectionManager implements ConnectionManagerInterface
         return $removed;
     }
 
-    public function getPool(): ConnectionPool
-    {
-        return $this->pool;
-    }
 }
