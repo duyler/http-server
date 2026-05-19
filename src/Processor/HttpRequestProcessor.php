@@ -30,7 +30,6 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 {
     private int $requestIdCounter = 0;
 
-    /** @var SplQueue<RequestData> */
     private readonly SplQueue $requestQueue;
 
     /** @var array<string, array{connection: ConnectionInterface, timestamp: float}> */
@@ -54,7 +53,6 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         private readonly ?RateLimiter $rateLimiter = null,
         private LoggerInterface $logger = new NullLogger(),
     ) {
-        /** @psalm-suppress MixedPropertyTypeCoercion */
         $this->requestQueue = new SplQueue();
     }
 
@@ -288,7 +286,10 @@ final class HttpRequestProcessor implements RequestProcessorInterface
             return null;
         }
 
-        return $this->requestQueue->dequeue();
+        $request = $this->requestQueue->dequeue();
+        assert($request instanceof RequestData);
+
+        return $request;
     }
 
     public function respond(ResponseData $responseData): void
