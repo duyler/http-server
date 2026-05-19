@@ -110,10 +110,16 @@ final class Server implements ServerInterface
                 enableXXSSProtection: true,
                 enableReferrerPolicy: true,
                 enablePermissionsPolicy: true,
-                enableHsts: $this->config->ssl || 443 === $this->config->port,
+                enableHsts: $this->config->enableHsts || $this->config->ssl || 443 === $this->config->port,
                 frameOptions: $this->config->frameOptions,
                 referrerPolicy: $this->config->referrerPolicy,
                 permissionsPolicy: $this->config->permissionsPolicy,
+                contentSecurityPolicy: $this->config->contentSecurityPolicy,
+                contentSecurityPolicyReportOnly: $this->config->contentSecurityPolicyReportOnly,
+                enableNonce: $this->config->enableCspNonce,
+                hstsMaxAge: $this->config->hstsMaxAge,
+                hstsIncludeSubDomains: $this->config->hstsIncludeSubDomains,
+                hstsPreload: $this->config->hstsPreload,
             );
             $this->responseWriter->setSecurityHeadersService($securityHeadersService);
         }

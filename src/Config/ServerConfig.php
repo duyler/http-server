@@ -14,6 +14,8 @@ final readonly class ServerConfig
      * @param list<string> $corsAllowedMethods
      * @param list<string> $corsAllowedHeaders
      * @param list<string> $corsExposeHeaders
+     * @param ?array<non-empty-string, list<non-empty-string>> $contentSecurityPolicy
+     * @param ?array<non-empty-string, list<non-empty-string>> $contentSecurityPolicyReportOnly
      */
     public function __construct(
         public string $host = '0.0.0.0',
@@ -45,6 +47,13 @@ final readonly class ServerConfig
         public bool $corsAllowCredentials = false,
         public int $corsMaxAge = 86400,
         public array $corsExposeHeaders = [],
+        public ?array $contentSecurityPolicy = null,
+        public ?array $contentSecurityPolicyReportOnly = null,
+        public bool $enableCspNonce = false,
+        public bool $enableHsts = false,
+        public int $hstsMaxAge = 31536000,
+        public bool $hstsIncludeSubDomains = false,
+        public bool $hstsPreload = false,
         public bool $debugMode = false,
         public int $memoryLimit = 134217728,
         public bool $enableSecurityHeaders = true,
@@ -158,6 +167,10 @@ final readonly class ServerConfig
 
         if ($this->memoryLimit < 1048576) {
             throw new InvalidConfigException('Memory limit must be at least 1MB');
+        }
+
+        if ($this->enableHsts && $this->hstsMaxAge < 0) {
+            throw new InvalidConfigException('HSTS max-age must be non-negative');
         }
 
         $validFrameOptions = ['DENY', 'SAMEORIGIN'];

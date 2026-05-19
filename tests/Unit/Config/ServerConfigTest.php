@@ -355,4 +355,25 @@ class ServerConfigTest extends TestCase
             corsAllowCredentials: true,
         );
     }
+
+    public function testHstsNegativeMaxAgeThrowsException(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('HSTS max-age must be non-negative');
+
+        new ServerConfig(
+            enableHsts: true,
+            hstsMaxAge: -1,
+        );
+    }
+
+    public function testHstsDisabledWithNegativeMaxAgeDoesNotThrow(): void
+    {
+        $config = new ServerConfig(
+            enableHsts: false,
+            hstsMaxAge: -1,
+        );
+
+        $this->assertSame(-1, $config->hstsMaxAge);
+    }
 }

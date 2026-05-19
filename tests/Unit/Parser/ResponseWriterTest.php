@@ -118,7 +118,7 @@ class ResponseWriterTest extends TestCase
 
         $this->assertStringContainsString('X-Content-Type-Options: nosniff', $output);
         $this->assertStringContainsString('X-Frame-Options: DENY', $output);
-        $this->assertStringContainsString('X-XSS-Protection: 1; mode=block', $output);
+        $this->assertStringContainsString('X-XSS-Protection: 0', $output);
         $this->assertStringContainsString('Referrer-Policy: strict-origin-when-cross-origin', $output);
     }
 
@@ -167,7 +167,7 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200);
         $output = $this->writer->write($response);
 
-        $this->assertStringContainsString('Strict-Transport-Security: max-age=31536000; includeSubDomains', $output);
+        $this->assertStringContainsString('Strict-Transport-Security: max-age=31536000', $output);
     }
 
     public function testNoHstsHeaderWhenDisabled(): void
