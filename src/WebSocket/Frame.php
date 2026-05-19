@@ -145,12 +145,11 @@ final readonly class Frame
 
     private function mask(string $data, string $key): string
     {
-        $result = '';
-        $keyLen = 4;
         $dataLen = strlen($data);
+        $result = str_repeat("\0", $dataLen);
 
         for ($i = 0; $i < $dataLen; $i++) {
-            $result .= $data[$i] ^ $key[$i % $keyLen];
+            $result[$i] = $data[$i] ^ $key[$i % 4];
         }
 
         return $result;
@@ -158,12 +157,11 @@ final readonly class Frame
 
     private static function unmask(string $data, string $key): string
     {
-        $result = '';
-        $keyLen = 4;
         $dataLen = strlen($data);
+        $result = str_repeat("\0", $dataLen);
 
         for ($i = 0; $i < $dataLen; $i++) {
-            $result .= $data[$i] ^ $key[$i % $keyLen];
+            $result[$i] = $data[$i] ^ $key[$i % 4];
         }
 
         return $result;

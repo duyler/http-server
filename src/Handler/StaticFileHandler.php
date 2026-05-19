@@ -43,13 +43,17 @@ final class StaticFileHandler
     /** @var object|null LRU list tail (least recently used) */
     private ?object $lruTail = null;
 
+    private readonly string|false $realPublicPath;
+
     public function __construct(
         private readonly string $publicPath,
         private readonly bool $enableCache = true,
         private readonly int $maxCacheSize = 52428800,
         private readonly int $maxCacheFiles = 1000,
         private readonly ?AuditLoggerInterface $auditLogger = null,
-    ) {}
+    ) {
+        $this->realPublicPath = realpath($this->publicPath);
+    }
 
     public function isStaticFile(ServerRequestInterface $request): bool
     {
@@ -66,12 +70,11 @@ final class StaticFileHandler
             return false;
         }
 
-        $realPublicPath = realpath($this->publicPath);
-        if (false === $realPublicPath) {
+        if (false === $this->realPublicPath) {
             return false;
         }
 
-        return str_starts_with($realPath, $realPublicPath) && is_file($realPath);
+        return str_starts_with($realPath, $this->realPublicPath) && is_file($realPath);
     }
 
     public function handle(ServerRequestInterface $request): ?ResponseInterface
@@ -86,12 +89,11 @@ final class StaticFileHandler
             return null;
         }
 
-        $realPublicPath = realpath($this->publicPath);
-        if (false === $realPublicPath) {
+        if (false === $this->realPublicPath) {
             return null;
         }
 
-        if (!str_starts_with($realPath, $realPublicPath)) {
+        if (!str_starts_with($realPath, $this->realPublicPath)) {
             $this->auditLogger?->logPathTraversalAttempt($this->getClientIp($request), $path);
             return null;
         }

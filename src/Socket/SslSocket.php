@@ -86,6 +86,11 @@ final class SslSocket implements SocketInterface
 
         stream_set_blocking($client, false);
 
+        $socket = socket_import_stream($client);
+        if (false !== $socket) {
+            socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
+        }
+
         return new StreamSocketResource($client);
     }
 

@@ -9,7 +9,9 @@ use Override;
 
 final class Connection implements ConnectionInterface
 {
-    private string $buffer = '';
+    /** @var array<int, string> */
+    private array $chunks = [];
+    private int $bufferSize = 0;
     private int $requestCount = 0;
     private float $lastActivityTime;
     private bool $keepAlive = false;
@@ -52,15 +54,16 @@ final class Connection implements ConnectionInterface
     #[Override]
     public function getBuffer(): string
     {
-        return $this->buffer;
+        return implode('', $this->chunks);
     }
 
     #[Override]
     public function appendToBuffer(string $data): void
     {
-        $this->buffer .= $data;
+        $this->chunks[] = $data;
+        $this->bufferSize += strlen($data);
 
-        if (strlen($this->buffer) > $this->maxBufferSize) {
+        if ($this->bufferSize > $this->maxBufferSize) {
             $this->close();
             return;
         }
@@ -71,17 +74,30 @@ final class Connection implements ConnectionInterface
     #[Override]
     public function clearBuffer(): void
     {
-        $this->buffer = '';
+        $this->chunks = [];
+        $this->bufferSize = 0;
         $this->clearRequestCache();
     }
 
     #[Override]
     public function consumeBuffer(int $bytes): void
     {
-        if ($bytes >= strlen($this->buffer)) {
-            $this->buffer = '';
+        if ($bytes >= $this->bufferSize) {
+            $this->chunks = [];
+            $this->bufferSize = 0;
         } else {
-            $this->buffer = substr($this->buffer, $bytes);
+            $remaining = $bytes;
+            while ($remaining > 0 && [] !== $this->chunks) {
+                $chunkLen = strlen($this->chunks[0]);
+                if ($chunkLen <= $remaining) {
+                    $remaining -= $chunkLen;
+                    array_shift($this->chunks);
+                } else {
+                    $this->chunks[0] = substr($this->chunks[0], $remaining);
+                    $remaining = 0;
+                }
+            }
+            $this->bufferSize -= $bytes;
         }
         $this->clearRequestCache();
     }

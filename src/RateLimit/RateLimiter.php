@@ -42,10 +42,7 @@ final class RateLimiter
             return true;
         }
 
-        $this->requests[$identifier] = array_filter(
-            $this->requests[$identifier],
-            fn(float $timestamp) => $timestamp > $windowStart,
-        );
+        $this->removeExpired($identifier, $windowStart);
 
         if ($this->maxRequests > count($this->requests[$identifier])) {
             $this->requests[$identifier][] = $now;
@@ -66,12 +63,9 @@ final class RateLimiter
             return $this->maxRequests;
         }
 
-        $activeRequests = array_filter(
-            $this->requests[$identifier],
-            fn(float $timestamp) => $timestamp > $windowStart,
-        );
+        $this->removeExpired($identifier, $windowStart);
 
-        return max(0, $this->maxRequests - count($activeRequests));
+        return max(0, $this->maxRequests - count($this->requests[$identifier]));
     }
 
     public function getResetTime(string $identifier): int
@@ -95,14 +89,21 @@ final class RateLimiter
         $windowStart = $now - (float) $this->windowSeconds;
 
         foreach ($this->requests as $identifier => $timestamps) {
-            $this->requests[$identifier] = array_filter(
-                $timestamps,
-                fn(float $timestamp) => $timestamp > $windowStart,
-            );
+            $this->removeExpired($identifier, $windowStart);
 
             if (0 === count($this->requests[$identifier])) {
                 unset($this->requests[$identifier]);
             }
+        }
+    }
+
+    private function removeExpired(string $identifier, float $windowStart): void
+    {
+        if (false === isset($this->requests[$identifier])) {
+            return;
+        }
+        while ([] !== $this->requests[$identifier] && $this->requests[$identifier][0] <= $windowStart) {
+            array_shift($this->requests[$identifier]);
         }
     }
 
