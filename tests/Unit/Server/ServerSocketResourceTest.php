@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -28,7 +27,6 @@ class ServerSocketResourceTest extends TestCase
             } catch (Throwable) {
             }
         }
-        ErrorHandler::reset();
         parent::tearDown();
     }
 

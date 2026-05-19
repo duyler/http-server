@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
 use Override;
@@ -27,7 +26,6 @@ class LRUCacheIntegrationTest extends TestCase
     {
         $this->removeDirectory($this->tempDir);
         parent::tearDown();
-        ErrorHandler::reset();
     }
 
     public function testHandlerCachesFilesWithLruEviction(): void

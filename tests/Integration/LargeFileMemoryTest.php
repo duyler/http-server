@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
 use Override;
@@ -25,7 +24,6 @@ class LargeFileMemoryTest extends TestCase
     protected function tearDown(): void
     {
         $this->removeDirectory($this->tempDir);
-        ErrorHandler::reset();
     }
 
     public function testLargeFileStreamingDoesNotCauseMemoryLeak(): void
