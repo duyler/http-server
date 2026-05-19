@@ -19,6 +19,7 @@ use Duyler\HttpServer\Exception\MemoryLimitExceededException;
 use Duyler\HttpServer\Exception\ServerException;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Duyler\HttpServer\Metrics\ServerMetrics;
+use Duyler\HttpServer\Notification\EventLoopNotifier;
 use Duyler\HttpServer\Notification\NotificationManager;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
@@ -26,6 +27,7 @@ use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\Processor\RequestQueue;
 use Duyler\HttpServer\Processor\ResponseSender;
+use Duyler\HttpServer\Processor\WebSocketUpgradeHandler;
 use Duyler\HttpServer\RateLimit\RateLimiter;
 use Duyler\HttpServer\Security\AuditLogger;
 use Duyler\HttpServer\Security\CorsService;
@@ -166,7 +168,7 @@ final class Server implements ServerInterface
             $this->metrics,
             $this->tempFileManager,
             new RequestQueue(),
-            new ResponseSender($this->config, $this->responseWriter),
+            new ResponseSender($this->config, $this->responseWriter, $this->logger),
             $this->staticFileHandler,
             $this->rateLimiter,
             $this->logger,
@@ -175,8 +177,8 @@ final class Server implements ServerInterface
         $this->webSocketHandler = new WebSocketHandler(
             $this->config,
             $this->requestProcessor,
+            logger: $this->logger,
         );
-        $this->webSocketHandler->setLogger($this->logger);
 
         if (null !== $this->corsService) {
             $this->requestProcessor->setCorsService($this->corsService);
@@ -193,18 +195,22 @@ final class Server implements ServerInterface
 
         $this->memoryMonitor = new MemoryMonitor($this->config->memoryLimit);
 
-        $this->requestProcessor->setWebSocketHandler(
-            function (ConnectionInterface $connection, ServerRequestInterface $request): void {
-                if ($this->hasWebSocket && Handshake::isWebSocketRequest($request)) {
-                    $this->webSocketHandler->handleHandshake($connection, $request);
-                }
-            },
+        $this->requestProcessor->setWebSocketUpgradeHandler(
+            new WebSocketUpgradeHandler(
+                function (ConnectionInterface $connection, ServerRequestInterface $request): void {
+                    if ($this->hasWebSocket && Handshake::isWebSocketRequest($request)) {
+                        $this->webSocketHandler->handleHandshake($connection, $request);
+                    }
+                },
+            ),
         );
 
-        $this->requestProcessor->setNotifyEventLoopCallback(
-            function (): void {
-                $this->notifyEventLoop();
-            },
+        $this->requestProcessor->setEventLoopNotifier(
+            new EventLoopNotifier(
+                function (): void {
+                    $this->notifyEventLoop();
+                },
+            ),
         );
 
         $this->errorHandler = $errorHandler ?? new ProductionErrorHandler(
@@ -537,6 +543,8 @@ final class Server implements ServerInterface
     {
         $this->logger = $logger;
         $this->requestProcessor->setLogger($logger);
+        $this->connectionManager->setLogger($logger);
+        $this->webSocketHandler->setLogger($logger);
 
         $auditLogger = new AuditLogger($logger);
         $this->requestProcessor->setAuditLogger($auditLogger);

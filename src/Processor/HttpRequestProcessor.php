@@ -11,6 +11,7 @@ use Duyler\HttpServer\Dto\RequestData;
 use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Duyler\HttpServer\Metrics\ServerMetrics;
+use Duyler\HttpServer\Notification\EventLoopNotifierInterface;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
@@ -31,11 +32,9 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 {
     private int $requestIdCounter = 0;
 
-    /** @var callable(ConnectionInterface, ServerRequestInterface): void|null */
-    private $webSocketHandler = null;
+    private ?WebSocketUpgradeHandlerInterface $webSocketUpgradeHandler = null;
 
-    /** @var callable(): void|null */
-    private $notifyEventLoopCallback = null;
+    private ?EventLoopNotifierInterface $eventLoopNotifier = null;
 
     private ?CorsService $corsService = null;
 
@@ -56,20 +55,19 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         private LoggerInterface $logger = new NullLogger(),
     ) {}
 
-    /**
-     * @param callable(ConnectionInterface, ServerRequestInterface): void $handler
-     */
-    public function setWebSocketHandler(callable $handler): void
+    public function setLogger(LoggerInterface $logger): void
     {
-        $this->webSocketHandler = $handler;
+        $this->logger = $logger;
     }
 
-    /**
-     * @param callable(): void $callback
-     */
-    public function setNotifyEventLoopCallback(callable $callback): void
+    public function setWebSocketUpgradeHandler(WebSocketUpgradeHandlerInterface $handler): void
     {
-        $this->notifyEventLoopCallback = $callback;
+        $this->webSocketUpgradeHandler = $handler;
+    }
+
+    public function setEventLoopNotifier(EventLoopNotifierInterface $notifier): void
+    {
+        $this->eventLoopNotifier = $notifier;
     }
 
     public function setCorsService(CorsService $corsService): void
@@ -148,8 +146,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                 $connection->getRemotePort(),
             );
 
-            if (null !== $this->webSocketHandler && Handshake::isWebSocketRequest($request)) {
-                ($this->webSocketHandler)($connection, $request);
+            if (null !== $this->webSocketUpgradeHandler && Handshake::isWebSocketRequest($request)) {
+                $this->webSocketUpgradeHandler->handleUpgrade($connection, $request);
                 return;
             }
 
@@ -216,8 +214,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
             $this->metrics->incrementRequests();
 
-            if (null !== $this->notifyEventLoopCallback) {
-                ($this->notifyEventLoopCallback)();
+            if (null !== $this->eventLoopNotifier) {
+                $this->eventLoopNotifier->notify();
             }
 
             $connection->consumeBuffer($consumed);
@@ -375,11 +373,6 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     public function getQueueCount(): int
     {
         return $this->requestQueue->getQueueCount();
-    }
-
-    public function setLogger(LoggerInterface $logger): void
-    {
-        $this->logger = $logger;
     }
 
     private function closeConnection(ConnectionInterface $connection): void

@@ -82,10 +82,10 @@ class WebSocketHandlerTest extends TestCase
     }
 
     #[Test]
-    public function set_logger_sets_logger(): void
+    public function logger_injected_via_constructor(): void
     {
         $logger = new NullLogger();
-        $this->handler->setLogger($logger);
+        $handler = new WebSocketHandler($this->config, $this->requestProcessor, logger: $logger);
 
         $this->expectNotToPerformAssertions();
     }

@@ -31,8 +31,9 @@ final class WebSocketServer
 
     public function __construct(
         private readonly WebSocketConfig $config = new WebSocketConfig(),
+        LoggerInterface $logger = new NullLogger(),
     ) {
-        $this->logger = new NullLogger();
+        $this->logger = $logger;
     }
 
     public function setLogger(LoggerInterface $logger): void

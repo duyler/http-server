@@ -74,10 +74,38 @@ class ConnectionManagerTest extends TestCase
     }
 
     #[Test]
-    public function set_logger_sets_logger(): void
+    public function logger_injected_via_constructor(): void
     {
         $logger = new NullLogger();
-        $this->manager->setLogger($logger);
+        $httpParser = new HttpParser(100);
+        $psrFactory = new Psr17Factory();
+        $tempFileManager = new \Duyler\HttpServer\Upload\TempFileManager();
+        $requestParser = new \Duyler\HttpServer\Parser\RequestParser($httpParser, $psrFactory, $tempFileManager);
+        $responseWriter = new \Duyler\HttpServer\Parser\ResponseWriter();
+        $metrics = new ServerMetrics();
+        $config = new \Duyler\HttpServer\Config\ServerConfig();
+        $pool = new ConnectionPool();
+
+        $requestProcessor = new HttpRequestProcessor(
+            $config,
+            $httpParser,
+            $requestParser,
+            $responseWriter,
+            $pool,
+            $metrics,
+            $tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($config, $responseWriter),
+        );
+
+        $manager = new ConnectionManager(
+            $pool,
+            $httpParser,
+            $requestProcessor,
+            $metrics,
+            $config,
+            $logger,
+        );
 
         $this->expectNotToPerformAssertions();
     }
