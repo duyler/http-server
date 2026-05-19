@@ -39,7 +39,7 @@ final class ProductionErrorHandler implements ErrorHandlerInterface
         $this->previousErrorHandler = set_error_handler($this->handleError(...));
         $this->previousExceptionHandler = set_exception_handler($this->handleException(...));
 
-        if (!$this->shutdownHandlerRegistered) {
+        if (false === $this->shutdownHandlerRegistered) {
             register_shutdown_function($this->handleShutdown(...));
             $this->shutdownHandlerRegistered = true;
         }
@@ -131,7 +131,6 @@ final class ProductionErrorHandler implements ErrorHandlerInterface
         $error = error_get_last();
 
         // @codeCoverageIgnoreStart
-        // These lines cannot be tested without a real PHP fatal error
         if (null !== $error && in_array($error['type'], [
             E_ERROR,
             E_CORE_ERROR,
@@ -212,7 +211,7 @@ final class ProductionErrorHandler implements ErrorHandlerInterface
     #[Override]
     public function reset(): void
     {
-        if (!$this->registered) {
+        if (false === $this->registered) {
             return;
         }
 
@@ -224,9 +223,6 @@ final class ProductionErrorHandler implements ErrorHandlerInterface
 
         $this->previousErrorHandler = null;
         $this->previousExceptionHandler = null;
-
-        // Note: shutdown handler cannot be unregistered in PHP
-        // It will be skipped via isShuttingDown flag check
     }
 
     private function getErrorType(int $errno): string
