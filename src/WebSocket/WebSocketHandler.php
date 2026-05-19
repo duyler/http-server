@@ -171,6 +171,10 @@ final class WebSocketHandler implements WebSocketHandlerInterface
 
             $connection->appendToBuffer($data);
 
+            if ($connection->isClosed()) {
+                return false;
+            }
+
             while (true) {
                 $buffer = $connection->getBuffer();
                 $frame = Frame::decode($buffer);
@@ -185,6 +189,10 @@ final class WebSocketHandler implements WebSocketHandlerInterface
                 $connection->clearBuffer();
                 if ('' !== $remaining) {
                     $connection->appendToBuffer($remaining);
+
+                    if ($connection->isClosed()) {
+                        return false;
+                    }
                 }
 
                 $message = $wsConn->processFrame($frame);

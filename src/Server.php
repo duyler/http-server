@@ -158,6 +158,7 @@ final class Server implements ServerInterface
             $this->httpParser,
             $this->requestProcessor,
             $this->metrics,
+            $this->config,
             $this->logger,
         );
 
@@ -303,7 +304,7 @@ final class Server implements ServerInterface
         }
 
         $elapsed = time() - $startTime;
-        $graceful = $activeCount === 0 && !$this->requestProcessor->hasRequest() && !$this->requestProcessor->hasPendingResponse();
+        $graceful = $activeCount === 0 && false === $this->requestProcessor->hasRequest() && false === $this->requestProcessor->hasPendingResponse();
 
         if ($graceful) {
             $this->logger->info('Graceful shutdown completed successfully', [
@@ -625,7 +626,7 @@ final class Server implements ServerInterface
 
     private function checkMemoryLimit(): void
     {
-        if (!$this->memoryMonitor->check()) {
+        if (false === $this->memoryMonitor->check()) {
             $this->logger->critical('Memory limit exceeded', [
                 'limit' => $this->config->memoryLimit,
                 'current' => $this->memoryMonitor->getUsage(),
@@ -731,7 +732,7 @@ final class Server implements ServerInterface
         }
 
         $socketResource = new StreamSocketResource($clientSocket);
-        $connection = new Connection($socketResource, $clientIp, $clientPort);
+        $connection = new Connection($socketResource, $clientIp, $clientPort, $this->config->maxRequestSize);
 
         $this->connectionPool->add($connection);
 
@@ -869,7 +870,7 @@ final class Server implements ServerInterface
             return;
         }
 
-        if (!$this->requestProcessor->hasRequest() && !$this->requestProcessor->hasPendingResponse()) {
+        if (false === $this->requestProcessor->hasRequest() && false === $this->requestProcessor->hasPendingResponse()) {
             return;
         }
 
@@ -1048,6 +1049,11 @@ final class Server implements ServerInterface
         }
 
         $connection->appendToBuffer($data);
+
+        if ($connection->isClosed()) {
+            $this->closeConnection($connection);
+            return;
+        }
 
         $buffer = $connection->getBuffer();
 
