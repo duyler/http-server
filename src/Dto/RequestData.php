@@ -12,8 +12,6 @@ use Psr\Http\Message\ServerRequestInterface;
  *
  * Immutable container that holds request metadata including
  * unique ID, PSR-7 request object, and connection identifier.
- *
- * @package Duyler\HttpServer\Dto
  */
 final readonly class RequestData
 {
