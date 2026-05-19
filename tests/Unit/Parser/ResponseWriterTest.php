@@ -21,7 +21,8 @@ class ResponseWriterTest extends TestCase
         $this->writer = new ResponseWriter();
     }
 
-    public function testWritesSimpleResponse(): void
+    #[Test]
+    public function writes_simple_response(): void
     {
         $response = new Response(200, [], 'Hello World');
 
@@ -31,7 +32,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Hello World', $output);
     }
 
-    public function testWritesStatusCodeAndPhrase(): void
+    #[Test]
+    public function writes_status_code_and_phrase(): void
     {
         $response = new Response(404);
 
@@ -40,7 +42,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('HTTP/1.1 404 Not Found', $output);
     }
 
-    public function testWritesCustomStatusPhrase(): void
+    #[Test]
+    public function writes_custom_status_phrase(): void
     {
         $response = new Response(200, [], null, '1.1', 'Custom Phrase');
 
@@ -49,7 +52,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('HTTP/1.1 200 Custom Phrase', $output);
     }
 
-    public function testWritesHeaders(): void
+    #[Test]
+    public function writes_headers(): void
     {
         $response = (new Response(200))
             ->withHeader('Content-Type', 'application/json')
@@ -61,7 +65,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('X-Custom: value', $output);
     }
 
-    public function testWritesMultipleHeaderValues(): void
+    #[Test]
+    public function writes_multiple_header_values(): void
     {
         $response = (new Response(200))
             ->withHeader('Set-Cookie', ['cookie1=value1', 'cookie2=value2']);
@@ -72,7 +77,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Set-Cookie: cookie2=value2', $output);
     }
 
-    public function testWritesResponseWithBody(): void
+    #[Test]
+    public function writes_response_with_body(): void
     {
         $response = new Response(200, ['Content-Type' => 'text/plain'], 'Response body');
 
@@ -81,7 +87,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringEndsWith("Response body", $output);
     }
 
-    public function testSeparatesHeadersAndBodyWithDoubleCrlf(): void
+    #[Test]
+    public function separates_headers_and_body_with_double_crlf(): void
     {
         $response = new Response(200, [], 'Body');
 
@@ -90,7 +97,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString("\r\n\r\nBody", $output);
     }
 
-    public function testWritesEmptyBody(): void
+    #[Test]
+    public function writes_empty_body(): void
     {
         $response = new Response(204);
 
@@ -100,7 +108,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringEndsWith("\r\n\r\n", $output);
     }
 
-    public function testUsesCorrectHttpVersion(): void
+    #[Test]
+    public function uses_correct_http_version(): void
     {
         $response = new Response(200, [], null, '1.0');
 
@@ -109,7 +118,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringStartsWith('HTTP/1.0', $output);
     }
 
-    public function testAppliesSecurityHeadersWhenServiceSet(): void
+    #[Test]
+    public function applies_security_headers_when_service_set(): void
     {
         $securityService = new SecurityHeadersService();
         $this->writer->setSecurityHeadersService($securityService);
@@ -123,7 +133,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Referrer-Policy: strict-origin-when-cross-origin', $output);
     }
 
-    public function testDoesNotApplySecurityHeadersWhenServiceNotSet(): void
+    #[Test]
+    public function does_not_apply_security_headers_when_service_not_set(): void
     {
         $response = new Response(200);
         $output = $this->writer->write($response);
@@ -133,7 +144,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringNotContainsString('X-XSS-Protection', $output);
     }
 
-    public function testDoesNotOverwriteExistingSecurityHeaders(): void
+    #[Test]
+    public function does_not_overwrite_existing_security_headers(): void
     {
         $securityService = new SecurityHeadersService();
         $this->writer->setSecurityHeadersService($securityService);
@@ -145,7 +157,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringNotContainsString('X-Frame-Options: DENY', $output);
     }
 
-    public function testCustomSecurityHeadersFromService(): void
+    #[Test]
+    public function custom_security_headers_from_service(): void
     {
         $securityService = new SecurityHeadersService(
             frameOptions: 'SAMEORIGIN',
@@ -160,7 +173,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Referrer-Policy: no-referrer', $output);
     }
 
-    public function testHstsHeaderWhenEnabled(): void
+    #[Test]
+    public function hsts_header_when_enabled(): void
     {
         $securityService = new SecurityHeadersService(enableHsts: true);
         $this->writer->setSecurityHeadersService($securityService);
@@ -171,7 +185,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Strict-Transport-Security: max-age=31536000', $output);
     }
 
-    public function testNoHstsHeaderWhenDisabled(): void
+    #[Test]
+    public function no_hsts_header_when_disabled(): void
     {
         $securityService = new SecurityHeadersService(enableHsts: false);
         $this->writer->setSecurityHeadersService($securityService);

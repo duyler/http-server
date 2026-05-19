@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -44,7 +45,8 @@ class TempFileCleanupTest extends TestCase
         parent::tearDown();
     }
 
-    public function testServerResetCleansUpTemporaryFiles(): void
+    #[Test]
+    public function server_reset_cleans_up_temporary_files(): void
     {
         $this->server->start();
 
@@ -95,7 +97,8 @@ class TempFileCleanupTest extends TestCase
         $this->assertLessThanOrEqual($tempDirBefore + 1, $tempDirAfter);
     }
 
-    public function testMultipleRequestsWithResetDontLeakMemory(): void
+    #[Test]
+    public function multiple_requests_with_reset_dont_leak_memory(): void
     {
         $this->server->start();
 
@@ -142,12 +145,14 @@ class TempFileCleanupTest extends TestCase
      */
     private function createClient()
     {
-        $client = @stream_socket_client(
+        $previousErrorReporting = error_reporting(0);
+        $client = stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
         );
+        error_reporting($previousErrorReporting);
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

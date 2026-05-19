@@ -8,11 +8,13 @@ use Duyler\HttpServer\Dto\RequestData;
 use Duyler\HttpServer\Dto\ResponseData;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class RequestDataTest extends TestCase
 {
-    public function testItCreatesRequestDataWithAllFields(): void
+    #[Test]
+    public function it_creates_request_data_with_all_fields(): void
     {
         $request = new ServerRequest('GET', '/test');
         $requestData = new RequestData('req_123', $request, 42);
@@ -22,7 +24,8 @@ class RequestDataTest extends TestCase
         self::assertSame(42, $requestData->connectionId);
     }
 
-    public function testItCreatesResponseDataViaRespondMethod(): void
+    #[Test]
+    public function it_creates_response_data_via_respond_method(): void
     {
         $request = new ServerRequest('GET', '/test');
         $requestData = new RequestData('req_123', $request, 42);
@@ -35,7 +38,8 @@ class RequestDataTest extends TestCase
         self::assertSame($response, $responseData->response);
     }
 
-    public function testItIsImmutable(): void
+    #[Test]
+    public function it_is_immutable(): void
     {
         $request = new ServerRequest('GET', '/test');
         $requestData = new RequestData('req_123', $request, 42);

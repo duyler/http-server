@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Connection\ConnectionInterface;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -29,7 +30,8 @@ class RequestIdCleanupTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItCleansUpStaleRequests(): void
+    #[Test]
+    public function it_cleans_up_stale_requests(): void
     {
         $config = new ServerConfig(port: 18200, requestTimeout: 1);
         $this->server = new Server($config);
@@ -66,7 +68,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItClosesConnectionOnCleanup(): void
+    #[Test]
+    public function it_closes_connection_on_cleanup(): void
     {
         $config = new ServerConfig(port: 18201, requestTimeout: 1);
         $this->server = new Server($config);
@@ -99,7 +102,8 @@ class RequestIdCleanupTest extends TestCase
         $requestProcessor->cleanupStaleRequests(1);
     }
 
-    public function testItRemovesMappingOnCleanup(): void
+    #[Test]
+    public function it_removes_mapping_on_cleanup(): void
     {
         $config = new ServerConfig(port: 18202, requestTimeout: 1);
         $this->server = new Server($config);
@@ -142,7 +146,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertArrayHasKey('req_new', $mapping);
     }
 
-    public function testItDoesNotCleanupFreshRequests(): void
+    #[Test]
+    public function it_does_not_cleanup_fresh_requests(): void
     {
         $config = new ServerConfig(port: 18203, requestTimeout: 30);
         $this->server = new Server($config);
@@ -177,7 +182,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertArrayHasKey('req_fresh', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItRunsCleanupViaMethodCall(): void
+    #[Test]
+    public function it_runs_cleanup_via_method_call(): void
     {
         $config = new ServerConfig(port: 18204, requestTimeout: 1);
         $this->server = new Server($config);
@@ -214,7 +220,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItRespectsRequestTimeoutConfig(): void
+    #[Test]
+    public function it_respects_request_timeout_config(): void
     {
         $config = new ServerConfig(port: 18205, requestTimeout: 5);
         $this->server = new Server($config);
@@ -256,7 +263,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertArrayNotHasKey('req_6s', $mapping);
     }
 
-    public function testItHandlesMultipleStaleRequests(): void
+    #[Test]
+    public function it_handles_multiple_stale_requests(): void
     {
         $config = new ServerConfig(port: 18206, requestTimeout: 1);
         $this->server = new Server($config);
@@ -304,7 +312,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertArrayHasKey('req_fresh', $mapping);
     }
 
-    public function testItHandlesEmptyConnectionsOnCleanup(): void
+    #[Test]
+    public function it_handles_empty_connections_on_cleanup(): void
     {
         $config = new ServerConfig(port: 18207, requestTimeout: 1);
         $this->server = new Server($config);
@@ -329,7 +338,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItCleansUpOnBoundaryTimeout(): void
+    #[Test]
+    public function it_cleans_up_on_boundary_timeout(): void
     {
         $config = new ServerConfig(port: 18208, requestTimeout: 2);
         $this->server = new Server($config);
@@ -363,7 +373,8 @@ class RequestIdCleanupTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItDoesNotCleanupJustUnderTimeout(): void
+    #[Test]
+    public function it_does_not_cleanup_just_under_timeout(): void
     {
         $config = new ServerConfig(port: 18209, requestTimeout: 2);
         $this->server = new Server($config);

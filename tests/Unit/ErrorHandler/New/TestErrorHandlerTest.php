@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\ErrorHandler\New;
 
 use Duyler\HttpServer\ErrorHandler\TestErrorHandler;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
@@ -27,7 +28,8 @@ class TestErrorHandlerTest extends TestCase
         parent::tearDown();
     }
 
-    public function testRegisterSetsRegisteredFlag(): void
+    #[Test]
+    public function register_sets_registered_flag(): void
     {
         $this->assertFalse($this->handler->isRegistered());
 
@@ -36,7 +38,8 @@ class TestErrorHandlerTest extends TestCase
         $this->assertTrue($this->handler->isRegistered());
     }
 
-    public function testHandleErrorStoresError(): void
+    #[Test]
+    public function handle_error_stores_error(): void
     {
         $result = $this->handler->handleError(E_WARNING, 'Test warning', __FILE__, 42);
 
@@ -51,7 +54,8 @@ class TestErrorHandlerTest extends TestCase
         $this->assertSame(42, $errors[0]['line']);
     }
 
-    public function testHandleErrorStoresMultipleErrors(): void
+    #[Test]
+    public function handle_error_stores_multiple_errors(): void
     {
         $this->handler->handleError(E_WARNING, 'Warning 1', __FILE__, 1);
         $this->handler->handleError(E_NOTICE, 'Notice 1', __FILE__, 2);
@@ -64,7 +68,8 @@ class TestErrorHandlerTest extends TestCase
         $this->assertSame(E_ERROR, $errors[2]['type']);
     }
 
-    public function testHandleExceptionStoresException(): void
+    #[Test]
+    public function handle_exception_stores_exception(): void
     {
         $exception = new RuntimeException('Test exception');
 
@@ -77,7 +82,8 @@ class TestErrorHandlerTest extends TestCase
         $this->assertSame($exception, $exceptions[0]);
     }
 
-    public function testHandleExceptionStoresMultipleExceptions(): void
+    #[Test]
+    public function handle_exception_stores_multiple_exceptions(): void
     {
         $exception1 = new RuntimeException('Exception 1');
         $exception2 = new RuntimeException('Exception 2');
@@ -91,21 +97,24 @@ class TestErrorHandlerTest extends TestCase
         $this->assertSame($exception2, $exceptions[1]);
     }
 
-    public function testHandleShutdownDoesNothing(): void
+    #[Test]
+    public function handle_shutdown_does_nothing(): void
     {
         $this->handler->handleShutdown();
         $this->assertFalse($this->handler->hasErrors());
         $this->assertFalse($this->handler->hasExceptions());
     }
 
-    public function testHandleSignalDoesNothing(): void
+    #[Test]
+    public function handle_signal_does_nothing(): void
     {
         $this->handler->handleSignal(SIGTERM);
         $this->assertFalse($this->handler->hasErrors());
         $this->assertFalse($this->handler->hasExceptions());
     }
 
-    public function testResetClearsAllState(): void
+    #[Test]
+    public function reset_clears_all_state(): void
     {
         $this->handler->register();
         $this->handler->handleError(E_WARNING, 'Test', __FILE__, 1);
@@ -124,27 +133,32 @@ class TestErrorHandlerTest extends TestCase
         $this->assertEmpty($this->handler->getExceptions());
     }
 
-    public function testHasErrorsReturnsFalseInitially(): void
+    #[Test]
+    public function has_errors_returns_false_initially(): void
     {
         $this->assertFalse($this->handler->hasErrors());
     }
 
-    public function testHasExceptionsReturnsFalseInitially(): void
+    #[Test]
+    public function has_exceptions_returns_false_initially(): void
     {
         $this->assertFalse($this->handler->hasExceptions());
     }
 
-    public function testGetErrorsReturnsEmptyArrayInitially(): void
+    #[Test]
+    public function get_errors_returns_empty_array_initially(): void
     {
         $this->assertEmpty($this->handler->getErrors());
     }
 
-    public function testGetExceptionsReturnsEmptyArrayInitially(): void
+    #[Test]
+    public function get_exceptions_returns_empty_array_initially(): void
     {
         $this->assertEmpty($this->handler->getExceptions());
     }
 
-    public function testMultipleResets(): void
+    #[Test]
+    public function multiple_resets(): void
     {
         $this->handler->register();
         $this->handler->handleError(E_WARNING, 'Test', __FILE__, 1);

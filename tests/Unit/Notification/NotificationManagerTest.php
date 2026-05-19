@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Notification;
 use Duyler\HttpServer\Notification\NotificationManager;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use Socket;
@@ -30,7 +31,8 @@ class NotificationManagerTest extends TestCase
         parent::tearDown();
     }
 
-    public function testEnableDoesNotSetNonBlocking(): void
+    #[Test]
+    public function enable_does_not_set_non_blocking(): void
     {
         $this->manager->enable();
 
@@ -43,7 +45,8 @@ class NotificationManagerTest extends TestCase
         socket_set_block($readSocket);
     }
 
-    public function testGetReadSocketReturnsValidSocket(): void
+    #[Test]
+    public function get_read_socket_returns_valid_socket(): void
     {
         $this->manager->enable();
 
@@ -52,30 +55,35 @@ class NotificationManagerTest extends TestCase
         $this->assertInstanceOf(Socket::class, $socket);
     }
 
-    public function testGetReadSocketReturnsNullBeforeEnable(): void
+    #[Test]
+    public function get_read_socket_returns_null_before_enable(): void
     {
         $this->assertNull($this->manager->getReadSocket());
     }
 
-    public function testIsEnabledReturnsFalseBeforeEnable(): void
+    #[Test]
+    public function is_enabled_returns_false_before_enable(): void
     {
         $this->assertFalse($this->manager->isEnabled());
     }
 
-    public function testIsEnabledReturnsTrueAfterEnable(): void
+    #[Test]
+    public function is_enabled_returns_true_after_enable(): void
     {
         $this->manager->enable();
         $this->assertTrue($this->manager->isEnabled());
     }
 
-    public function testIsEnabledReturnsFalseAfterDisable(): void
+    #[Test]
+    public function is_enabled_returns_false_after_disable(): void
     {
         $this->manager->enable();
         $this->manager->disable();
         $this->assertFalse($this->manager->isEnabled());
     }
 
-    public function testNotifyWritesToSocket(): void
+    #[Test]
+    public function notify_writes_to_socket(): void
     {
         $this->manager->enable();
 
@@ -89,13 +97,15 @@ class NotificationManagerTest extends TestCase
         $this->assertSame('x', $data);
     }
 
-    public function testNotifyDoesNothingBeforeEnable(): void
+    #[Test]
+    public function notify_does_nothing_before_enable(): void
     {
         $this->manager->notify();
         $this->assertFalse($this->manager->isEnabled());
     }
 
-    public function testEnableIsIdempotent(): void
+    #[Test]
+    public function enable_is_idempotent(): void
     {
         $this->manager->enable();
         $socket1 = $this->manager->getReadSocket();
@@ -106,7 +116,8 @@ class NotificationManagerTest extends TestCase
         $this->assertSame($socket1, $socket2);
     }
 
-    public function testDisableClosesSockets(): void
+    #[Test]
+    public function disable_closes_sockets(): void
     {
         $this->manager->enable();
         $this->manager->disable();
@@ -114,7 +125,8 @@ class NotificationManagerTest extends TestCase
         $this->assertNull($this->manager->getReadSocket());
     }
 
-    public function testResetDisablesNotification(): void
+    #[Test]
+    public function reset_disables_notification(): void
     {
         $this->manager->enable();
         $this->manager->reset();
@@ -123,7 +135,8 @@ class NotificationManagerTest extends TestCase
         $this->assertNull($this->manager->getReadSocket());
     }
 
-    public function testSetNotifySocketDoesNotExist(): void
+    #[Test]
+    public function set_notify_socket_does_not_exist(): void
     {
         $this->assertFalse(method_exists($this->manager, 'setNotifySocket'));
     }

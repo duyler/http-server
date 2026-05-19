@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
@@ -31,7 +32,8 @@ class ServerNotificationFactoryTest extends TestCase
         parent::tearDown();
     }
 
-    public function testEnableNotificationCreatesSocketPair(): void
+    #[Test]
+    public function enable_notification_creates_socket_pair(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -42,7 +44,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertInstanceOf(Socket::class, $socket);
     }
 
-    public function testEnableNotificationIsIdempotent(): void
+    #[Test]
+    public function enable_notification_is_idempotent(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -56,7 +59,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertSame($socket1, $socket2);
     }
 
-    public function testDisableNotificationClosesBothSockets(): void
+    #[Test]
+    public function disable_notification_closes_both_sockets(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -71,7 +75,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertNull($socketAfterDisable);
     }
 
-    public function testDisableNotificationCanBeCalledMultipleTimes(): void
+    #[Test]
+    public function disable_notification_can_be_called_multiple_times(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -83,7 +88,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertNull($this->server->getSocketResource());
     }
 
-    public function testGetSocketResourceReturnsNotificationSocketAfterEnable(): void
+    #[Test]
+    public function get_socket_resource_returns_notification_socket_after_enable(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -96,7 +102,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertInstanceOf(Socket::class, $socket);
     }
 
-    public function testGetSocketResourceReturnsListeningSocketIfNotificationDisabled(): void
+    #[Test]
+    public function get_socket_resource_returns_listening_socket_if_notification_disabled(): void
     {
         $config = new ServerConfig(port: 18094);
         $this->server = new Server($config);
@@ -115,7 +122,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertSame($listeningSocket, $socketAfterDisable);
     }
 
-    public function testSocketsAreInBlockingModeAfterEnable(): void
+    #[Test]
+    public function sockets_are_in_blocking_mode_after_enable(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -131,7 +139,8 @@ class ServerNotificationFactoryTest extends TestCase
         socket_set_block($socket);
     }
 
-    public function testNotificationWorksAfterReset(): void
+    #[Test]
+    public function notification_works_after_reset(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -150,7 +159,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertNotSame($socket1, $socket2);
     }
 
-    public function testNotificationWorksAfterStop(): void
+    #[Test]
+    public function notification_works_after_stop(): void
     {
         $config = new ServerConfig(port: 18095);
         $this->server = new Server($config);
@@ -168,7 +178,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertNotSame($socket1, $socket2);
     }
 
-    public function testFullCycleEnableUseDisable(): void
+    #[Test]
+    public function full_cycle_enable_use_disable(): void
     {
         $config = new ServerConfig(port: 18096);
         $this->server = new Server($config);
@@ -204,7 +215,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertSame($listeningSocket, $socketAfterDisable);
     }
 
-    public function testResetDisablesNotification(): void
+    #[Test]
+    public function reset_disables_notification(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -217,7 +229,8 @@ class ServerNotificationFactoryTest extends TestCase
         $this->assertNull($this->server->getSocketResource());
     }
 
-    public function testStopDisablesNotification(): void
+    #[Test]
+    public function stop_disables_notification(): void
     {
         $config = new ServerConfig(port: 18097);
         $this->server = new Server($config);

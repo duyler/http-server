@@ -6,18 +6,21 @@ namespace Duyler\HttpServer\Tests\Unit\Connection;
 
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Socket\StreamSocketResource;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 final class KeepAliveTest extends TestCase
 {
-    public function testConnectionStartsWithoutKeepAlive(): void
+    #[Test]
+    public function connection_starts_without_keep_alive(): void
     {
         $connection = $this->createConnection();
 
         $this->assertFalse($connection->isKeepAlive());
     }
 
-    public function testCanEnableKeepAlive(): void
+    #[Test]
+    public function can_enable_keep_alive(): void
     {
         $connection = $this->createConnection();
 
@@ -26,7 +29,8 @@ final class KeepAliveTest extends TestCase
         $this->assertTrue($connection->isKeepAlive());
     }
 
-    public function testCanDisableKeepAlive(): void
+    #[Test]
+    public function can_disable_keep_alive(): void
     {
         $connection = $this->createConnection();
 
@@ -37,7 +41,8 @@ final class KeepAliveTest extends TestCase
         $this->assertFalse($connection->isKeepAlive());
     }
 
-    public function testTracksRequestCount(): void
+    #[Test]
+    public function tracks_request_count(): void
     {
         $connection = $this->createConnection();
 
@@ -50,7 +55,8 @@ final class KeepAliveTest extends TestCase
         $this->assertSame(2, $connection->getRequestCount());
     }
 
-    public function testRequestCountPersistsAcrossKeepAliveRequests(): void
+    #[Test]
+    public function request_count_persists_across_keep_alive_requests(): void
     {
         $connection = $this->createConnection();
         $connection->setKeepAlive(true);
@@ -62,7 +68,8 @@ final class KeepAliveTest extends TestCase
         $this->assertTrue($connection->isKeepAlive());
     }
 
-    public function testUpdatesActivityTime(): void
+    #[Test]
+    public function updates_activity_time(): void
     {
         $connection = $this->createConnection();
 
@@ -77,7 +84,8 @@ final class KeepAliveTest extends TestCase
         $this->assertGreaterThan($initialTime, $newTime);
     }
 
-    public function testDetectsTimeout(): void
+    #[Test]
+    public function detects_timeout(): void
     {
         $connection = $this->createConnection();
 
@@ -88,7 +96,8 @@ final class KeepAliveTest extends TestCase
         $this->assertFalse($connection->isTimedOut(timeout: 1));
     }
 
-    public function testAppendToBufferUpdatesActivity(): void
+    #[Test]
+    public function append_to_buffer_updates_activity(): void
     {
         $connection = $this->createConnection();
 
@@ -104,7 +113,8 @@ final class KeepAliveTest extends TestCase
         $this->assertSame('test data', $connection->getBuffer());
     }
 
-    public function testClearBufferPreservesKeepAliveState(): void
+    #[Test]
+    public function clear_buffer_preserves_keep_alive_state(): void
     {
         $connection = $this->createConnection();
         $connection->setKeepAlive(true);
@@ -119,7 +129,8 @@ final class KeepAliveTest extends TestCase
         $this->assertTrue($connection->isKeepAlive());
     }
 
-    public function testTracksRequestStartTime(): void
+    #[Test]
+    public function tracks_request_start_time(): void
     {
         $connection = $this->createConnection();
 
@@ -131,7 +142,8 @@ final class KeepAliveTest extends TestCase
         $this->assertGreaterThan(0, $connection->getRequestStartTime());
     }
 
-    public function testDetectsRequestTimeout(): void
+    #[Test]
+    public function detects_request_timeout(): void
     {
         $connection = $this->createConnection();
 
@@ -140,7 +152,8 @@ final class KeepAliveTest extends TestCase
         $this->assertFalse($connection->isRequestTimedOut(timeout: 1));
     }
 
-    public function testClearBufferResetsRequestTimer(): void
+    #[Test]
+    public function clear_buffer_resets_request_timer(): void
     {
         $connection = $this->createConnection();
 

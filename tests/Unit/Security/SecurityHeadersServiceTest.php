@@ -20,7 +20,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->service = new SecurityHeadersService();
     }
 
-    public function testAddsAllSecurityHeadersByDefault(): void
+    #[Test]
+    public function adds_all_security_headers_by_default(): void
     {
         $response = new Response(200);
         $response = $this->service->addSecurityHeaders($response);
@@ -32,7 +33,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('geolocation=(), microphone=(), camera=()', $response->getHeaderLine('Permissions-Policy'));
     }
 
-    public function testAllowsCustomFrameOptions(): void
+    #[Test]
+    public function allows_custom_frame_options(): void
     {
         $service = new SecurityHeadersService(frameOptions: 'SAMEORIGIN');
         $response = new Response(200);
@@ -41,7 +43,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('SAMEORIGIN', $response->getHeaderLine('X-Frame-Options'));
     }
 
-    public function testCanDisableHeaders(): void
+    #[Test]
+    public function can_disable_headers(): void
     {
         $service = new SecurityHeadersService(enableXFrameOptions: false);
         $response = new Response(200);
@@ -50,7 +53,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertFalse($response->hasHeader('X-Frame-Options'));
     }
 
-    public function testDoesNotOverwriteExistingHeaders(): void
+    #[Test]
+    public function does_not_overwrite_existing_headers(): void
     {
         $response = (new Response(200))->withHeader('X-Frame-Options', 'SAMEORIGIN');
         $response = $this->service->addSecurityHeaders($response);
@@ -58,7 +62,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('SAMEORIGIN', $response->getHeaderLine('X-Frame-Options'));
     }
 
-    public function testDoesNotAddHstsByDefault(): void
+    #[Test]
+    public function does_not_add_hsts_by_default(): void
     {
         $response = new Response(200);
         $response = $this->service->addSecurityHeaders($response);
@@ -66,7 +71,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertFalse($response->hasHeader('Strict-Transport-Security'));
     }
 
-    public function testAddsHstsWhenEnabled(): void
+    #[Test]
+    public function adds_hsts_when_enabled(): void
     {
         $service = new SecurityHeadersService(enableHsts: true);
         $response = new Response(200);
@@ -75,7 +81,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('max-age=31536000', $response->getHeaderLine('Strict-Transport-Security'));
     }
 
-    public function testCustomReferrerPolicy(): void
+    #[Test]
+    public function custom_referrer_policy(): void
     {
         $service = new SecurityHeadersService(referrerPolicy: 'no-referrer');
         $response = new Response(200);
@@ -84,7 +91,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('no-referrer', $response->getHeaderLine('Referrer-Policy'));
     }
 
-    public function testCustomPermissionsPolicy(): void
+    #[Test]
+    public function custom_permissions_policy(): void
     {
         $service = new SecurityHeadersService(permissionsPolicy: 'geolocation=()');
         $response = new Response(200);
@@ -93,7 +101,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('geolocation=()', $response->getHeaderLine('Permissions-Policy'));
     }
 
-    public function testDisableAllHeaders(): void
+    #[Test]
+    public function disable_all_headers(): void
     {
         $service = new SecurityHeadersService(
             enableXContentTypeOptions: false,
@@ -114,7 +123,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertFalse($response->hasHeader('Strict-Transport-Security'));
     }
 
-    public function testDoesNotOverwriteXContentTypeOptions(): void
+    #[Test]
+    public function does_not_overwrite_x_content_type_options(): void
     {
         $response = (new Response(200))->withHeader('X-Content-Type-Options', 'custom');
         $response = $this->service->addSecurityHeaders($response);
@@ -122,7 +132,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('custom', $response->getHeaderLine('X-Content-Type-Options'));
     }
 
-    public function testDoesNotOverwriteXXSSProtection(): void
+    #[Test]
+    public function does_not_overwrite_xxss_protection(): void
     {
         $response = (new Response(200))->withHeader('X-XSS-Protection', '0');
         $response = $this->service->addSecurityHeaders($response);
@@ -130,7 +141,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('0', $response->getHeaderLine('X-XSS-Protection'));
     }
 
-    public function testDoesNotOverwriteReferrerPolicy(): void
+    #[Test]
+    public function does_not_overwrite_referrer_policy(): void
     {
         $response = (new Response(200))->withHeader('Referrer-Policy', 'unsafe-url');
         $response = $this->service->addSecurityHeaders($response);
@@ -138,7 +150,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('unsafe-url', $response->getHeaderLine('Referrer-Policy'));
     }
 
-    public function testDoesNotOverwritePermissionsPolicy(): void
+    #[Test]
+    public function does_not_overwrite_permissions_policy(): void
     {
         $response = (new Response(200))->withHeader('Permissions-Policy', 'fullscreen=*');
         $response = $this->service->addSecurityHeaders($response);
@@ -146,7 +159,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('fullscreen=*', $response->getHeaderLine('Permissions-Policy'));
     }
 
-    public function testDoesNotOverwriteHsts(): void
+    #[Test]
+    public function does_not_overwrite_hsts(): void
     {
         $service = new SecurityHeadersService(enableHsts: true);
         $response = (new Response(200))->withHeader('Strict-Transport-Security', 'max-age=86400');
@@ -155,7 +169,8 @@ class SecurityHeadersServiceTest extends TestCase
         $this->assertSame('max-age=86400', $response->getHeaderLine('Strict-Transport-Security'));
     }
 
-    public function testPreservesOtherHeaders(): void
+    #[Test]
+    public function preserves_other_headers(): void
     {
         $response = (new Response(200))
             ->withHeader('Content-Type', 'application/json')

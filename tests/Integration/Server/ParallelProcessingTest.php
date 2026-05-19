@@ -13,6 +13,7 @@ use Fiber;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -35,7 +36,8 @@ class ParallelProcessingTest extends TestCase
         parent::tearDown();
     }
 
-    public function testItProcessesRequestsInParallel(): void
+    #[Test]
+    public function it_processes_requests_in_parallel(): void
     {
         $config = new ServerConfig(port: 18200);
         $this->server = new Server($config);
@@ -83,7 +85,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItSendsResponsesOutOfOrder(): void
+    #[Test]
+    public function it_sends_responses_out_of_order(): void
     {
         $config = new ServerConfig(port: 18201);
         $this->server = new Server($config);
@@ -135,7 +138,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesMultipleConcurrentActors(): void
+    #[Test]
+    public function it_handles_multiple_concurrent_actors(): void
     {
         $config = new ServerConfig(port: 18202);
         $this->server = new Server($config);
@@ -181,7 +185,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItDoesNotBlockOnSlowRequests(): void
+    #[Test]
+    public function it_does_not_block_on_slow_requests(): void
     {
         $config = new ServerConfig(port: 18203);
         $this->server = new Server($config);
@@ -224,7 +229,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItCorrectlyMapsResponsesToConnections(): void
+    #[Test]
+    public function it_correctly_maps_responses_to_connections(): void
     {
         $config = new ServerConfig(port: 18204);
         $this->server = new Server($config);
@@ -301,7 +307,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesFiberSuspensionCorrectly(): void
+    #[Test]
+    public function it_handles_fiber_suspension_correctly(): void
     {
         $config = new ServerConfig(port: 18205);
         $this->server = new Server($config);
@@ -361,7 +368,8 @@ class ParallelProcessingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItProcesses100ConcurrentRequests(): void
+    #[Test]
+    public function it_processes_100_concurrent_requests(): void
     {
         $config = new ServerConfig(port: 18206);
         $this->server = new Server($config);

@@ -9,6 +9,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -46,18 +47,18 @@ class ServerTest extends TestCase
         parent::tearDown();
     }
 
-    public function testStartsAndStopsServer(): void
+    #[Test]
+    public function starts_and_stops_server(): void
     {
         $this->server->start();
 
         $this->assertFalse($this->server->hasRequest());
 
         $this->server->stop();
-
-        $this->assertTrue(true);
     }
 
-    public function testReceivesGetRequest(): void
+    #[Test]
+    public function receives_get_request(): void
     {
         $this->server->start();
 
@@ -74,7 +75,8 @@ class ServerTest extends TestCase
         $this->assertSame('/', $requestData->request->getUri()->getPath());
     }
 
-    public function testSendsResponse(): void
+    #[Test]
+    public function sends_response(): void
     {
         $this->server->start();
 
@@ -99,7 +101,8 @@ class ServerTest extends TestCase
         fclose($client);
     }
 
-    public function testHandlesMultipleRequests(): void
+    #[Test]
+    public function handles_multiple_requests(): void
     {
         $this->server->start();
 
@@ -130,7 +133,7 @@ class ServerTest extends TestCase
 
         fclose($client1);
 
-        $this->assertTrue(true);
+        $this->expectNotToPerformAssertions();
     }
 
     private function sendHttpRequest(string $request): void
@@ -145,12 +148,14 @@ class ServerTest extends TestCase
      */
     private function createClient()
     {
-        $client = @stream_socket_client(
+        $previousErrorReporting = error_reporting(0);
+        $client = stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
         );
+        error_reporting($previousErrorReporting);
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

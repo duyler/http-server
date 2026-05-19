@@ -12,6 +12,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -33,7 +34,8 @@ class RequestResponseMappingTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItCreatesMappingWhenRequestEnqueued(): void
+    #[Test]
+    public function it_creates_mapping_when_request_enqueued(): void
     {
         $config = new ServerConfig(port: 18100);
         $this->server = new Server($config);
@@ -68,7 +70,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertArrayHasKey('req_test', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItRemovesMappingAfterRespond(): void
+    #[Test]
+    public function it_removes_mapping_after_respond(): void
     {
         $config = new ServerConfig(port: 18101);
         $this->server = new Server($config);
@@ -109,7 +112,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertArrayNotHasKey('req_test', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItRetrievesCorrectConnectionForResponse(): void
+    #[Test]
+    public function it_retrieves_correct_connection_for_response(): void
     {
         $config = new ServerConfig(port: 18102);
         $this->server = new Server($config);
@@ -153,7 +157,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertArrayNotHasKey('req_2', $mapping);
     }
 
-    public function testItHandlesMultipleConcurrentRequests(): void
+    #[Test]
+    public function it_handles_multiple_concurrent_requests(): void
     {
         $config = new ServerConfig(port: 18103);
         $this->server = new Server($config);
@@ -200,7 +205,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertCount(2, $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItStoresTimestampWithMapping(): void
+    #[Test]
+    public function it_stores_timestamp_with_mapping(): void
     {
         $config = new ServerConfig(port: 18104);
         $this->server = new Server($config);
@@ -234,7 +240,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertEqualsWithDelta($timestamp, $mapping['req_test']['timestamp'], 0.1);
     }
 
-    public function testItReturnsRequestDataFromGetRequest(): void
+    #[Test]
+    public function it_returns_request_data_from_get_request(): void
     {
         $config = new ServerConfig(port: 18105);
         $this->server = new Server($config);
@@ -275,7 +282,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertSame(100, $result->connectionId);
     }
 
-    public function testItAcceptsResponseDataInRespond(): void
+    #[Test]
+    public function it_accepts_response_data_in_respond(): void
     {
         $config = new ServerConfig(port: 18106);
         $this->server = new Server($config);
@@ -310,7 +318,8 @@ class RequestResponseMappingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItSendsResponseToCorrectConnection(): void
+    #[Test]
+    public function it_sends_response_to_correct_connection(): void
     {
         $config = new ServerConfig(port: 18107);
         $this->server = new Server($config);

@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class AcceptLimitIntegrationTest extends TestCase
@@ -23,7 +24,8 @@ class AcceptLimitIntegrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testServerRespectsMaxAcceptsPerCycleLimit(): void
+    #[Test]
+    public function server_respects_max_accepts_per_cycle_limit(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -38,7 +40,8 @@ class AcceptLimitIntegrationTest extends TestCase
         $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    public function testServerWithLowAcceptLimitStillWorks(): void
+    #[Test]
+    public function server_with_low_accept_limit_still_works(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -53,7 +56,8 @@ class AcceptLimitIntegrationTest extends TestCase
         $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    public function testServerWithHighAcceptLimitWorks(): void
+    #[Test]
+    public function server_with_high_accept_limit_works(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -68,7 +72,8 @@ class AcceptLimitIntegrationTest extends TestCase
         $this->assertInstanceOf(Server::class, $this->server);
     }
 
-    public function testServerWithDefaultAcceptLimit(): void
+    #[Test]
+    public function server_with_default_accept_limit(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',

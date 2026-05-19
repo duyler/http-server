@@ -8,12 +8,14 @@ use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 class ConnectionPoolExtendedTest extends TestCase
 {
-    public function testAddWithEmptyAddressDoesNotIndexByAddress(): void
+    #[Test]
+    public function add_with_empty_address_does_not_index_by_address(): void
     {
         $pool = new ConnectionPool();
 
@@ -29,7 +31,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame(1, $pool->count());
     }
 
-    public function testRemoveNonExistentConnectionIsSafe(): void
+    #[Test]
+    public function remove_non_existent_connection_is_safe(): void
     {
         $pool = new ConnectionPool();
 
@@ -44,7 +47,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame(0, $pool->count());
     }
 
-    public function testRemoveTimedOutRemovesOldConnections(): void
+    #[Test]
+    public function remove_timed_out_removes_old_connections(): void
     {
         $pool = new ConnectionPool();
 
@@ -61,7 +65,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame(0, $pool->count());
     }
 
-    public function testRemoveTimedOutWithReentrancyReturnsZero(): void
+    #[Test]
+    public function remove_timed_out_with_reentrancy_returns_zero(): void
     {
         $pool = new ConnectionPool();
 
@@ -73,7 +78,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame([], $removed);
     }
 
-    public function testAddWithReentrancyClosesConnection(): void
+    #[Test]
+    public function add_with_reentrancy_closes_connection(): void
     {
         $pool = new ConnectionPool();
         $poolReflection = new ReflectionClass($pool);
@@ -92,7 +98,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame(0, $pool->count());
     }
 
-    public function testRemoveWithReentrancyReturnsEarly(): void
+    #[Test]
+    public function remove_with_reentrancy_returns_early(): void
     {
         $pool = new ConnectionPool();
         $poolReflection = new ReflectionClass($pool);
@@ -114,7 +121,8 @@ class ConnectionPoolExtendedTest extends TestCase
         $this->assertSame(1, $pool->count());
     }
 
-    public function testRemoveTimedOutDetectsTimedOutConnections(): void
+    #[Test]
+    public function remove_timed_out_detects_timed_out_connections(): void
     {
         $pool = new ConnectionPool();
 

@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -42,13 +43,15 @@ class GracefulShutdownTest extends TestCase
         parent::tearDown();
     }
 
-    public function testShutdownOnStoppedServerReturnsTrue(): void
+    #[Test]
+    public function shutdown_on_stopped_server_returns_true(): void
     {
         $result = $this->server->shutdown(1);
         $this->assertTrue($result);
     }
 
-    public function testShutdownOnRunningServerWithNoConnections(): void
+    #[Test]
+    public function shutdown_on_running_server_with_no_connections(): void
     {
         $this->server->start();
 
@@ -57,7 +60,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertTrue($result, 'Shutdown should succeed with no active connections');
     }
 
-    public function testShutdownTwiceReturnsFalseOnSecondCall(): void
+    #[Test]
+    public function shutdown_twice_returns_false_on_second_call(): void
     {
         $this->server->start();
 
@@ -75,7 +79,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertTrue($result1);
     }
 
-    public function testShutdownCompletesWithActiveConnection(): void
+    #[Test]
+    public function shutdown_completes_with_active_connection(): void
     {
         $this->server->start();
 
@@ -92,7 +97,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertLessThanOrEqual(2.5, $elapsed, 'Should complete within timeout');
     }
 
-    public function testStopResetsShutdownFlag(): void
+    #[Test]
+    public function stop_resets_shutdown_flag(): void
     {
         $this->server->start();
 
@@ -104,7 +110,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testShutdownWaitsForRequestQueueToEmpty(): void
+    #[Test]
+    public function shutdown_waits_for_request_queue_to_empty(): void
     {
         $this->server->start();
 
@@ -116,7 +123,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertLessThan(2, $elapsed, 'Should complete quickly with empty queue');
     }
 
-    public function testShutdownTimeoutForcesStop(): void
+    #[Test]
+    public function shutdown_timeout_forces_stop(): void
     {
         $this->server->start();
 
@@ -127,7 +135,8 @@ class GracefulShutdownTest extends TestCase
         $this->assertLessThanOrEqual(1.5, $elapsed, 'Should respect timeout');
     }
 
-    public function testShutdownCompletesImmediatelyWithNoActiveWork(): void
+    #[Test]
+    public function shutdown_completes_immediately_with_no_active_work(): void
     {
         $this->server->start();
 
@@ -144,12 +153,14 @@ class GracefulShutdownTest extends TestCase
      */
     private function connectClient()
     {
-        $client = @stream_socket_client(
+        $previousErrorReporting = error_reporting(0);
+        $client = stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
         );
+        error_reporting($previousErrorReporting);
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

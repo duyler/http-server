@@ -7,13 +7,15 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use InvalidArgumentException;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Socket;
 
 class StreamSocketResourceTest extends TestCase
 {
-    public function testCreatesFromSocketObject(): void
+    #[Test]
+    public function creates_from_socket_object(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $this->assertInstanceOf(Socket::class, $socket);
@@ -25,7 +27,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testThrowsOnInvalidResource(): void
+    #[Test]
+    public function throws_on_invalid_resource(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid socket resource or Socket object');
@@ -33,14 +36,16 @@ class StreamSocketResourceTest extends TestCase
         new StreamSocketResource('invalid');
     }
 
-    public function testThrowsOnNullResource(): void
+    #[Test]
+    public function throws_on_null_resource(): void
     {
         $this->expectException(InvalidArgumentException::class);
 
         new StreamSocketResource(null);
     }
 
-    public function testIsValidReturnsFalseAfterClose(): void
+    #[Test]
+    public function is_valid_returns_false_after_close(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -52,7 +57,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($resource->isValid());
     }
 
-    public function testSetBlockingOnSocketObject(): void
+    #[Test]
+    public function set_blocking_on_socket_object(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -66,7 +72,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testThrowsOnSetBlockingInvalidSocket(): void
+    #[Test]
+    public function throws_on_set_blocking_invalid_socket(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -79,7 +86,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->setBlocking(false);
     }
 
-    public function testReadReturnsFalseOnInvalidSocket(): void
+    #[Test]
+    public function read_returns_false_on_invalid_socket(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -91,7 +99,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testWriteReturnsFalseOnInvalidSocket(): void
+    #[Test]
+    public function write_returns_false_on_invalid_socket(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -103,7 +112,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testReadReturnsFalseOnZeroLength(): void
+    #[Test]
+    public function read_returns_false_on_zero_length(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -115,7 +125,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testGetInternalResourceReturnsSocket(): void
+    #[Test]
+    public function get_internal_resource_returns_socket(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -127,7 +138,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testCloseIsIdempotent(): void
+    #[Test]
+    public function close_is_idempotent(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -139,7 +151,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($resource->isValid());
     }
 
-    public function testCloseWithCustomLogger(): void
+    #[Test]
+    public function close_with_custom_logger(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $logger = $this->createStub(LoggerInterface::class);
@@ -151,7 +164,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($resource->isValid());
     }
 
-    public function testCreatesFromStreamResource(): void
+    #[Test]
+    public function creates_from_stream_resource(): void
     {
         $stream = fopen('php://memory', 'r+');
         $this->assertIsResource($stream);
@@ -163,7 +177,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testIsValidReturnsFalseAfterStreamClose(): void
+    #[Test]
+    public function is_valid_returns_false_after_stream_close(): void
     {
         $stream = fopen('php://memory', 'r+');
         $resource = new StreamSocketResource($stream);
@@ -175,7 +190,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertFalse($resource->isValid());
     }
 
-    public function testGetInternalResourceReturnsNullAfterClose(): void
+    #[Test]
+    public function get_internal_resource_returns_null_after_close(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -185,7 +201,8 @@ class StreamSocketResourceTest extends TestCase
         $this->assertNull($resource->getInternalResource());
     }
 
-    public function testSetBlockingOnStreamResource(): void
+    #[Test]
+    public function set_blocking_on_stream_resource(): void
     {
         $stream = fopen('php://memory', 'r+');
         $resource = new StreamSocketResource($stream);
@@ -199,7 +216,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testWriteToStreamResource(): void
+    #[Test]
+    public function write_to_stream_resource(): void
     {
         $stream = fopen('php://memory', 'r+');
         $resource = new StreamSocketResource($stream);
@@ -211,7 +229,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
     }
 
-    public function testReadFromStreamResource(): void
+    #[Test]
+    public function read_from_stream_resource(): void
     {
         $stream = fopen('php://memory', 'r+');
         fwrite($stream, 'test data');
@@ -225,7 +244,8 @@ class StreamSocketResourceTest extends TestCase
 
         $resource->close();
     }
-    public function testReadReturnsFalseOnNegativeLength(): void
+    #[Test]
+    public function read_returns_false_on_negative_length(): void
     {
         $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $resource = new StreamSocketResource($socket);
@@ -236,7 +256,8 @@ class StreamSocketResourceTest extends TestCase
 
         $resource->close();
     }
-    public function testReadFromSocketObject(): void
+    #[Test]
+    public function read_from_socket_object(): void
     {
         $sockets = [];
         socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
@@ -253,7 +274,8 @@ class StreamSocketResourceTest extends TestCase
         $resource->close();
         socket_close($server);
     }
-    public function testWriteToSocketObject(): void
+    #[Test]
+    public function write_to_socket_object(): void
     {
         $sockets = [];
         socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);

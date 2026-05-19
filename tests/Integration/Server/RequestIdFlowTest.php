@@ -12,6 +12,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -33,7 +34,8 @@ class RequestIdFlowTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItHandlesCompleteRequestResponseCycle(): void
+    #[Test]
+    public function it_handles_complete_request_response_cycle(): void
     {
         $config = new ServerConfig(port: 18220);
         $this->server = new Server($config);
@@ -86,7 +88,8 @@ class RequestIdFlowTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItGeneratesUniqueIdsForEachRequest(): void
+    #[Test]
+    public function it_generates_unique_ids_for_each_request(): void
     {
         $config = new ServerConfig(port: 18221);
         $this->server = new Server($config);
@@ -132,7 +135,8 @@ class RequestIdFlowTest extends TestCase
         self::assertCount($requestCount, $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItRemovesMappingAfterResponse(): void
+    #[Test]
+    public function it_removes_mapping_after_response(): void
     {
         $config = new ServerConfig(port: 18222);
         $this->server = new Server($config);
@@ -175,7 +179,8 @@ class RequestIdFlowTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItHandlesKeepAliveConnections(): void
+    #[Test]
+    public function it_handles_keep_alive_connections(): void
     {
         $config = new ServerConfig(port: 18223);
         $this->server = new Server($config);
@@ -226,7 +231,8 @@ class RequestIdFlowTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItIntegratesWithEventLoopSimulation(): void
+    #[Test]
+    public function it_integrates_with_event_loop_simulation(): void
     {
         $config = new ServerConfig(port: 18224);
         $this->server = new Server($config);
@@ -289,7 +295,8 @@ class RequestIdFlowTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItWorksWithConvenienceMethod(): void
+    #[Test]
+    public function it_works_with_convenience_method(): void
     {
         $config = new ServerConfig(port: 18225);
         $this->server = new Server($config);
@@ -337,7 +344,8 @@ class RequestIdFlowTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItPreservesRequestMetadataThroughCycle(): void
+    #[Test]
+    public function it_preserves_request_metadata_through_cycle(): void
     {
         $config = new ServerConfig(port: 18226);
         $this->server = new Server($config);
@@ -390,7 +398,8 @@ class RequestIdFlowTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesQueueFifoOrder(): void
+    #[Test]
+    public function it_handles_queue_fifo_order(): void
     {
         $config = new ServerConfig(port: 18227);
         $this->server = new Server($config);
@@ -442,7 +451,8 @@ class RequestIdFlowTest extends TestCase
         }
     }
 
-    public function testItReturnsNullWhenQueueEmpty(): void
+    #[Test]
+    public function it_returns_null_when_queue_empty(): void
     {
         $config = new ServerConfig(port: 18228);
         $this->server = new Server($config);

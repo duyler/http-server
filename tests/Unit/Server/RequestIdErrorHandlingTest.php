@@ -10,6 +10,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use ReflectionClass;
@@ -28,7 +29,8 @@ class RequestIdErrorHandlingTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItHandlesInvalidRequestIdGracefully(): void
+    #[Test]
+    public function it_handles_invalid_request_id_gracefully(): void
     {
         $config = new ServerConfig(port: 18300);
         $this->server = new Server($config);
@@ -41,7 +43,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItDoesNotThrowForInvalidRequestId(): void
+    #[Test]
+    public function it_does_not_throw_for_invalid_request_id(): void
     {
         $config = new ServerConfig(port: 18301);
         $this->server = new Server($config);
@@ -59,7 +62,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertNull($exception);
     }
 
-    public function testItHandlesDuplicateRespondGracefully(): void
+    #[Test]
+    public function it_handles_duplicate_respond_gracefully(): void
     {
         $config = new ServerConfig(port: 18302);
         $this->server = new Server($config);
@@ -98,7 +102,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesClosedConnectionInRespond(): void
+    #[Test]
+    public function it_handles_closed_connection_in_respond(): void
     {
         $config = new ServerConfig(port: 18303);
         $this->server = new Server($config);
@@ -134,7 +139,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItValidatesConnectionBeforeSend(): void
+    #[Test]
+    public function it_validates_connection_before_send(): void
     {
         $config = new ServerConfig(port: 18304);
         $this->server = new Server($config);
@@ -168,7 +174,8 @@ class RequestIdErrorHandlingTest extends TestCase
         $this->server->respond($responseData);
     }
 
-    public function testItReturnsEarlyForInvalidRequestId(): void
+    #[Test]
+    public function it_returns_early_for_invalid_request_id(): void
     {
         $config = new ServerConfig(port: 18305);
         $this->server = new Server($config);
@@ -203,7 +210,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertCount(1, $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItLogsWarningForInvalidRequestId(): void
+    #[Test]
+    public function it_logs_warning_for_invalid_request_id(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         assert($logger instanceof LoggerInterface);
@@ -223,7 +231,8 @@ class RequestIdErrorHandlingTest extends TestCase
         $this->server->respond($responseData);
     }
 
-    public function testItLogsValidRequestIdsOnError(): void
+    #[Test]
+    public function it_logs_valid_request_ids_on_error(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         assert($logger instanceof LoggerInterface);
@@ -266,7 +275,8 @@ class RequestIdErrorHandlingTest extends TestCase
         $this->server->respond($responseData);
     }
 
-    public function testItHandlesEmptyRequestId(): void
+    #[Test]
+    public function it_handles_empty_request_id(): void
     {
         $config = new ServerConfig(port: 18307);
         $this->server = new Server($config);
@@ -284,7 +294,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertNull($exception);
     }
 
-    public function testItHandlesSpecialCharactersInRequestId(): void
+    #[Test]
+    public function it_handles_special_characters_in_request_id(): void
     {
         $config = new ServerConfig(port: 18308);
         $this->server = new Server($config);
@@ -302,7 +313,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertNull($exception);
     }
 
-    public function testItHandlesVeryLongRequestId(): void
+    #[Test]
+    public function it_handles_very_long_request_id(): void
     {
         $config = new ServerConfig(port: 18309);
         $this->server = new Server($config);
@@ -322,7 +334,8 @@ class RequestIdErrorHandlingTest extends TestCase
         self::assertNull($exception);
     }
 
-    public function testItMaintainsStateAfterMultipleInvalidAttempts(): void
+    #[Test]
+    public function it_maintains_state_after_multiple_invalid_attempts(): void
     {
         $config = new ServerConfig(port: 18310);
         $this->server = new Server($config);

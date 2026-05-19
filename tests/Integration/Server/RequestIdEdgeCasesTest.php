@@ -12,6 +12,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use ReflectionClass;
@@ -35,7 +36,8 @@ class RequestIdEdgeCasesTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItHandlesRequestTimeout(): void
+    #[Test]
+    public function it_handles_request_timeout(): void
     {
         $config = new ServerConfig(port: 18260, requestTimeout: 1);
         $this->server = new Server($config);
@@ -71,7 +73,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertArrayNotHasKey('req_timeout', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConnectionClose(): void
+    #[Test]
+    public function it_handles_connection_close(): void
     {
         $config = new ServerConfig(port: 18261);
         $this->server = new Server($config);
@@ -105,7 +108,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesActorExceptionGracefully(): void
+    #[Test]
+    public function it_handles_actor_exception_gracefully(): void
     {
         $config = new ServerConfig(port: 18262);
         $this->server = new Server($config, new NullLogger());
@@ -141,7 +145,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesDuplicateRespond(): void
+    #[Test]
+    public function it_handles_duplicate_respond(): void
     {
         $config = new ServerConfig(port: 18263);
         $this->server = new Server($config, new NullLogger());
@@ -181,7 +186,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesInvalidRequestId(): void
+    #[Test]
+    public function it_handles_invalid_request_id(): void
     {
         $config = new ServerConfig(port: 18264);
         $this->server = new Server($config, new NullLogger());
@@ -212,7 +218,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertArrayHasKey('req_valid', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItCleansUpAfterTimeout(): void
+    #[Test]
+    public function it_cleans_up_after_timeout(): void
     {
         $config = new ServerConfig(port: 18265, requestTimeout: 1);
         $this->server = new Server($config);
@@ -268,7 +275,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertArrayHasKey('req_fresh_2', $remaining);
     }
 
-    public function testItHandlesEmptyRequestId(): void
+    #[Test]
+    public function it_handles_empty_request_id(): void
     {
         $config = new ServerConfig(port: 18266);
         $this->server = new Server($config, new NullLogger());
@@ -301,7 +309,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertCount(1, $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConnectionWriteFailure(): void
+    #[Test]
+    public function it_handles_connection_write_failure(): void
     {
         $config = new ServerConfig(port: 18267);
         $this->server = new Server($config, new NullLogger());
@@ -337,7 +346,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesSpecialCharactersInResponseBody(): void
+    #[Test]
+    public function it_handles_special_characters_in_response_body(): void
     {
         $config = new ServerConfig(port: 18268);
         $this->server = new Server($config);
@@ -379,7 +389,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesLargeResponseHeaders(): void
+    #[Test]
+    public function it_handles_large_response_headers(): void
     {
         $config = new ServerConfig(port: 18269);
         $this->server = new Server($config);
@@ -424,7 +435,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConcurrentCleanupAndRespond(): void
+    #[Test]
+    public function it_handles_concurrent_cleanup_and_respond(): void
     {
         $config = new ServerConfig(port: 18270, requestTimeout: 1);
         $this->server = new Server($config);
@@ -485,7 +497,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesRequestWithoutConnection(): void
+    #[Test]
+    public function it_handles_request_without_connection(): void
     {
         $config = new ServerConfig(port: 18271);
         $this->server = new Server($config, new NullLogger());
@@ -510,7 +523,8 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesMultipleResponsesSameConnection(): void
+    #[Test]
+    public function it_handles_multiple_responses_same_connection(): void
     {
         $config = new ServerConfig(port: 18272);
         $this->server = new Server($config);

@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Server;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
@@ -23,7 +24,8 @@ class RequestIdGenerationTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItGeneratesSequentialRequestIds(): void
+    #[Test]
+    public function it_generates_sequential_request_ids(): void
     {
         $config = new ServerConfig(port: 18085);
         $this->server = new Server($config);
@@ -42,7 +44,8 @@ class RequestIdGenerationTest extends TestCase
         self::assertSame('req_2', $id3);
     }
 
-    public function testItGeneratesUniqueIdsForEachRequest(): void
+    #[Test]
+    public function it_generates_unique_ids_for_each_request(): void
     {
         $config = new ServerConfig(port: 18086);
         $this->server = new Server($config);
@@ -62,7 +65,8 @@ class RequestIdGenerationTest extends TestCase
         self::assertCount(100, $uniqueIds);
     }
 
-    public function testItPrefixesIdsWithReq(): void
+    #[Test]
+    public function it_prefixes_ids_with_req(): void
     {
         $config = new ServerConfig(port: 18087);
         $this->server = new Server($config);
@@ -78,7 +82,8 @@ class RequestIdGenerationTest extends TestCase
         }
     }
 
-    public function testItStartsCounterFromZero(): void
+    #[Test]
+    public function it_starts_counter_from_zero(): void
     {
         $config = new ServerConfig(port: 18088);
         $this->server = new Server($config);
@@ -93,7 +98,8 @@ class RequestIdGenerationTest extends TestCase
         self::assertSame('req_0', $id);
     }
 
-    public function testItIncrementsCounterAfterEachRequest(): void
+    #[Test]
+    public function it_increments_counter_after_each_request(): void
     {
         $config = new ServerConfig(port: 18089);
         $this->server = new Server($config);
@@ -119,7 +125,8 @@ class RequestIdGenerationTest extends TestCase
         self::assertSame(3, $counterProperty->getValue($requestProcessor));
     }
 
-    public function testItFormatsLargeNumbersCorrectly(): void
+    #[Test]
+    public function it_formats_large_numbers_correctly(): void
     {
         $config = new ServerConfig(port: 18090);
         $this->server = new Server($config);
@@ -140,7 +147,8 @@ class RequestIdGenerationTest extends TestCase
         self::assertSame('req_999999', $id);
     }
 
-    public function testItResetsCounterOnServerReset(): void
+    #[Test]
+    public function it_resets_counter_on_server_reset(): void
     {
         $config = new ServerConfig(port: 18091);
         $this->server = new Server($config);

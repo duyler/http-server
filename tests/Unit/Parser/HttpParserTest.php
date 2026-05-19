@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Parser;
 use Duyler\HttpServer\Exception\ParseException;
 use Duyler\HttpServer\Parser\HttpParser;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class HttpParserTest extends TestCase
@@ -19,7 +20,8 @@ class HttpParserTest extends TestCase
         $this->parser = new HttpParser();
     }
 
-    public function testParsesGetRequestLine(): void
+    #[Test]
+    public function parses_get_request_line(): void
     {
         $line = "GET /path HTTP/1.1\r\n";
         $result = $this->parser->parseRequestLine($line);
@@ -29,7 +31,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('1.1', $result['version']);
     }
 
-    public function testParsesPostRequestLine(): void
+    #[Test]
+    public function parses_post_request_line(): void
     {
         $line = "POST /api/users HTTP/1.0\r\n";
         $result = $this->parser->parseRequestLine($line);
@@ -39,7 +42,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('1.0', $result['version']);
     }
 
-    public function testParsesUriWithQueryString(): void
+    #[Test]
+    public function parses_uri_with_query_string(): void
     {
         $line = "GET /search?q=test&page=1 HTTP/1.1\r\n";
         $result = $this->parser->parseRequestLine($line);
@@ -47,7 +51,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('/search?q=test&page=1', $result['uri']);
     }
 
-    public function testThrowsExceptionOnInvalidRequestLine(): void
+    #[Test]
+    public function throws_exception_on_invalid_request_line(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Invalid request line format');
@@ -55,7 +60,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseRequestLine("INVALID\r\n");
     }
 
-    public function testThrowsExceptionOnEmptyRequestLine(): void
+    #[Test]
+    public function throws_exception_on_empty_request_line(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Empty request line');
@@ -63,7 +69,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseRequestLine("\r\n");
     }
 
-    public function testThrowsExceptionOnEmptyUri(): void
+    #[Test]
+    public function throws_exception_on_empty_uri(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Empty URI in request line');
@@ -71,7 +78,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseRequestLine("GET  HTTP/1.1\r\n");
     }
 
-    public function testThrowsExceptionOnInvalidMethod(): void
+    #[Test]
+    public function throws_exception_on_invalid_method(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Invalid HTTP method');
@@ -79,7 +87,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseRequestLine("INVALID /path HTTP/1.1\r\n");
     }
 
-    public function testThrowsExceptionOnInvalidVersion(): void
+    #[Test]
+    public function throws_exception_on_invalid_version(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Invalid HTTP version');
@@ -87,7 +96,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseRequestLine("GET /path INVALID\r\n");
     }
 
-    public function testParsesSimpleHeaders(): void
+    #[Test]
+    public function parses_simple_headers(): void
     {
         $headerBlock = "Host: example.com\r\nUser-Agent: Test\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -96,12 +106,14 @@ class HttpParserTest extends TestCase
         $this->assertSame(['Test'], $headers['User-Agent']);
     }
 
-    public function testParsesEmptyHeaderBlock(): void
+    #[Test]
+    public function parses_empty_header_block(): void
     {
         $this->assertSame([], $this->parser->parseHeaders(''));
     }
 
-    public function testParsesHeadersWithEmptyLines(): void
+    #[Test]
+    public function parses_headers_with_empty_lines(): void
     {
         $headerBlock = "Host: example.com\r\n\r\nUser-Agent: Test\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -110,7 +122,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['Test'], $headers['User-Agent']);
     }
 
-    public function testParsesMultipleHeaderValues(): void
+    #[Test]
+    public function parses_multiple_header_values(): void
     {
         $headerBlock = "Accept: text/html\r\nAccept: application/json\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -120,7 +133,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('application/json', $headers['Accept'][1]);
     }
 
-    public function testNormalizesHeaderNames(): void
+    #[Test]
+    public function normalizes_header_names(): void
     {
         $headerBlock = "content-type: text/html\r\nCONTENT-LENGTH: 100\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -129,7 +143,8 @@ class HttpParserTest extends TestCase
         $this->assertArrayHasKey('Content-Length', $headers);
     }
 
-    public function testTrimsHeaderValues(): void
+    #[Test]
+    public function trims_header_values(): void
     {
         $headerBlock = "Host:   example.com   \r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -137,7 +152,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['example.com'], $headers['Host']);
     }
 
-    public function testThrowsExceptionOnInvalidHeaderFormat(): void
+    #[Test]
+    public function throws_exception_on_invalid_header_format(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Invalid header format');
@@ -145,21 +161,24 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders("InvalidHeader\r\n");
     }
 
-    public function testDetectsCompleteHeaders(): void
+    #[Test]
+    public function detects_complete_headers(): void
     {
         $buffer = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\nBody";
 
         $this->assertTrue($this->parser->hasCompleteHeaders($buffer));
     }
 
-    public function testDetectsIncompleteHeaders(): void
+    #[Test]
+    public function detects_incomplete_headers(): void
     {
         $buffer = "GET / HTTP/1.1\r\nHost: example.com\r\n";
 
         $this->assertFalse($this->parser->hasCompleteHeaders($buffer));
     }
 
-    public function testSplitsHeadersAndBody(): void
+    #[Test]
+    public function splits_headers_and_body(): void
     {
         $buffer = "GET / HTTP/1.1\r\nHost: example.com\r\n\r\nBody content";
         [$headers, $body] = $this->parser->splitHeadersAndBody($buffer);
@@ -168,7 +187,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('Body content', $body);
     }
 
-    public function testSplitsHeadersAndBodyWithNoSeparator(): void
+    #[Test]
+    public function splits_headers_and_body_with_no_separator(): void
     {
         $buffer = "GET / HTTP/1.1\r\nHost: example.com";
         [$headers, $body] = $this->parser->splitHeadersAndBody($buffer);
@@ -177,7 +197,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('', $body);
     }
 
-    public function testParsesHeaderContinuation(): void
+    #[Test]
+    public function parses_header_continuation(): void
     {
         $headerBlock = "X-Custom: value1\r\n value2\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -185,7 +206,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['value1 value2'], $headers['X-Custom']);
     }
 
-    public function testParsesHeaderContinuationWithTab(): void
+    #[Test]
+    public function parses_header_continuation_with_tab(): void
     {
         $headerBlock = "X-Custom: value1\r\n\tvalue2\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -193,7 +215,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['value1 value2'], $headers['X-Custom']);
     }
 
-    public function testParsesHeaderBlockWithContinuationAfterEmptyLine(): void
+    #[Test]
+    public function parses_header_block_with_continuation_after_empty_line(): void
     {
         $headerBlock = "Host: example.com\r\n \r\nX-Test: value\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -202,7 +225,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['value'], $headers['X-Test']);
     }
 
-    public function testParsesHeadersWithMultipleContinuations(): void
+    #[Test]
+    public function parses_headers_with_multiple_continuations(): void
     {
         $headerBlock = "X-Long: line1\r\n line2\r\n\tline3\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -210,7 +234,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(['line1 line2 line3'], $headers['X-Long']);
     }
 
-    public function testExtractsContentLength(): void
+    #[Test]
+    public function extracts_content_length(): void
     {
         $headers = ['Content-Length' => ['42']];
 
@@ -219,7 +244,8 @@ class HttpParserTest extends TestCase
         $this->assertSame(42, $length);
     }
 
-    public function testThrowsExceptionOnNegativeContentLength(): void
+    #[Test]
+    public function throws_exception_on_negative_content_length(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Invalid Content-Length value');
@@ -228,7 +254,8 @@ class HttpParserTest extends TestCase
         $this->parser->getContentLength($headers);
     }
 
-    public function testReturnsZeroWhenNoContentLength(): void
+    #[Test]
+    public function returns_zero_when_no_content_length(): void
     {
         $headers = [];
 
@@ -237,28 +264,32 @@ class HttpParserTest extends TestCase
         $this->assertSame(0, $length);
     }
 
-    public function testDetectsChunkedEncoding(): void
+    #[Test]
+    public function detects_chunked_encoding(): void
     {
         $headers = ['Transfer-Encoding' => ['chunked']];
 
         $this->assertTrue($this->parser->isChunked($headers));
     }
 
-    public function testDetectsNonChunkedEncoding(): void
+    #[Test]
+    public function detects_non_chunked_encoding(): void
     {
         $headers = ['Transfer-Encoding' => ['gzip']];
 
         $this->assertFalse($this->parser->isChunked($headers));
     }
 
-    public function testDetectsNoTransferEncoding(): void
+    #[Test]
+    public function detects_no_transfer_encoding(): void
     {
         $headers = [];
 
         $this->assertFalse($this->parser->isChunked($headers));
     }
 
-    public function testThrowsExceptionOnDuplicateContentLength(): void
+    #[Test]
+    public function throws_exception_on_duplicate_content_length(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Content-Length');
@@ -267,7 +298,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testThrowsExceptionOnDuplicateContentType(): void
+    #[Test]
+    public function throws_exception_on_duplicate_content_type(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Content-Type');
@@ -276,7 +308,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testThrowsExceptionOnDuplicateHost(): void
+    #[Test]
+    public function throws_exception_on_duplicate_host(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Host');
@@ -285,7 +318,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testThrowsExceptionOnDuplicateAuthorization(): void
+    #[Test]
+    public function throws_exception_on_duplicate_authorization(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Authorization');
@@ -294,7 +328,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testThrowsExceptionOnDuplicateTransferEncoding(): void
+    #[Test]
+    public function throws_exception_on_duplicate_transfer_encoding(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Transfer-Encoding');
@@ -303,7 +338,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testAllowsMultipleCookieHeaders(): void
+    #[Test]
+    public function allows_multiple_cookie_headers(): void
     {
         $headerBlock = "Cookie: session=abc\r\nCookie: user=john\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -313,7 +349,8 @@ class HttpParserTest extends TestCase
         $this->assertSame('user=john', $headers['Cookie'][1]);
     }
 
-    public function testAllowsMultipleAcceptHeaders(): void
+    #[Test]
+    public function allows_multiple_accept_headers(): void
     {
         $headerBlock = "Accept: text/html\r\nAccept: application/json\r\n";
         $headers = $this->parser->parseHeaders($headerBlock);
@@ -321,7 +358,8 @@ class HttpParserTest extends TestCase
         $this->assertCount(2, $headers['Accept']);
     }
 
-    public function testCaseInsensitiveDuplicateDetection(): void
+    #[Test]
+    public function case_insensitive_duplicate_detection(): void
     {
         $this->expectException(ParseException::class);
         $this->expectExceptionMessage('Duplicate header not allowed: Content-Length');
@@ -330,7 +368,8 @@ class HttpParserTest extends TestCase
         $this->parser->parseHeaders($headerBlock);
     }
 
-    public function testDefaultHeaderCacheLimitIs100(): void
+    #[Test]
+    public function default_header_cache_limit_is_100(): void
     {
         $parser = new HttpParser();
 
@@ -340,7 +379,8 @@ class HttpParserTest extends TestCase
         $this->assertArrayHasKey('Host', $headers);
     }
 
-    public function testCustomHeaderCacheLimitWorks(): void
+    #[Test]
+    public function custom_header_cache_limit_works(): void
     {
         $parser = new HttpParser(headerCacheLimit: 5);
 
@@ -351,7 +391,8 @@ class HttpParserTest extends TestCase
         }
     }
 
-    public function testHeaderCacheRespectsLimit(): void
+    #[Test]
+    public function header_cache_respects_limit(): void
     {
         $parser = new HttpParser(headerCacheLimit: 2);
 
@@ -363,7 +404,8 @@ class HttpParserTest extends TestCase
         $this->assertArrayHasKey('X-Header-A', $headers);
     }
 
-    public function testClearCache(): void
+    #[Test]
+    public function clear_cache(): void
     {
         $parser = new HttpParser(headerCacheLimit: 5);
 

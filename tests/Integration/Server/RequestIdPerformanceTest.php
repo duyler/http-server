@@ -12,6 +12,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -33,7 +34,8 @@ class RequestIdPerformanceTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItHasAcceptableOverhead(): void
+    #[Test]
+    public function it_has_acceptable_overhead(): void
     {
         $config = new ServerConfig(port: 18240);
         $this->server = new Server($config);
@@ -54,7 +56,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertLessThan(0.1, $time, 'ID generation should be fast for 10000 iterations');
     }
 
-    public function testItProcesses1000RequestsQuickly(): void
+    #[Test]
+    public function it_processes_1000_requests_quickly(): void
     {
         $config = new ServerConfig(port: 18241);
         $this->server = new Server($config);
@@ -115,7 +118,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHasLowMemoryOverhead(): void
+    #[Test]
+    public function it_has_low_memory_overhead(): void
     {
         $config = new ServerConfig(port: 18242);
         $this->server = new Server($config);
@@ -157,7 +161,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertLessThanOrEqual(2 * 1024 * 1024, $memoryDiff, 'Memory overhead for 1000 requests should be at most 2MB');
     }
 
-    public function testItDoesNotLeakMemory(): void
+    #[Test]
+    public function it_does_not_leak_memory(): void
     {
         $config = new ServerConfig(port: 18243);
         $this->server = new Server($config);
@@ -212,7 +217,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertLessThanOrEqual(2 * 1024 * 1024, $memoryDiff, 'Memory overhead should be at most 2MB for 1000 requests');
     }
 
-    public function testItScalesWithConcurrentRequests(): void
+    #[Test]
+    public function it_scales_with_concurrent_requests(): void
     {
         $config = new ServerConfig(port: 18244);
         $this->server = new Server($config);
@@ -281,7 +287,8 @@ class RequestIdPerformanceTest extends TestCase
         );
     }
 
-    public function testItHandlesLargeRequestBodiesEfficiently(): void
+    #[Test]
+    public function it_handles_large_request_bodies_efficiently(): void
     {
         $config = new ServerConfig(port: 18245);
         $this->server = new Server($config);
@@ -334,7 +341,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItMaintainsPerformanceWithManyHeaders(): void
+    #[Test]
+    public function it_maintains_performance_with_many_headers(): void
     {
         $config = new ServerConfig(port: 18246);
         $this->server = new Server($config);
@@ -392,7 +400,8 @@ class RequestIdPerformanceTest extends TestCase
         self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItBenchmarksRequestIdGeneration(): void
+    #[Test]
+    public function it_benchmarks_request_id_generation(): void
     {
         $config = new ServerConfig(port: 18247);
         $this->server = new Server($config);
@@ -419,7 +428,8 @@ class RequestIdPerformanceTest extends TestCase
         );
     }
 
-    public function testItBenchmarksMappingOperations(): void
+    #[Test]
+    public function it_benchmarks_mapping_operations(): void
     {
         $config = new ServerConfig(port: 18248);
         $this->server = new Server($config);

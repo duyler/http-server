@@ -9,6 +9,7 @@ use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\Server;
 use Fiber;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 use Throwable;
@@ -43,7 +44,8 @@ class ServerEventDrivenTest extends TestCase
         parent::tearDown();
     }
 
-    public function testSetsWorkerIdAndMode(): void
+    #[Test]
+    public function sets_worker_id_and_mode(): void
     {
         $this->assertNull($this->server->getWorkerId());
         $this->assertSame(ServerMode::Standalone, $this->server->getMode());
@@ -54,7 +56,8 @@ class ServerEventDrivenTest extends TestCase
         $this->assertSame(ServerMode::WorkerPool, $this->server->getMode());
     }
 
-    public function testSetsMultipleWorkerIds(): void
+    #[Test]
+    public function sets_multiple_worker_ids(): void
     {
         $this->server->setWorkerId(1);
         $this->assertSame(1, $this->server->getWorkerId());
@@ -63,7 +66,8 @@ class ServerEventDrivenTest extends TestCase
         $this->assertSame(99, $this->server->getWorkerId());
     }
 
-    public function testRegistersFiber(): void
+    #[Test]
+    public function registers_fiber(): void
     {
         $fiberExecuted = false;
 
@@ -76,12 +80,10 @@ class ServerEventDrivenTest extends TestCase
         $this->assertTrue($fiberExecuted);
 
         $this->server->registerFiber($fiber);
-
-        // Fiber should be registered (no exception)
-        $this->assertTrue(true);
     }
 
-    public function testRegistersMultipleFibers(): void
+    #[Test]
+    public function registers_multiple_fibers(): void
     {
         $counter = 0;
 
@@ -104,7 +106,8 @@ class ServerEventDrivenTest extends TestCase
         $this->assertSame(2, $counter);
     }
 
-    public function testHasRequestResumesRegisteredFibers(): void
+    #[Test]
+    public function has_request_resumes_registered_fibers(): void
     {
         $this->server->start();
 
@@ -133,7 +136,8 @@ class ServerEventDrivenTest extends TestCase
         $this->server->stop();
     }
 
-    public function testHasRequestHandlesTerminatedFibersGracefully(): void
+    #[Test]
+    public function has_request_handles_terminated_fibers_gracefully(): void
     {
         $this->server->start();
 
@@ -141,7 +145,6 @@ class ServerEventDrivenTest extends TestCase
 
         $fiber = new Fiber(function () use (&$executed): void {
             $executed = true;
-            // Fiber terminates (no suspend)
         });
 
         $fiber->start();
@@ -150,14 +153,13 @@ class ServerEventDrivenTest extends TestCase
 
         $this->server->registerFiber($fiber);
 
-        // Should not throw exception even if fiber is terminated
         $this->server->hasRequest();
 
         $this->server->stop();
-        $this->assertTrue(true);
     }
 
-    public function testHasRequestContinuesOnFiberError(): void
+    #[Test]
+    public function has_request_continues_on_fiber_error(): void
     {
         $this->server->start();
 
@@ -169,14 +171,14 @@ class ServerEventDrivenTest extends TestCase
         $fiber->start();
         $this->server->registerFiber($fiber);
 
-        // Should catch error and continue
         $this->server->hasRequest();
 
         $this->server->stop();
-        $this->assertTrue(true);
+        $this->expectNotToPerformAssertions();
     }
 
-    public function testServerModeChangesToWorkerPoolAfterSetWorkerId(): void
+    #[Test]
+    public function server_mode_changes_to_worker_pool_after_set_worker_id(): void
     {
         $this->assertSame(ServerMode::Standalone, $this->server->getMode());
 

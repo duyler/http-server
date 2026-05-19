@@ -10,6 +10,7 @@ use Ev;
 use EvIo;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
@@ -32,7 +33,8 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testSocketResourceWorksWithEvio(): void
+    #[Test]
+    public function socket_resource_works_with_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
@@ -77,7 +79,8 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         Ev::run(Ev::RUN_NOWAIT);
     }
 
-    public function testEvioCanBeCreatedWithServerResource(): void
+    #[Test]
+    public function evio_can_be_created_with_server_resource(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
@@ -103,7 +106,8 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         $ioWatcher->stop();
     }
 
-    public function testExternalSocketResourceWorksWithEvio(): void
+    #[Test]
+    public function external_socket_resource_works_with_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
@@ -129,7 +133,8 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         fclose($stream);
     }
 
-    public function testSslServerReturnsStreamResourceForEvio(): void
+    #[Test]
+    public function ssl_server_returns_stream_resource_for_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');

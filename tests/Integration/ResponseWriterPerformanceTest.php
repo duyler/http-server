@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ResponseWriterPerformanceTest extends TestCase
@@ -20,7 +21,8 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->writer = new ResponseWriter();
     }
 
-    public function testWriteMethodHandlesLargeResponseEfficiently(): void
+    #[Test]
+    public function write_method_handles_large_response_efficiently(): void
     {
         $largeBody = str_repeat('Lorem ipsum dolor sit amet. ', 10000);
         $response = new Response(200, ['Content-Type' => 'text/plain'], $largeBody);
@@ -39,7 +41,8 @@ class ResponseWriterPerformanceTest extends TestCase
         $this->assertLessThan(5 * 1024 * 1024, $memoryUsed, 'Should use less than 5MB extra memory');
     }
 
-    public function testWriteMethodOptimizationWithManyParts(): void
+    #[Test]
+    public function write_method_optimization_with_many_parts(): void
     {
         $headers = [];
         for ($i = 0; $i < 20; $i++) {

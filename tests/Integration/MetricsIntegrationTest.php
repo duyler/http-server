@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class MetricsIntegrationTest extends TestCase
@@ -23,7 +24,8 @@ class MetricsIntegrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testServerCollectsMetrics(): void
+    #[Test]
+    public function server_collects_metrics(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -42,7 +44,8 @@ class MetricsIntegrationTest extends TestCase
         $this->assertArrayHasKey('uptime_seconds', $metrics);
     }
 
-    public function testMetricsIncludeCacheStats(): void
+    #[Test]
+    public function metrics_include_cache_stats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -57,7 +60,8 @@ class MetricsIntegrationTest extends TestCase
         $this->assertArrayHasKey('cache_hit_rate', $metrics);
     }
 
-    public function testMetricsIncludeDurationStats(): void
+    #[Test]
+    public function metrics_include_duration_stats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -72,7 +76,8 @@ class MetricsIntegrationTest extends TestCase
         $this->assertArrayHasKey('max_request_duration_ms', $metrics);
     }
 
-    public function testMetricsIncludeConnectionStats(): void
+    #[Test]
+    public function metrics_include_connection_stats(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -86,7 +91,8 @@ class MetricsIntegrationTest extends TestCase
         $this->assertArrayHasKey('timed_out_connections', $metrics);
     }
 
-    public function testMetricsIncludeRequestsPerSecond(): void
+    #[Test]
+    public function metrics_include_requests_per_second(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -100,7 +106,8 @@ class MetricsIntegrationTest extends TestCase
         $this->assertIsFloat($metrics['requests_per_second']);
     }
 
-    public function testInitialMetricsHaveSensibleValues(): void
+    #[Test]
+    public function initial_metrics_have_sensible_values(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',

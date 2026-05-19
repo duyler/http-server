@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -29,7 +30,8 @@ class ServerNotifySocketTest extends TestCase
         parent::tearDown();
     }
 
-    public function testSetEventLoopActiveStoresFlag(): void
+    #[Test]
+    public function set_event_loop_active_stores_flag(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -43,7 +45,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertFalse($this->server->isEventLoopActive());
     }
 
-    public function testIsEventLoopActiveReturnsFalseByDefault(): void
+    #[Test]
+    public function is_event_loop_active_returns_false_by_default(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -51,7 +54,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertFalse($this->server->isEventLoopActive());
     }
 
-    public function testEnableNotificationCreatesSocketPair(): void
+    #[Test]
+    public function enable_notification_creates_socket_pair(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -62,7 +66,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertIsResource($stream);
     }
 
-    public function testDisableNotificationClosesSockets(): void
+    #[Test]
+    public function disable_notification_closes_sockets(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -76,7 +81,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertNull($this->server->getNotificationReadStream());
     }
 
-    public function testGetNotificationReadStreamReturnsNullBeforeEnable(): void
+    #[Test]
+    public function get_notification_read_stream_returns_null_before_enable(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -84,7 +90,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertNull($this->server->getNotificationReadStream());
     }
 
-    public function testHasRequestReturnsFalseInReactiveModeWhenNoData(): void
+    #[Test]
+    public function has_request_returns_false_in_reactive_mode_when_no_data(): void
     {
         $config = new ServerConfig(port: 18095);
         $this->server = new Server($config);
@@ -95,7 +102,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertFalse($this->server->hasRequest());
     }
 
-    public function testSetNotifySocketDoesNotExist(): void
+    #[Test]
+    public function set_notify_socket_does_not_exist(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -103,7 +111,8 @@ class ServerNotifySocketTest extends TestCase
         $this->assertFalse(method_exists($this->server, 'setNotifySocket'));
     }
 
-    public function testGetNotifySocketDoesNotExistInPublicApi(): void
+    #[Test]
+    public function get_notify_socket_does_not_exist_in_public_api(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);

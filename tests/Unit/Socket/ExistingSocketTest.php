@@ -266,7 +266,9 @@ class ExistingSocketTest extends TestCase
 
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($clientSocket);
-        @socket_connect($clientSocket, '127.0.0.1', 19001);
+        $previousErrorReporting = error_reporting(0);
+        socket_connect($clientSocket, '127.0.0.1', 19001);
+        error_reporting($previousErrorReporting);
 
         usleep(10000);
 

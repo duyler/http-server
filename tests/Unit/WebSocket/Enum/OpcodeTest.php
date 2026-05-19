@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\WebSocket\Enum;
 
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class OpcodeTest extends TestCase
 {
-    public function testHasCorrectValues(): void
+    #[Test]
+    public function has_correct_values(): void
     {
         $this->assertSame(0x0, Opcode::CONTINUATION->value);
         $this->assertSame(0x1, Opcode::TEXT->value);
@@ -19,28 +21,32 @@ class OpcodeTest extends TestCase
         $this->assertSame(0xA, Opcode::PONG->value);
     }
 
-    public function testIdentifiesControlFrames(): void
+    #[Test]
+    public function identifies_control_frames(): void
     {
         $this->assertTrue(Opcode::CLOSE->isControl());
         $this->assertTrue(Opcode::PING->isControl());
         $this->assertTrue(Opcode::PONG->isControl());
     }
 
-    public function testIdentifiesDataFrames(): void
+    #[Test]
+    public function identifies_data_frames(): void
     {
         $this->assertTrue(Opcode::CONTINUATION->isData());
         $this->assertTrue(Opcode::TEXT->isData());
         $this->assertTrue(Opcode::BINARY->isData());
     }
 
-    public function testControlFramesAreNotDataFrames(): void
+    #[Test]
+    public function control_frames_are_not_data_frames(): void
     {
         $this->assertFalse(Opcode::CLOSE->isData());
         $this->assertFalse(Opcode::PING->isData());
         $this->assertFalse(Opcode::PONG->isData());
     }
 
-    public function testDataFramesAreNotControlFrames(): void
+    #[Test]
+    public function data_frames_are_not_control_frames(): void
     {
         $this->assertFalse(Opcode::CONTINUATION->isControl());
         $this->assertFalse(Opcode::TEXT->isControl());

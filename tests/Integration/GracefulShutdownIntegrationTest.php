@@ -10,6 +10,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -50,7 +51,8 @@ class GracefulShutdownIntegrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testShutdownWaitsForPendingRequestToComplete(): void
+    #[Test]
+    public function shutdown_waits_for_pending_request_to_complete(): void
     {
         $client = $this->connectClient();
         fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -87,7 +89,8 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertStringContainsString('OK', $response);
     }
 
-    public function testShutdownWithTimeoutForcesClose(): void
+    #[Test]
+    public function shutdown_with_timeout_forces_close(): void
     {
         $client = $this->connectClient();
         fwrite($client, "GET /slow HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -107,7 +110,8 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertLessThanOrEqual(1.5, $elapsed, 'Shutdown should respect timeout');
     }
 
-    public function testShutdownProcessesQueuedRequests(): void
+    #[Test]
+    public function shutdown_processes_queued_requests(): void
     {
         $client1 = $this->connectClient();
         $client2 = $this->connectClient();
@@ -142,10 +146,10 @@ class GracefulShutdownIntegrationTest extends TestCase
         fclose($client2);
 
         $this->assertStringContainsString('Response 1', $response1);
-        $this->assertTrue(true);
     }
 
-    public function testShutdownWithNoActiveRequestsCompletesImmediately(): void
+    #[Test]
+    public function shutdown_with_no_active_requests_completes_immediately(): void
     {
         $startTime = microtime(true);
         $result = $this->server->shutdown(5);
@@ -155,7 +159,8 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertLessThan(0.5, $elapsed, 'Should complete almost immediately');
     }
 
-    public function testShutdownDoesNotAcceptNewConnectionsAfterInitiated(): void
+    #[Test]
+    public function shutdown_does_not_accept_new_connections_after_initiated(): void
     {
         $clientBefore = $this->connectClient();
         fwrite($clientBefore, "GET /before HTTP/1.1\r\nHost: localhost\r\n\r\n");
@@ -187,7 +192,8 @@ class GracefulShutdownIntegrationTest extends TestCase
         $this->assertTrue(true, 'Shutdown completed');
     }
 
-    public function testMultipleRequestsCompleteBeforeShutdown(): void
+    #[Test]
+    public function multiple_requests_complete_before_shutdown(): void
     {
         $clients = [];
         for ($i = 0; $i < 3; $i++) {
@@ -222,12 +228,14 @@ class GracefulShutdownIntegrationTest extends TestCase
      */
     private function connectClient()
     {
-        $client = @stream_socket_client(
+        $previousErrorReporting = error_reporting(0);
+        $client = stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
         );
+        error_reporting($previousErrorReporting);
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

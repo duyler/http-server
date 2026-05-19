@@ -13,12 +13,14 @@ use Duyler\HttpServer\Exception\TimeoutException;
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketConfigException;
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketFrameException;
 use Exception;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 
 class ExceptionHierarchyTest extends TestCase
 {
-    public function testAllExceptionsExtendHttpServerException(): void
+    #[Test]
+    public function all_exceptions_extend_http_server_exception(): void
     {
         $exceptions = [
             SocketException::class,
@@ -50,7 +52,8 @@ class ExceptionHierarchyTest extends TestCase
         }
     }
 
-    public function testAllExceptionsHaveUniqueErrorCodes(): void
+    #[Test]
+    public function all_exceptions_have_unique_error_codes(): void
     {
         $exceptionClasses = [
             SocketException::class,
@@ -78,14 +81,16 @@ class ExceptionHierarchyTest extends TestCase
             $errorCodes[$errorCode] = $exceptionClass;
         }
     }
-    public function testHttpServerExceptionIsAbstract(): void
+    #[Test]
+    public function http_server_exception_is_abstract(): void
     {
         $reflection = new ReflectionClass(HttpServerException::class);
 
         $this->assertTrue($reflection->isAbstract(), 'HttpServerException should be abstract');
     }
 
-    public function testHttpServerExceptionExtendsException(): void
+    #[Test]
+    public function http_server_exception_extends_exception(): void
     {
         $reflection = new ReflectionClass(HttpServerException::class);
         $parent = $reflection->getParentClass();
@@ -94,21 +99,24 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame(Exception::class, $parent->getName());
     }
 
-    public function testSocketExceptionHasFromLastErrorFactory(): void
+    #[Test]
+    public function socket_exception_has_from_last_error_factory(): void
     {
         $reflection = new ReflectionClass(SocketException::class);
 
         $this->assertTrue($reflection->hasMethod('fromLastError'), 'SocketException should have fromLastError factory method');
     }
 
-    public function testExceptionHasContextParameter(): void
+    #[Test]
+    public function exception_has_context_parameter(): void
     {
         $exception = new SocketException('Test message', 0, null, ['key' => 'value']);
 
         $this->assertSame(['key' => 'value'], $exception->getContext());
     }
 
-    public function testExceptionContextDefaultsToEmptyArray(): void
+    #[Test]
+    public function exception_context_defaults_to_empty_array(): void
     {
         $reflection = new ReflectionClass(SocketException::class);
         $constructor = $reflection->getConstructor();
@@ -120,21 +128,24 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame([], $contextParam->getDefaultValue());
     }
 
-    public function testGetErrorCodeReturnsString(): void
+    #[Test]
+    public function get_error_code_returns_string(): void
     {
         $exception = new SocketException('Test message');
 
         $this->assertIsString($exception->getErrorCode());
     }
 
-    public function testGetContextReturnsArray(): void
+    #[Test]
+    public function get_context_returns_array(): void
     {
         $exception = new SocketException('Test message');
 
         $this->assertIsArray($exception->getContext());
     }
 
-    public function testInvalidWebSocketConfigExceptionExtendsInvalidConfigException(): void
+    #[Test]
+    public function invalid_web_socket_config_exception_extends_invalid_config_exception(): void
     {
         $reflection = new ReflectionClass(InvalidWebSocketConfigException::class);
         $parent = $reflection->getParentClass();
@@ -143,7 +154,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame(InvalidConfigException::class, $parent->getName());
     }
 
-    public function testCatchAllHttpServerExceptionsWorks(): void
+    #[Test]
+    public function catch_all_http_server_exceptions_works(): void
     {
         $exceptions = [
             new SocketException('socket'),
@@ -167,7 +179,8 @@ class ExceptionHierarchyTest extends TestCase
         }
     }
 
-    public function testSocketExceptionErrorCode(): void
+    #[Test]
+    public function socket_exception_error_code(): void
     {
         $reflection = new ReflectionClass(SocketException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -175,7 +188,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('SOCKET_ERROR', $exception->getErrorCode());
     }
 
-    public function testParseExceptionErrorCode(): void
+    #[Test]
+    public function parse_exception_error_code(): void
     {
         $reflection = new ReflectionClass(ParseException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -183,7 +197,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('PARSE_ERROR', $exception->getErrorCode());
     }
 
-    public function testInvalidConfigExceptionErrorCode(): void
+    #[Test]
+    public function invalid_config_exception_error_code(): void
     {
         $reflection = new ReflectionClass(InvalidConfigException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -191,7 +206,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('INVALID_CONFIG', $exception->getErrorCode());
     }
 
-    public function testTimeoutExceptionErrorCode(): void
+    #[Test]
+    public function timeout_exception_error_code(): void
     {
         $reflection = new ReflectionClass(TimeoutException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -199,7 +215,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('TIMEOUT_ERROR', $exception->getErrorCode());
     }
 
-    public function testInvalidWebSocketConfigExceptionErrorCode(): void
+    #[Test]
+    public function invalid_web_socket_config_exception_error_code(): void
     {
         $reflection = new ReflectionClass(InvalidWebSocketConfigException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -207,7 +224,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('INVALID_WEBSOCKET_CONFIG', $exception->getErrorCode());
     }
 
-    public function testInvalidWebSocketFrameExceptionErrorCode(): void
+    #[Test]
+    public function invalid_web_socket_frame_exception_error_code(): void
     {
         $reflection = new ReflectionClass(InvalidWebSocketFrameException::class);
         $exception = $reflection->newInstanceWithoutConstructor();
@@ -215,7 +233,8 @@ class ExceptionHierarchyTest extends TestCase
         $this->assertSame('INVALID_WEBSOCKET_FRAME', $exception->getErrorCode());
     }
 
-    public function testMemoryLimitExceededExceptionErrorCode(): void
+    #[Test]
+    public function memory_limit_exceeded_exception_error_code(): void
     {
         $reflection = new ReflectionClass(MemoryLimitExceededException::class);
         $exception = $reflection->newInstanceWithoutConstructor();

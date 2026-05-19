@@ -10,6 +10,7 @@ use Duyler\HttpServer\Upload\TempFileManager;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class RequestParserTest extends TestCase
@@ -26,7 +27,8 @@ class RequestParserTest extends TestCase
         $this->parser = new RequestParser($httpParser, $psr17Factory, $tempFileManager);
     }
 
-    public function testThrowsOnEmptyRequestLine(): void
+    #[Test]
+    public function throws_on_empty_request_line(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Empty request line');
@@ -35,7 +37,8 @@ class RequestParserTest extends TestCase
         $this->parser->parse($rawRequest, '127.0.0.1', 8080);
     }
 
-    public function testParsesSimpleGetRequest(): void
+    #[Test]
+    public function parses_simple_get_request(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
@@ -46,7 +49,8 @@ class RequestParserTest extends TestCase
         $this->assertSame(['localhost'], $request->getHeader('Host'));
     }
 
-    public function testParsesQueryParameters(): void
+    #[Test]
+    public function parses_query_parameters(): void
     {
         $rawRequest = "GET /path?foo=bar&baz=qux HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
@@ -57,7 +61,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('qux', $queryParams['baz']);
     }
 
-    public function testParsesCookies(): void
+    #[Test]
+    public function parses_cookies(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc123; user=john\r\n\r\n";
 
@@ -68,7 +73,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('john', $cookies['user']);
     }
 
-    public function testParsesFormUrlencodedBody(): void
+    #[Test]
+    public function parses_form_urlencoded_body(): void
     {
         $body = 'name=John&email=john@example.com';
         $rawRequest = "POST / HTTP/1.1\r\n";
@@ -85,7 +91,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('john@example.com', $parsedBody['email']);
     }
 
-    public function testParsesJsonBody(): void
+    #[Test]
+    public function parses_json_body(): void
     {
         $body = json_encode(['name' => 'John', 'age' => 30]);
         $rawRequest = "POST / HTTP/1.1\r\n";
@@ -102,7 +109,8 @@ class RequestParserTest extends TestCase
         $this->assertSame(30, $parsedBody['age']);
     }
 
-    public function testHandlesInvalidJsonBody(): void
+    #[Test]
+    public function handles_invalid_json_body(): void
     {
         $body = '{invalid json}';
         $rawRequest = "POST / HTTP/1.1\r\n";
@@ -117,7 +125,8 @@ class RequestParserTest extends TestCase
         $this->assertNull($request->getParsedBody());
     }
 
-    public function testHandlesEmptyBody(): void
+    #[Test]
+    public function handles_empty_body(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
@@ -126,7 +135,8 @@ class RequestParserTest extends TestCase
         $this->assertNull($request->getParsedBody());
     }
 
-    public function testPreservesServerParams(): void
+    #[Test]
+    public function preserves_server_params(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n";
 
@@ -138,7 +148,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('GET', $serverParams['REQUEST_METHOD']);
     }
 
-    public function testHandlesRequestWithoutHostHeader(): void
+    #[Test]
+    public function handles_request_without_host_header(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\n\r\n";
 
@@ -148,7 +159,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('/', $request->getUri()->getPath());
     }
 
-    public function testParsesCookiesWithUrlencodedValue(): void
+    #[Test]
+    public function parses_cookies_with_urlencoded_value(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: token=hello%40world\r\n\r\n";
 
@@ -158,7 +170,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('hello@world', $cookies['token']);
     }
 
-    public function testRejectsCookieWithInvalidNameContainingSeparator(): void
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_separator(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session;id=abc123\r\n\r\n";
 
@@ -168,7 +181,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session;id', $cookies);
     }
 
-    public function testRejectsCookieWithInvalidNameContainingParentheses(): void
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_parentheses(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: (session)=abc123\r\n\r\n";
 
@@ -178,7 +192,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('(session)', $cookies);
     }
 
-    public function testRejectsCookieWithInvalidNameContainingComma(): void
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_comma(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session,id=abc123\r\n\r\n";
 
@@ -188,7 +203,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session,id', $cookies);
     }
 
-    public function testRejectsCookieWithInvalidNameContainingAt(): void
+    #[Test]
+    public function rejects_cookie_with_invalid_name_containing_at(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session@id=abc123\r\n\r\n";
 
@@ -198,7 +214,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session@id', $cookies);
     }
 
-    public function testRejectsCookieWithEmptyName(): void
+    #[Test]
+    public function rejects_cookie_with_empty_name(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: =value\r\n\r\n";
 
@@ -208,7 +225,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('', $cookies);
     }
 
-    public function testAcceptsCookieNameWithSpecialRfcChars(): void
+    #[Test]
+    public function accepts_cookie_name_with_special_rfc_chars(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session-id_test.user=value123\r\n\r\n";
 
@@ -218,7 +236,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('value123', $cookies['session-id_test.user']);
     }
 
-    public function testRejectsCookieValueWithNullByte(): void
+    #[Test]
+    public function rejects_cookie_value_with_null_byte(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%00def\r\n\r\n";
 
@@ -228,7 +247,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session', $cookies);
     }
 
-    public function testRejectsCookieValueWithCarriageReturn(): void
+    #[Test]
+    public function rejects_cookie_value_with_carriage_return(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%0Ddef\r\n\r\n";
 
@@ -238,7 +258,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session', $cookies);
     }
 
-    public function testRejectsCookieValueWithNewline(): void
+    #[Test]
+    public function rejects_cookie_value_with_newline(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc%0Adef\r\n\r\n";
 
@@ -248,7 +269,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session', $cookies);
     }
 
-    public function testRejectsCookieValueWithTab(): void
+    #[Test]
+    public function rejects_cookie_value_with_tab(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=abc\tdef\r\n\r\n";
 
@@ -258,7 +280,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session', $cookies);
     }
 
-    public function testRejectsCookieValueExceedingMaxLength(): void
+    #[Test]
+    public function rejects_cookie_value_exceeding_max_length(): void
     {
         $longValue = str_repeat('a', 4097);
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session={$longValue}\r\n\r\n";
@@ -269,7 +292,8 @@ class RequestParserTest extends TestCase
         $this->assertArrayNotHasKey('session', $cookies);
     }
 
-    public function testAcceptsCookieValueAtMaxLength(): void
+    #[Test]
+    public function accepts_cookie_value_at_max_length(): void
     {
         $maxLengthValue = str_repeat('a', 4096);
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session={$maxLengthValue}\r\n\r\n";
@@ -280,7 +304,8 @@ class RequestParserTest extends TestCase
         $this->assertSame($maxLengthValue, $cookies['session']);
     }
 
-    public function testParsesMixOfValidAndInvalidCookies(): void
+    #[Test]
+    public function parses_mix_of_valid_and_invalid_cookies(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: valid1=abc; invalid=%00bad; valid2=xyz; valid3=123\r\n\r\n";
 
@@ -293,7 +318,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('123', $cookies['valid3']);
     }
 
-    public function testAcceptsCookieValueWithSpace(): void
+    #[Test]
+    public function accepts_cookie_value_with_space(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=hello world\r\n\r\n";
 
@@ -303,7 +329,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('hello world', $cookies['session']);
     }
 
-    public function testAcceptsCookieValueWithSpecialChars(): void
+    #[Test]
+    public function accepts_cookie_value_with_special_chars(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: token=abc!def#xyz\r\n\r\n";
 
@@ -313,7 +340,8 @@ class RequestParserTest extends TestCase
         $this->assertSame('abc!def#xyz', $cookies['token']);
     }
 
-    public function testHandlesEmptyCookieHeader(): void
+    #[Test]
+    public function handles_empty_cookie_header(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: \r\n\r\n";
 
@@ -323,7 +351,8 @@ class RequestParserTest extends TestCase
         $this->assertSame([], $cookies);
     }
 
-    public function testAcceptsCookieWithEmptyValue(): void
+    #[Test]
+    public function accepts_cookie_with_empty_value(): void
     {
         $rawRequest = "GET / HTTP/1.1\r\nHost: localhost\r\nCookie: session=\r\n\r\n";
 

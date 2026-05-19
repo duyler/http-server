@@ -7,11 +7,13 @@ namespace Duyler\HttpServer\Tests\Unit\Connection;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Socket\StreamSocketResource;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ConnectionPoolTest extends TestCase
 {
-    public function testEnforcesMaxConnectionsLimit(): void
+    #[Test]
+    public function enforces_max_connections_limit(): void
     {
         $pool = new ConnectionPool(maxConnections: 2);
 
@@ -26,7 +28,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame(2, $pool->count());
     }
 
-    public function testRejectsConnectionsWhenModifying(): void
+    #[Test]
+    public function rejects_connections_when_modifying(): void
     {
         $pool = new ConnectionPool(maxConnections: 10);
 
@@ -36,7 +39,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame(1, $pool->count());
     }
 
-    public function testRemoveIsIdempotent(): void
+    #[Test]
+    public function remove_is_idempotent(): void
     {
         $pool = new ConnectionPool();
 
@@ -52,7 +56,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame(0, $pool->count());
     }
 
-    public function testRemoveTimedOutIsSafeDuringConcurrentModifications(): void
+    #[Test]
+    public function remove_timed_out_is_safe_during_concurrent_modifications(): void
     {
         $pool = new ConnectionPool();
 
@@ -68,7 +73,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertLessThanOrEqual(2, count($removed));
     }
 
-    public function testHandlesEmptyPoolGracefully(): void
+    #[Test]
+    public function handles_empty_pool_gracefully(): void
     {
         $pool = new ConnectionPool();
 
@@ -77,7 +83,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame([], $pool->removeTimedOut(30));
     }
 
-    public function testFindBySocketReturnsCorrectConnection(): void
+    #[Test]
+    public function find_by_socket_returns_correct_connection(): void
     {
         $pool = new ConnectionPool();
 
@@ -89,7 +96,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame($conn, $found);
     }
 
-    public function testFindBySocketReturnsNullForUnknownSocket(): void
+    #[Test]
+    public function find_by_socket_returns_null_for_unknown_socket(): void
     {
         $pool = new ConnectionPool();
 
@@ -107,7 +115,8 @@ class ConnectionPoolTest extends TestCase
         $otherSocketResource->close();
     }
 
-    public function testCloseAllRemovesAllConnections(): void
+    #[Test]
+    public function close_all_removes_all_connections(): void
     {
         $pool = new ConnectionPool();
 
@@ -127,7 +136,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame([], $pool->getAll());
     }
 
-    public function testGetAllReturnsArrayOfConnections(): void
+    #[Test]
+    public function get_all_returns_array_of_connections(): void
     {
         $pool = new ConnectionPool();
 
@@ -144,7 +154,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertContains($conn2, $all);
     }
 
-    public function testConcurrentAddRespectsLimit(): void
+    #[Test]
+    public function concurrent_add_respects_limit(): void
     {
         $pool = new ConnectionPool(maxConnections: 5);
 
@@ -160,7 +171,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertLessThanOrEqual(5, $pool->count());
     }
 
-    public function testFindByAddressReturnsCorrectConnection(): void
+    #[Test]
+    public function find_by_address_returns_correct_connection(): void
     {
         $pool = new ConnectionPool();
 
@@ -172,7 +184,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertSame($conn, $found);
     }
 
-    public function testFindByAddressReturnsNullForUnknownAddress(): void
+    #[Test]
+    public function find_by_address_returns_null_for_unknown_address(): void
     {
         $pool = new ConnectionPool();
 
@@ -184,7 +197,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertNull($found);
     }
 
-    public function testHasReturnsTrueForExistingConnection(): void
+    #[Test]
+    public function has_returns_true_for_existing_connection(): void
     {
         $pool = new ConnectionPool();
 
@@ -194,7 +208,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertTrue($pool->has($conn));
     }
 
-    public function testHasReturnsFalseForNonExistingConnection(): void
+    #[Test]
+    public function has_returns_false_for_non_existing_connection(): void
     {
         $pool = new ConnectionPool();
 
@@ -203,7 +218,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertFalse($pool->has($conn));
     }
 
-    public function testIsFullReturnsTrueWhenAtMax(): void
+    #[Test]
+    public function is_full_returns_true_when_at_max(): void
     {
         $pool = new ConnectionPool(maxConnections: 2);
 
@@ -217,7 +233,8 @@ class ConnectionPoolTest extends TestCase
         $this->assertTrue($pool->isFull());
     }
 
-    public function testIsFullReturnsFalseWhenNotAtMax(): void
+    #[Test]
+    public function is_full_returns_false_when_not_at_max(): void
     {
         $pool = new ConnectionPool(maxConnections: 10);
 
@@ -227,14 +244,16 @@ class ConnectionPoolTest extends TestCase
         $this->assertFalse($pool->isFull());
     }
 
-    public function testGetMaxConnectionsReturnsConfiguredLimit(): void
+    #[Test]
+    public function get_max_connections_returns_configured_limit(): void
     {
         $pool = new ConnectionPool(maxConnections: 100);
 
         $this->assertSame(100, $pool->getMaxConnections());
     }
 
-    public function testRemoveTimedOutUsesTimestampFromAdd(): void
+    #[Test]
+    public function remove_timed_out_uses_timestamp_from_add(): void
     {
         $pool = new ConnectionPool();
 

@@ -9,6 +9,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -38,7 +39,8 @@ class RateLimitIntegrationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testServerWithoutRateLimitAcceptsAllRequests(): void
+    #[Test]
+    public function server_without_rate_limit_accepts_all_requests(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -67,7 +69,8 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertTrue(true, 'All requests accepted without rate limit');
     }
 
-    public function testServerWithRateLimitBlocksExcessRequests(): void
+    #[Test]
+    public function server_with_rate_limit_blocks_excess_requests(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -114,7 +117,8 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertGreaterThanOrEqual(1, $rateLimitCount, 'Should block excess requests');
     }
 
-    public function testRateLimitHeaderTest(): void
+    #[Test]
+    public function rate_limit_header_test(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -128,7 +132,8 @@ class RateLimitIntegrationTest extends TestCase
         $this->assertTrue(true, 'Rate limit config accepted');
     }
 
-    public function testDifferentClientsHaveSeparateLimits(): void
+    #[Test]
+    public function different_clients_have_separate_limits(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -163,12 +168,14 @@ class RateLimitIntegrationTest extends TestCase
      */
     private function connectClient()
     {
-        $client = @stream_socket_client(
+        $previousErrorReporting = error_reporting(0);
+        $client = stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
         );
+        error_reporting($previousErrorReporting);
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

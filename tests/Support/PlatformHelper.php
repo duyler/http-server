@@ -58,50 +58,59 @@ class PlatformHelper
 
     private static function testFdPassingWorks(): bool
     {
-        $server = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $previousErrorReporting = error_reporting(0);
+
+        $server = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if (false === $server) {
+            error_reporting($previousErrorReporting);
             return false;
         }
 
-        @socket_set_option($server, SOL_SOCKET, SO_REUSEADDR, 1);
-        if (false === @socket_bind($server, '127.0.0.1', 0)) {
+        socket_set_option($server, SOL_SOCKET, SO_REUSEADDR, 1);
+        if (false === socket_bind($server, '127.0.0.1', 0)) {
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
-        if (false === @socket_listen($server, 1)) {
+        if (false === socket_listen($server, 1)) {
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
         socket_getsockname($server, $addr, $port);
 
-        $client = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         if (false === $client) {
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
-        if (false === @socket_connect($client, $addr, $port)) {
+        if (false === socket_connect($client, $addr, $port)) {
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
-        $accepted = @socket_accept($server);
+        $accepted = socket_accept($server);
         if (false === $accepted) {
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
-        @socket_write($client, 'test_data');
+        socket_write($client, 'test_data');
 
         $pair = [];
-        if (false === @socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair)) {
+        if (false === socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair)) {
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
@@ -118,13 +127,14 @@ class PlatformHelper
             ],
         ];
 
-        $sendResult = @socket_sendmsg($sock1, $msg, 0);
+        $sendResult = socket_sendmsg($sock1, $msg, 0);
         if (false === $sendResult) {
             socket_close($sock1);
             socket_close($sock2);
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
@@ -136,13 +146,14 @@ class PlatformHelper
             'controllen' => 256,
         ];
 
-        $recvResult = @socket_recvmsg($sock2, $rmsg, 0);
+        $recvResult = socket_recvmsg($sock2, $rmsg, 0);
         if (false === $recvResult) {
             socket_close($sock1);
             socket_close($sock2);
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
@@ -152,6 +163,7 @@ class PlatformHelper
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
@@ -162,6 +174,7 @@ class PlatformHelper
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
+            error_reporting($previousErrorReporting);
             return false;
         }
 
@@ -172,7 +185,7 @@ class PlatformHelper
             $isFunctional = strlen($data) > 0;
         } elseif ($recvFd instanceof Socket) {
             socket_set_nonblock($recvFd);
-            $data = @socket_read($recvFd, 1024);
+            $data = socket_read($recvFd, 1024);
             $isFunctional = strlen((string) $data) > 0;
         }
 
@@ -181,6 +194,8 @@ class PlatformHelper
         socket_close($accepted);
         socket_close($client);
         socket_close($server);
+
+        error_reporting($previousErrorReporting);
 
         return $isFunctional;
     }

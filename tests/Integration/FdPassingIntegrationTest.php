@@ -6,12 +6,14 @@ namespace Duyler\HttpServer\Tests\Integration;
 
 use Duyler\HttpServer\Tests\Support\PlatformHelper;
 use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 #[Group('pcntl')]
 class FdPassingIntegrationTest extends TestCase
 {
-    public function testFdPassingWorksInRealProcess(): void
+    #[Test]
+    public function fd_passing_works_in_real_process(): void
     {
         if (!PlatformHelper::supportsSCMRights()) {
             $this->markTestSkipped(PlatformHelper::getSkipReason('scm_rights'));
@@ -44,7 +46,9 @@ class FdPassingIntegrationTest extends TestCase
                 ],
             ];
 
-            $result = @socket_sendmsg($socket1, $message, 0);
+            $previousErrorReporting = error_reporting(0);
+            $result = socket_sendmsg($socket1, $message, 0);
+            error_reporting($previousErrorReporting);
 
             socket_close($testSocket);
             socket_close($socket1);
@@ -60,7 +64,9 @@ class FdPassingIntegrationTest extends TestCase
             'control' => [],
         ];
 
-        $received = @socket_recvmsg($socket2, $recvMsg, 0);
+        $previousErrorReporting = error_reporting(0);
+        $received = socket_recvmsg($socket2, $recvMsg, 0);
+        error_reporting($previousErrorReporting);
 
         socket_close($socket2);
 

@@ -6,11 +6,13 @@ namespace Duyler\HttpServer\Tests\Unit\Config;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Exception\InvalidConfigException;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ServerConfigValidationTest extends TestCase
 {
-    public function testValidatesPort(): void
+    #[Test]
+    public function validates_port(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Port must be between');
@@ -18,7 +20,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(port: 0);
     }
 
-    public function testRejectsPortBelowRange(): void
+    #[Test]
+    public function rejects_port_below_range(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Port must be between');
@@ -26,7 +29,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(port: -1);
     }
 
-    public function testRejectsPortAboveRange(): void
+    #[Test]
+    public function rejects_port_above_range(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Port must be between');
@@ -34,21 +38,24 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(port: 65536);
     }
 
-    public function testAcceptsMinimumPort(): void
+    #[Test]
+    public function accepts_minimum_port(): void
     {
         $config = new ServerConfig(port: 1);
 
         $this->assertSame(1, $config->port);
     }
 
-    public function testAcceptsMaximumPort(): void
+    #[Test]
+    public function accepts_maximum_port(): void
     {
         $config = new ServerConfig(port: 65535);
 
         $this->assertSame(65535, $config->port);
     }
 
-    public function testRejectsZeroRequestTimeout(): void
+    #[Test]
+    public function rejects_zero_request_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Request timeout must be positive');
@@ -56,7 +63,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(requestTimeout: 0);
     }
 
-    public function testRejectsNegativeRequestTimeout(): void
+    #[Test]
+    public function rejects_negative_request_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Request timeout must be positive');
@@ -64,14 +72,16 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(requestTimeout: -1);
     }
 
-    public function testAcceptsMinimumRequestTimeout(): void
+    #[Test]
+    public function accepts_minimum_request_timeout(): void
     {
         $config = new ServerConfig(requestTimeout: 1);
 
         $this->assertSame(1, $config->requestTimeout);
     }
 
-    public function testRejectsZeroConnectionTimeout(): void
+    #[Test]
+    public function rejects_zero_connection_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Connection timeout must be positive');
@@ -79,7 +89,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(connectionTimeout: 0);
     }
 
-    public function testRejectsNegativeConnectionTimeout(): void
+    #[Test]
+    public function rejects_negative_connection_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Connection timeout must be positive');
@@ -87,7 +98,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(connectionTimeout: -1);
     }
 
-    public function testRejectsZeroMaxConnections(): void
+    #[Test]
+    public function rejects_zero_max_connections(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Max connections must be positive');
@@ -95,7 +107,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(maxConnections: 0);
     }
 
-    public function testRejectsNegativeMaxConnections(): void
+    #[Test]
+    public function rejects_negative_max_connections(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Max connections must be positive');
@@ -103,7 +116,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(maxConnections: -1);
     }
 
-    public function testRejectsTooSmallMaxRequestSize(): void
+    #[Test]
+    public function rejects_too_small_max_request_size(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Max request size must be at least 1024 bytes');
@@ -111,14 +125,16 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(maxRequestSize: 1023);
     }
 
-    public function testAcceptsMinimumMaxRequestSize(): void
+    #[Test]
+    public function accepts_minimum_max_request_size(): void
     {
         $config = new ServerConfig(maxRequestSize: 1024);
 
         $this->assertSame(1024, $config->maxRequestSize);
     }
 
-    public function testRejectsTooSmallBufferSize(): void
+    #[Test]
+    public function rejects_too_small_buffer_size(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Buffer size must be at least 1024 bytes');
@@ -126,14 +142,16 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(bufferSize: 1023);
     }
 
-    public function testAcceptsMinimumBufferSize(): void
+    #[Test]
+    public function accepts_minimum_buffer_size(): void
     {
         $config = new ServerConfig(bufferSize: 1024);
 
         $this->assertSame(1024, $config->bufferSize);
     }
 
-    public function testRejectsSslWithoutCert(): void
+    #[Test]
+    public function rejects_ssl_without_cert(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('SSL certificate path is required when SSL is enabled');
@@ -141,7 +159,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(ssl: true, sslKey: '/path/to/key.pem');
     }
 
-    public function testRejectsSslWithEmptyCert(): void
+    #[Test]
+    public function rejects_ssl_with_empty_cert(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('SSL certificate path is required when SSL is enabled');
@@ -149,7 +168,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(ssl: true, sslCert: '', sslKey: '/path/to/key.pem');
     }
 
-    public function testRejectsSslWithoutKey(): void
+    #[Test]
+    public function rejects_ssl_without_key(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('SSL key path is required when SSL is enabled');
@@ -157,7 +177,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(ssl: true, sslCert: '/path/to/cert.pem');
     }
 
-    public function testRejectsSslWithEmptyKey(): void
+    #[Test]
+    public function rejects_ssl_with_empty_key(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('SSL key path is required when SSL is enabled');
@@ -165,7 +186,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(ssl: true, sslCert: '/path/to/cert.pem', sslKey: '');
     }
 
-    public function testRejectsSslWithNonexistentCert(): void
+    #[Test]
+    public function rejects_ssl_with_nonexistent_cert(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('SSL certificate file not found');
@@ -177,7 +199,8 @@ class ServerConfigValidationTest extends TestCase
         );
     }
 
-    public function testRejectsSslWithNonexistentKey(): void
+    #[Test]
+    public function rejects_ssl_with_nonexistent_key(): void
     {
         $certFile = tempnam(sys_get_temp_dir(), 'cert');
         file_put_contents($certFile, '');
@@ -196,7 +219,8 @@ class ServerConfigValidationTest extends TestCase
         }
     }
 
-    public function testRejectsNonexistentPublicPath(): void
+    #[Test]
+    public function rejects_nonexistent_public_path(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Public path is not a directory');
@@ -204,7 +228,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(publicPath: '/nonexistent/path');
     }
 
-    public function testRejectsPublicPathAsFile(): void
+    #[Test]
+    public function rejects_public_path_as_file(): void
     {
         $tempFile = tempnam(sys_get_temp_dir(), 'test');
 
@@ -218,7 +243,8 @@ class ServerConfigValidationTest extends TestCase
         }
     }
 
-    public function testAcceptsValidPublicPath(): void
+    #[Test]
+    public function accepts_valid_public_path(): void
     {
         $tempDir = sys_get_temp_dir();
 
@@ -227,7 +253,8 @@ class ServerConfigValidationTest extends TestCase
         $this->assertSame($tempDir, $config->publicPath);
     }
 
-    public function testRejectsZeroKeepAliveTimeout(): void
+    #[Test]
+    public function rejects_zero_keep_alive_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Keep-alive timeout must be positive');
@@ -235,7 +262,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(keepAliveTimeout: 0);
     }
 
-    public function testRejectsNegativeKeepAliveTimeout(): void
+    #[Test]
+    public function rejects_negative_keep_alive_timeout(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Keep-alive timeout must be positive');
@@ -243,7 +271,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(keepAliveTimeout: -1);
     }
 
-    public function testRejectsZeroKeepAliveMaxRequests(): void
+    #[Test]
+    public function rejects_zero_keep_alive_max_requests(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Keep-alive max requests must be positive');
@@ -251,7 +280,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(keepAliveMaxRequests: 0);
     }
 
-    public function testRejectsNegativeKeepAliveMaxRequests(): void
+    #[Test]
+    public function rejects_negative_keep_alive_max_requests(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Keep-alive max requests must be positive');
@@ -259,7 +289,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(keepAliveMaxRequests: -1);
     }
 
-    public function testRejectsNegativeStaticCacheSize(): void
+    #[Test]
+    public function rejects_negative_static_cache_size(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Static cache size must be non-negative');
@@ -267,14 +298,16 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(staticCacheSize: -1);
     }
 
-    public function testAcceptsZeroStaticCacheSize(): void
+    #[Test]
+    public function accepts_zero_static_cache_size(): void
     {
         $config = new ServerConfig(staticCacheSize: 0);
 
         $this->assertSame(0, $config->staticCacheSize);
     }
 
-    public function testRejectsZeroRateLimitRequests(): void
+    #[Test]
+    public function rejects_zero_rate_limit_requests(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Rate limit requests must be positive');
@@ -282,7 +315,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(rateLimitRequests: 0);
     }
 
-    public function testRejectsZeroRateLimitWindow(): void
+    #[Test]
+    public function rejects_zero_rate_limit_window(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Rate limit window must be positive');
@@ -290,7 +324,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(rateLimitWindow: 0);
     }
 
-    public function testAcceptsAllDefaultValues(): void
+    #[Test]
+    public function accepts_all_default_values(): void
     {
         $config = new ServerConfig();
 
@@ -327,7 +362,8 @@ class ServerConfigValidationTest extends TestCase
         $this->assertSame(134217728, $config->memoryLimit);
     }
 
-    public function testAcceptsCustomValues(): void
+    #[Test]
+    public function accepts_custom_values(): void
     {
         $config = new ServerConfig(
             host: '192.168.1.1',
@@ -372,21 +408,24 @@ class ServerConfigValidationTest extends TestCase
         $this->assertTrue($config->debugMode);
     }
 
-    public function testDefaultMemoryLimit(): void
+    #[Test]
+    public function default_memory_limit(): void
     {
         $config = new ServerConfig();
 
         $this->assertSame(134217728, $config->memoryLimit);
     }
 
-    public function testCustomMemoryLimit(): void
+    #[Test]
+    public function custom_memory_limit(): void
     {
         $config = new ServerConfig(memoryLimit: 268435456);
 
         $this->assertSame(268435456, $config->memoryLimit);
     }
 
-    public function testRejectsMemoryLimitBelowMinimum(): void
+    #[Test]
+    public function rejects_memory_limit_below_minimum(): void
     {
         $this->expectException(InvalidConfigException::class);
         $this->expectExceptionMessage('Memory limit must be at least 1MB');
@@ -394,7 +433,8 @@ class ServerConfigValidationTest extends TestCase
         new ServerConfig(memoryLimit: 1048575);
     }
 
-    public function testAcceptsMinimumMemoryLimit(): void
+    #[Test]
+    public function accepts_minimum_memory_limit(): void
     {
         $config = new ServerConfig(memoryLimit: 1048576);
 

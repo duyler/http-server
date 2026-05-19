@@ -11,6 +11,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -32,7 +33,8 @@ class ServerRequestIdTest extends TestCase
         parent::tearDown();
     }
 
-    public function testItGeneratesSequentialRequestIds(): void
+    #[Test]
+    public function it_generates_sequential_request_ids(): void
     {
         $config = new ServerConfig(port: 18085);
         $this->server = new Server($config);
@@ -54,7 +56,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame('req_2', $id3);
     }
 
-    public function testItCreatesRequestDataWithId(): void
+    #[Test]
+    public function it_creates_request_data_with_id(): void
     {
         $config = new ServerConfig(port: 18086);
         $this->server = new Server($config);
@@ -67,7 +70,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame(42, $requestData->connectionId);
     }
 
-    public function testItCreatesResponseDataViaRespondMethod(): void
+    #[Test]
+    public function it_creates_response_data_via_respond_method(): void
     {
         $request = new \Nyholm\Psr7\ServerRequest('GET', '/test');
         $requestData = new RequestData('req_123', $request, 42);
@@ -80,7 +84,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame($response, $responseData->response);
     }
 
-    public function testItValidatesRequestIdInRespond(): void
+    #[Test]
+    public function it_validates_request_id_in_respond(): void
     {
         $config = new ServerConfig(port: 18080);
         $this->server = new Server($config);
@@ -95,7 +100,8 @@ class ServerRequestIdTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItHandlesInvalidRequestIdGracefully(): void
+    #[Test]
+    public function it_handles_invalid_request_id_gracefully(): void
     {
         $config = new ServerConfig(port: 18081);
         $this->server = new Server($config);
@@ -110,7 +116,8 @@ class ServerRequestIdTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItRemovesMappingAfterRespond(): void
+    #[Test]
+    public function it_removes_mapping_after_respond(): void
     {
         $config = new ServerConfig(port: 18082);
         $this->server = new Server($config);
@@ -149,7 +156,8 @@ class ServerRequestIdTest extends TestCase
         self::assertArrayNotHasKey('req_test', $mapping);
     }
 
-    public function testItHasCorrectHasPendingResponse(): void
+    #[Test]
+    public function it_has_correct_has_pending_response(): void
     {
         $config = new ServerConfig(port: 18083);
         $this->server = new Server($config);
@@ -178,7 +186,8 @@ class ServerRequestIdTest extends TestCase
         self::assertTrue($this->server->hasPendingResponse());
     }
 
-    public function testItResetsRequestIdCounterOnReset(): void
+    #[Test]
+    public function it_resets_request_id_counter_on_reset(): void
     {
         $config = new ServerConfig(port: 18084);
         $this->server = new Server($config);
