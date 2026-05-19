@@ -450,8 +450,6 @@ final class Server implements ServerInterface
                 }
             }
 
-            $this->fibers = array_values($this->fibers);
-
             if (false === $this->isRunning) {
                 $this->logger->warning('hasRequest() called but server is not running');
                 return false;
@@ -616,32 +614,107 @@ final class Server implements ServerInterface
 
     private function readFromConnections(): void
     {
-        $connections = $this->connectionPool->getAll();
+        $readSockets = [];
+        $socketToConnection = [];
+        $readStreams = [];
+        $streamToConnection = [];
+        $invalidConnections = [];
 
-        if (count($connections) === 0) {
-            return;
-        }
-
-        foreach ($connections as $connection) {
-            if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
-                $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
-                if (null !== $wsConn) {
-                    $this->webSocketHandler->handleDataForConnection($connection, $wsConn);
-                }
+        foreach ($this->connectionPool as $connection) {
+            if (false === $connection->isValid()) {
+                $invalidConnections[] = $connection;
                 continue;
             }
 
-            $this->connectionManager->readFromConnection(
-                $connection,
-                $this->config->bufferSize,
-                function (ConnectionInterface $conn): void {
-                    if ($this->httpParser->hasCompleteHeaders($conn->getBuffer())) {
-                        if (false === $this->handleCorsPreflight($conn)) {
-                            $this->requestProcessor->processRequest($conn);
-                        }
+            $socket = $connection->getSocket();
+            $internalResource = $socket instanceof StreamSocketResource
+                ? $socket->getInternalResource()
+                : null;
+
+            if (null === $internalResource) {
+                $invalidConnections[] = $connection;
+                continue;
+            }
+
+            if ($internalResource instanceof Socket) {
+                $id = spl_object_id($internalResource);
+                $readSockets[$id] = $internalResource;
+                $socketToConnection[$id] = $connection;
+            } else {
+                $id = (int) $internalResource;
+                $readStreams[$id] = $internalResource;
+                $streamToConnection[$id] = $connection;
+            }
+        }
+
+        foreach ($invalidConnections as $connection) {
+            $this->connectionManager->closeConnectionWithMetrics($connection);
+        }
+
+        if ([] === $readSockets && [] === $readStreams) {
+            return;
+        }
+
+        $onDataCallback = function (ConnectionInterface $conn): void {
+            if ($this->httpParser->hasCompleteHeaders($conn->getBuffer())) {
+                if (false === $this->handleCorsPreflight($conn)) {
+                    $this->requestProcessor->processRequest($conn);
+                }
+            }
+        };
+
+        if ([] !== $readSockets) {
+            $write = null;
+            $except = null;
+            $socketList = array_values($readSockets);
+            $changed = socket_select($socketList, $write, $except, 0);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($socketList as $readySocket) {
+                    $id = spl_object_id($readySocket);
+                    $connection = $socketToConnection[$id] ?? null;
+                    if (null === $connection) {
+                        continue;
                     }
-                },
-            );
+
+                    if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
+                        $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
+                        if (null !== $wsConn) {
+                            $this->webSocketHandler->processWebSocketDataDirect($connection, $wsConn);
+                        }
+                        continue;
+                    }
+
+                    $this->connectionManager->readFromConnectionDirect($connection, $this->config->bufferSize, $onDataCallback);
+                }
+            }
+        }
+
+        if ([] !== $readStreams) {
+            $write = null;
+            $except = null;
+            $streamList = array_values($readStreams);
+            $changed = stream_select($streamList, $write, $except, 0);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($streamList as $readyStream) {
+                    $id = (int) $readyStream;
+                    $connection = $streamToConnection[$id] ?? null;
+                    if (null === $connection) {
+                        continue;
+                    }
+
+                    if ($this->hasWebSocket && $this->webSocketHandler->hasWebSocketConnection($connection)) {
+                        $wsConn = $this->webSocketHandler->getWebSocketConnection($connection);
+                        if (null !== $wsConn) {
+                            $this->webSocketHandler->processWebSocketDataDirect($connection, $wsConn);
+                        }
+                        continue;
+                    }
+
+                    $this->connectionManager->readFromConnectionDirect($connection, $this->config->bufferSize, $onDataCallback);
+                }
+            }
         }
     }
 
@@ -840,7 +913,6 @@ final class Server implements ServerInterface
 
         if (false !== $key) {
             unset($this->fibers[$key]);
-            $this->fibers = array_values($this->fibers);
 
             $this->logger->debug('Fiber unregistered', [
                 'total_fibers' => count($this->fibers),
