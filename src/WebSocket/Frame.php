@@ -45,7 +45,7 @@ final readonly class Frame
             $frame .= pack('J', $payloadLength);
         }
 
-        if ($this->masked && $this->maskingKey !== null) {
+        if ($this->masked && null !== $this->maskingKey) {
             $frame .= $this->maskingKey;
             $frame .= $this->mask($this->payload, $this->maskingKey);
         } else {

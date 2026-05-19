@@ -27,7 +27,7 @@ final class Handshake
         }
 
         $connection = strtolower($request->getHeaderLine('Connection'));
-        if (!str_contains($connection, 'upgrade')) {
+        if (false === str_contains($connection, 'upgrade')) {
             return false;
         }
 
@@ -70,7 +70,7 @@ final class Handshake
 
             $selectedProtocol = self::selectProtocol($requestedProtocols, $config->subProtocols);
 
-            if ($selectedProtocol !== null) {
+            if (null !== $selectedProtocol) {
                 $response .= "Sec-WebSocket-Protocol: {$selectedProtocol}\r\n";
             }
         }

@@ -28,7 +28,7 @@ final class StreamSocketResource implements SocketResourceInterface
         mixed $resource,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
-        if (false === is_resource($resource) && !$resource instanceof Socket) {
+        if (false === is_resource($resource) && false === $resource instanceof Socket) {
             throw new InvalidArgumentException('Invalid socket resource or Socket object');
         }
         $this->resource = $resource;

@@ -130,7 +130,7 @@ interface ServerInterface
      * @example
      * ```php
      * $resource = $server->getSocketResource();
-     * if ($resource !== null) {
+     * if (null !== $resource) {
      *     $watcher = new EvIo($resource, Ev::READ, $callback);
      * }
      * ```

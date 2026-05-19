@@ -70,7 +70,7 @@ final class SslSocket implements SocketInterface
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         $client = stream_socket_accept($this->socket, 0);
 
         if (false === $client) {
@@ -89,7 +89,7 @@ final class SslSocket implements SocketInterface
             throw new SocketException('Socket is not valid');
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         if (false === stream_set_blocking($this->socket, $blocking)) {
             throw new SocketException('Failed to set blocking mode on SSL socket');
         }
@@ -106,7 +106,7 @@ final class SslSocket implements SocketInterface
             return false;
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         $data = fread($this->socket, $length);
         return $data === false ? false : $data;
     }
@@ -118,7 +118,7 @@ final class SslSocket implements SocketInterface
             return false;
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         $written = fwrite($this->socket, $data);
         if (false !== $written) {
             fflush($this->socket);
@@ -130,7 +130,7 @@ final class SslSocket implements SocketInterface
     public function close(): void
     {
         if ($this->isValid()) {
-            assert($this->socket !== null);
+            assert(null !== $this->socket);
             $socket = $this->socket;
             $this->socket = null;
             fclose($socket);

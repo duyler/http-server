@@ -73,24 +73,24 @@ final readonly class ServerConfig
         }
 
         if ($this->ssl) {
-            if ($this->sslCert === null || $this->sslCert === '') {
+            if (null === $this->sslCert || '' === $this->sslCert) {
                 throw new InvalidConfigException('SSL certificate path is required when SSL is enabled');
             }
 
-            if ($this->sslKey === null || $this->sslKey === '') {
+            if (null === $this->sslKey || '' === $this->sslKey) {
                 throw new InvalidConfigException('SSL key path is required when SSL is enabled');
             }
 
-            if (!file_exists($this->sslCert)) {
+            if (false === file_exists($this->sslCert)) {
                 throw new InvalidConfigException(sprintf('SSL certificate file not found: %s', $this->sslCert));
             }
 
-            if (!file_exists($this->sslKey)) {
+            if (false === file_exists($this->sslKey)) {
                 throw new InvalidConfigException(sprintf('SSL key file not found: %s', $this->sslKey));
             }
         }
 
-        if ($this->publicPath !== null && !is_dir($this->publicPath)) {
+        if (null !== $this->publicPath && false === is_dir($this->publicPath)) {
             throw new InvalidConfigException(sprintf('Public path is not a directory: %s', $this->publicPath));
         }
 
