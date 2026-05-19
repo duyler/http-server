@@ -26,6 +26,7 @@ final class Connection implements ConnectionInterface
         private readonly SocketResourceInterface $socket,
         private readonly string $remoteAddress,
         private readonly int $remotePort,
+        private readonly int $maxBufferSize = 10485760,
     ) {
         $this->lastActivityTime = microtime(true);
     }
@@ -58,6 +59,12 @@ final class Connection implements ConnectionInterface
     public function appendToBuffer(string $data): void
     {
         $this->buffer .= $data;
+
+        if (strlen($this->buffer) > $this->maxBufferSize) {
+            $this->close();
+            return;
+        }
+
         $this->updateActivity();
     }
 
