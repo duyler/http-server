@@ -25,6 +25,7 @@ use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\RateLimit\RateLimiter;
+use Duyler\HttpServer\Security\AuditLogger;
 use Duyler\HttpServer\Security\CorsService;
 use Duyler\HttpServer\Security\SecurityHeadersService;
 use Duyler\HttpServer\Socket\ExistingSocket;
@@ -533,6 +534,10 @@ final class Server implements ServerInterface
     public function setLogger(LoggerInterface $logger): void
     {
         $this->logger = $logger;
+        $this->requestProcessor->setLogger($logger);
+
+        $auditLogger = new AuditLogger($logger);
+        $this->requestProcessor->setAuditLogger($auditLogger);
     }
 
     /**
@@ -1166,8 +1171,17 @@ final class Server implements ServerInterface
             return false;
         }
 
+        $pos = strpos($buffer, "\r\n\r\n");
+
+        if (false === $pos) {
+            return false;
+        }
+
+        $headerBlock = substr($buffer, 0, $pos);
+        $consumed = strlen($headerBlock) + 4;
+
         $request = $this->requestParser->parse(
-            $buffer,
+            substr($buffer, 0, $consumed),
             $connection->getRemoteAddress(),
             $connection->getRemotePort(),
         );
@@ -1196,7 +1210,7 @@ final class Server implements ServerInterface
         $connection->setKeepAlive($keepAlive);
 
         $this->requestProcessor->sendResponse($connection, $response);
-        $connection->clearBuffer();
+        $connection->consumeBuffer($consumed);
 
         return true;
     }

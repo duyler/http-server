@@ -75,6 +75,17 @@ final class Connection implements ConnectionInterface
         $this->clearRequestCache();
     }
 
+    #[Override]
+    public function consumeBuffer(int $bytes): void
+    {
+        if ($bytes >= strlen($this->buffer)) {
+            $this->buffer = '';
+        } else {
+            $this->buffer = substr($this->buffer, $bytes);
+        }
+        $this->clearRequestCache();
+    }
+
     /**
      * @return array<string, string|array<int, string>>|null
      */

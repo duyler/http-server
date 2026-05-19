@@ -20,6 +20,8 @@ interface ConnectionInterface
 
     public function clearBuffer(): void;
 
+    public function consumeBuffer(int $bytes): void;
+
     public function incrementRequestCount(): void;
 
     public function getRequestCount(): int;

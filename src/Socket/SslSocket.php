@@ -45,8 +45,11 @@ final class SslSocket implements SocketInterface
         );
 
         if (false === $socket) {
+            $sslError = error_get_last();
+            $sslMessage = null !== $sslError ? $sslError['message'] : 'Unknown SSL error';
+
             throw new SocketException(
-                sprintf('Failed to create SSL socket on %s: [%d] %s', $uri, $errno, $errstr),
+                sprintf('Failed to create SSL socket on %s: [%d] %s (SSL: %s)', $uri, $errno, $errstr, $sslMessage),
             );
         }
 
@@ -74,6 +77,10 @@ final class SslSocket implements SocketInterface
         $client = stream_socket_accept($this->socket, 0);
 
         if (false === $client) {
+            $sslError = error_get_last();
+            if (null !== $sslError) {
+                error_log(sprintf('SSL accept error: %s', $sslError['message']));
+            }
             return false;
         }
 

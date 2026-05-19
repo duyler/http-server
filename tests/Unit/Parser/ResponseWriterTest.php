@@ -8,6 +8,7 @@ use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Security\SecurityHeadersService;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ResponseWriterTest extends TestCase
@@ -179,5 +180,17 @@ class ResponseWriterTest extends TestCase
         $output = $this->writer->write($response);
 
         $this->assertStringNotContainsString('Strict-Transport-Security', $output);
+    }
+
+    #[Test]
+    public function date_header_present_in_rfc_7231_format(): void
+    {
+        $response = new Response(200, [], 'OK');
+        $output = $this->writer->write($response);
+
+        $this->assertMatchesRegularExpression(
+            '/Date: [A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT/',
+            $output,
+        );
     }
 }

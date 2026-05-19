@@ -15,6 +15,7 @@ use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Parser\RequestParser;
 use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\RateLimit\RateLimiter;
+use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Duyler\HttpServer\Security\CorsService;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Duyler\HttpServer\WebSocket\Handshake;
@@ -43,6 +44,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     private $notifyEventLoopCallback = null;
 
     private ?CorsService $corsService = null;
+
+    private ?AuditLoggerInterface $auditLogger = null;
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -80,6 +83,11 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         $this->corsService = $corsService;
     }
 
+    public function setAuditLogger(AuditLoggerInterface $auditLogger): void
+    {
+        $this->auditLogger = $auditLogger;
+    }
+
     #[Override]
     public function processRequest(ConnectionInterface $connection): void
     {
@@ -92,6 +100,13 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                     'remote' => $connection->getRemoteAddress(),
                     'timeout' => $this->config->requestTimeout,
                 ]);
+
+                if (null !== $this->auditLogger) {
+                    $this->auditLogger->logSecurityEvent('request_timeout', [
+                        'ip' => $connection->getRemoteAddress(),
+                    ]);
+                }
+
                 $this->sendErrorResponse($connection, 408, 'Request Timeout');
                 return;
             }
@@ -107,24 +122,34 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                 $connection->setExpectedContentLength($contentLength);
             } else {
                 $headers = $connection->getCachedHeaders();
-                $contentLength = $connection->getExpectedContentLength();
+                $contentLength = $connection->getExpectedContentLength() ?? 0;
             }
 
             if (strlen($body) < $contentLength) {
                 return;
             }
 
+            $consumed = strlen($headerBlock) + 4 + $contentLength;
+
             if ($contentLength > $this->config->maxRequestSize) {
                 $this->logger->warning('Request payload too large', [
                     'content_length' => $contentLength,
                     'max_allowed' => $this->config->maxRequestSize,
                 ]);
+
+                if (null !== $this->auditLogger) {
+                    $this->auditLogger->logSecurityEvent('request_too_large', [
+                        'ip' => $connection->getRemoteAddress(),
+                        'content_length' => $contentLength,
+                    ]);
+                }
+
                 $this->sendErrorResponse($connection, 413, 'Payload Too Large');
                 return;
             }
 
             $request = $this->requestParser->parse(
-                $buffer,
+                substr($buffer, 0, $consumed),
                 $connection->getRemoteAddress(),
                 $connection->getRemotePort(),
             );
@@ -141,6 +166,13 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                     'remote' => $connection->getRemoteAddress(),
                 ]);
 
+                if (null !== $this->auditLogger) {
+                    $this->auditLogger->logRateLimitExceeded(
+                        $connection->getRemoteAddress(),
+                        $connection->getRequestCount(),
+                    );
+                }
+
                 $resetTime = $this->rateLimiter->getResetTime($connection->getRemoteAddress());
                 $response = new Response(429, [
                     'Content-Type' => 'text/plain',
@@ -151,6 +183,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                 ], 'Too Many Requests');
 
                 $this->sendResponse($connection, $response);
+                $connection->consumeBuffer($consumed);
                 return;
             }
 
@@ -170,7 +203,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                     $this->sendResponse($connection, $response);
                 }
 
-                $connection->clearBuffer();
+                $connection->consumeBuffer($consumed);
                 return;
             }
 
@@ -195,7 +228,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                 ($this->notifyEventLoopCallback)();
             }
 
-            $connection->clearBuffer();
+            $connection->consumeBuffer($consumed);
             $connection->incrementRequestCount();
 
             $connectionHeader = $request->getHeaderLine('Connection');

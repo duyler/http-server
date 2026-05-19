@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Connection;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ConnectionTest extends TestCase
@@ -133,5 +134,38 @@ class ConnectionTest extends TestCase
         $this->connection->close();
 
         $this->assertFalse(is_resource($this->socket));
+    }
+
+    #[Test]
+    public function consume_buffer_removes_exact_bytes(): void
+    {
+        $this->connection->appendToBuffer('Hello World');
+        $this->connection->consumeBuffer(6);
+
+        $this->assertSame('World', $this->connection->getBuffer());
+    }
+
+    #[Test]
+    public function consume_buffer_clears_all_when_bytes_exceed_buffer(): void
+    {
+        $this->connection->appendToBuffer('Hello');
+        $this->connection->consumeBuffer(100);
+
+        $this->assertSame('', $this->connection->getBuffer());
+    }
+
+    #[Test]
+    public function consume_buffer_clears_request_cache(): void
+    {
+        $this->connection->appendToBuffer('data');
+        $this->connection->setCachedHeaders(['Host' => ['example.com']]);
+        $this->connection->setExpectedContentLength(42);
+        $this->connection->startRequestTimer();
+
+        $this->connection->consumeBuffer(2);
+
+        $this->assertNull($this->connection->getCachedHeaders());
+        $this->assertNull($this->connection->getExpectedContentLength());
+        $this->assertNull($this->connection->getRequestStartTime());
     }
 }

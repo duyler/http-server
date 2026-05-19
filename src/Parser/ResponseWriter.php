@@ -43,6 +43,7 @@ final class ResponseWriter
     public function write(ResponseInterface $response): string
     {
         $response = $this->applySecurityHeaders($response);
+        $response = $response->withHeader('Date', gmdate('D, d M Y H:i:s') . ' GMT');
 
         $parts = [];
         $parts[] = $this->buildStatusLine($response);
