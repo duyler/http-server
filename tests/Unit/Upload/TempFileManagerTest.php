@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Upload;
 use Duyler\HttpServer\Upload\TempFileManager;
 use Override;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 class TempFileManagerTest extends TestCase
 {
@@ -122,5 +123,49 @@ class TempFileManagerTest extends TestCase
 
         $this->assertFileExists($tmpFile2);
         $this->assertSame(1, $this->manager->getTrackedFilesCount());
+    }
+
+    public function testShutdownRegisteredFlagIsFalseBeforeCreate(): void
+    {
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertFalse($reflection->getValue($this->manager));
+    }
+
+    public function testShutdownRegisteredFlagIsSetAfterFirstCreate(): void
+    {
+        $this->manager->create();
+
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertTrue($reflection->getValue($this->manager));
+    }
+
+    public function testShutdownRegisteredFlagRemainsTrueAfterMultipleCreates(): void
+    {
+        $this->manager->create();
+        $this->manager->create();
+        $this->manager->create();
+
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertTrue($reflection->getValue($this->manager));
+    }
+
+    public function testCleanupCalledAfterShutdownFunctionRegistration(): void
+    {
+        $tmpFile = $this->manager->create();
+        $this->assertFileExists($tmpFile);
+
+        $this->manager->cleanup();
+
+        $this->assertFileDoesNotExist($tmpFile);
+        $this->assertSame(0, $this->manager->getTrackedFilesCount());
+    }
+
+    public function testCleanupIsIdempotentAfterShutdownRegistration(): void
+    {
+        $this->manager->create();
+        $this->manager->cleanup();
+        $this->manager->cleanup();
+
+        $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 }

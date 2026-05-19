@@ -71,11 +71,12 @@ final class ConnectionManager implements ConnectionManagerInterface
     #[Override]
     public function removeTimedOut(int $timeout): int
     {
-        return $this->pool->removeTimedOut($timeout);
+        return count($this->pool->removeTimedOut($timeout));
     }
 
     public function closeConnectionWithMetrics(ConnectionInterface $connection): void
     {
+        $this->requestProcessor->removeConnectionsByConnection($connection);
         $connection->close();
         $this->pool->remove($connection);
         $this->metrics->incrementClosedConnections();
@@ -222,10 +223,11 @@ final class ConnectionManager implements ConnectionManagerInterface
     public function cleanupTimedOut(int $timeout): int
     {
         $removed = $this->pool->removeTimedOut($timeout);
-        for ($i = 0; $i < $removed; $i++) {
+        foreach ($removed as $connection) {
+            $this->requestProcessor->removeConnectionsByConnection($connection);
             $this->metrics->incrementTimedOutConnections();
         }
-        return $removed;
+        return count($removed);
     }
 
 }

@@ -64,8 +64,8 @@ class ConnectionPoolTest extends TestCase
 
         $removed = $pool->removeTimedOut(timeout: 0);
 
-        $this->assertGreaterThanOrEqual(0, $removed);
-        $this->assertLessThanOrEqual(2, $removed);
+        $this->assertGreaterThanOrEqual(0, count($removed));
+        $this->assertLessThanOrEqual(2, count($removed));
     }
 
     public function testHandlesEmptyPoolGracefully(): void
@@ -74,7 +74,7 @@ class ConnectionPoolTest extends TestCase
 
         $this->assertSame(0, $pool->count());
         $this->assertSame([], $pool->getAll());
-        $this->assertSame(0, $pool->removeTimedOut(30));
+        $this->assertSame([], $pool->removeTimedOut(30));
     }
 
     public function testFindBySocketReturnsCorrectConnection(): void
@@ -243,7 +243,7 @@ class ConnectionPoolTest extends TestCase
 
         // Immediately check - should not be timed out
         $removed = $pool->removeTimedOut(timeout: 3600);
-        $this->assertSame(0, $removed);
+        $this->assertSame([], $removed);
         $this->assertSame(1, $pool->count());
     }
 

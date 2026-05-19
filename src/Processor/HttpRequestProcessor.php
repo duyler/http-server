@@ -409,6 +409,15 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         }
     }
 
+    public function removeConnectionsByConnection(ConnectionInterface $connection): void
+    {
+        foreach ($this->requestConnections as $requestId => $data) {
+            if ($data['connection'] === $connection) {
+                unset($this->requestConnections[$requestId]);
+            }
+        }
+    }
+
     public function cleanupStaleRequests(int $timeout): void
     {
         $now = microtime(true);
@@ -458,6 +467,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
                 'requests_handled' => $connection->getRequestCount(),
             ]);
         }
+
+        $this->removeConnectionsByConnection($connection);
 
         $connection->close();
         $this->connectionPool->remove($connection);

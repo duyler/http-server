@@ -127,16 +127,19 @@ final class ConnectionPool implements IteratorAggregate
         return $this->connections->count();
     }
 
-    public function removeTimedOut(int $timeout): int
+    /**
+     * @return array<ConnectionInterface>
+     */
+    public function removeTimedOut(int $timeout): array
     {
         if ($this->isModifying) {
-            return 0;
+            return [];
         }
 
         $this->isModifying = true;
 
         try {
-            $removed = 0;
+            $removed = [];
             $now = time();
             $toRemove = [];
 
@@ -162,7 +165,7 @@ final class ConnectionPool implements IteratorAggregate
                         unset($this->connectionsByAddress[$address]);
                     }
 
-                    ++$removed;
+                    $removed[] = $connection;
                 }
             }
 

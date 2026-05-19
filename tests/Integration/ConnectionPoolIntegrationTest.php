@@ -119,6 +119,6 @@ class ConnectionPoolIntegrationTest extends TestCase
 
         $removed = $pool->removeTimedOut(timeout: 0);
 
-        $this->assertGreaterThanOrEqual(0, $removed);
+        $this->assertGreaterThanOrEqual(0, count($removed));
     }
 }
