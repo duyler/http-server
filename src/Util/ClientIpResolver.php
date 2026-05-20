@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Util;
 
+use Duyler\HttpServer\Socket\SocketResourceInterface;
+use Duyler\HttpServer\Socket\StreamSocketResource;
 use Psr\Http\Message\ServerRequestInterface;
+use Socket;
 
 final readonly class ClientIpResolver
 {
@@ -42,5 +45,22 @@ final readonly class ClientIpResolver
         }
 
         return 'unknown';
+    }
+
+    /**
+     * Resolve client IP and port from a socket resource
+     *
+     * @param Socket|resource|SocketResourceInterface $resource Socket resource to resolve
+     * @return array{ip: string, port: int}|false Peer info or false on failure
+     */
+    public static function resolveFromResource(mixed $resource): array|false
+    {
+        if ($resource instanceof SocketResourceInterface) {
+            return $resource->getPeerName();
+        }
+
+        $socketResource = new StreamSocketResource($resource);
+
+        return $socketResource->getPeerName();
     }
 }

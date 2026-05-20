@@ -39,6 +39,7 @@ use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Duyler\HttpServer\Upload\TempFileManager;
+use Duyler\HttpServer\Util\ClientIpResolver;
 use Duyler\HttpServer\WebSocket\Handshake;
 use Duyler\HttpServer\WebSocket\WebSocketHandler;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
@@ -801,7 +802,7 @@ final class Server implements ServerInterface
         $clientPort = 0;
 
         $socketResource = new StreamSocketResource($clientSocket);
-        $peerInfo = $socketResource->getPeerName();
+        $peerInfo = ClientIpResolver::resolveFromResource($socketResource);
         if (false !== $peerInfo) {
             $clientIp = $peerInfo['ip'];
             $clientPort = $peerInfo['port'];

@@ -11,6 +11,7 @@ use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Duyler\HttpServer\Socket\StreamSocketResource;
+use Duyler\HttpServer\Util\ClientIpResolver;
 use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
@@ -166,7 +167,7 @@ final class ConnectionManager implements ConnectionManagerInterface
             $remoteAddr = '0.0.0.0';
             $remotePort = 0;
 
-            $peerInfo = $clientSocketResource->getPeerName();
+            $peerInfo = ClientIpResolver::resolveFromResource($clientSocketResource);
             if (false !== $peerInfo) {
                 $remoteAddr = $peerInfo['ip'];
                 $remotePort = $peerInfo['port'];
