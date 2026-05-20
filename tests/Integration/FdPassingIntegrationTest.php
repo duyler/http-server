@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use Socket;
 
 #[Group('pcntl')]
 class FdPassingIntegrationTest extends TestCase
@@ -80,7 +81,7 @@ class FdPassingIntegrationTest extends TestCase
             if (isset($recvMsg['control'][0]['data'][0])) {
                 $recvFd = $recvMsg['control'][0]['data'][0];
                 $this->assertTrue(
-                    is_resource($recvFd) || $recvFd instanceof \Socket,
+                    is_resource($recvFd) || $recvFd instanceof Socket,
                     'Received FD should be a Socket or resource',
                 );
             }
@@ -109,4 +110,3 @@ class FdPassingIntegrationTest extends TestCase
         socket_close($pair[1]);
     }
 }
-
