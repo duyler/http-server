@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\Connection;
 
+use Duyler\HttpServer\Connection\Connection;
+use Duyler\HttpServer\Connection\ConnectionInterface;
 use Duyler\HttpServer\Connection\ConnectionManager;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Metrics\ServerMetrics;
@@ -14,6 +16,7 @@ use Duyler\HttpServer\Processor\ResponseSender;
 use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
+use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -25,6 +28,7 @@ class ConnectionManagerTest extends TestCase
     private ConnectionPool $pool;
     private ServerMetrics $metrics;
 
+    #[Override]
     protected function setUp(): void
     {
         $this->pool = new ConnectionPool();
@@ -61,13 +65,7 @@ class ConnectionManagerTest extends TestCase
     }
 
     #[Test]
-    public function add_delegates_to_pool(): void
-    {
-        $this->assertSame(0, $this->manager->count());
-    }
-
-    #[Test]
-    public function count_returns_correct_value(): void
+    public function count_returns_zero_on_empty_pool(): void
     {
         $this->assertSame(0, $this->manager->count());
     }
@@ -345,5 +343,295 @@ class ConnectionManagerTest extends TestCase
 
         $metricsData = $this->metrics->getMetrics();
         $this->assertSame(1, $metricsData['timed_out_connections']);
+    }
+
+    #[Test]
+    public function add_adds_connection_to_pool(): void
+    {
+        /** @var SocketResourceInterface&MockObject $mockSocket */
+        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        $mockSocket->method('isValid')->willReturn(true);
+
+        $connection = new Connection($mockSocket, '127.0.0.1', 8080);
+        $this->manager->add($connection);
+
+        $this->assertSame(1, $this->manager->count());
+        $this->assertSame($connection, $this->manager->getAll()[0]);
+    }
+
+    #[Test]
+    public function remove_removes_connection_from_pool(): void
+    {
+        /** @var SocketResourceInterface&MockObject $mockSocket */
+        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        $mockSocket->method('isValid')->willReturn(true);
+
+        $connection = new Connection($mockSocket, '127.0.0.1', 8080);
+        $this->manager->add($connection);
+        $this->assertSame(1, $this->manager->count());
+
+        $this->manager->remove($connection);
+        $this->assertSame(0, $this->manager->count());
+    }
+
+    #[Test]
+    public function find_by_socket_returns_matching_connection(): void
+    {
+        /** @var SocketResourceInterface&MockObject $mockSocket */
+        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        $mockSocket->method('isValid')->willReturn(true);
+
+        $connection = new Connection($mockSocket, '192.168.1.1', 9000);
+        $this->manager->add($connection);
+
+        $found = $this->manager->findBySocket($mockSocket);
+        $this->assertSame($connection, $found);
+    }
+
+    #[Test]
+    public function find_by_socket_returns_null_when_not_found(): void
+    {
+        /** @var SocketResourceInterface&MockObject $mockSocket */
+        $mockSocket = $this->createMock(SocketResourceInterface::class);
+
+        $found = $this->manager->findBySocket($mockSocket);
+        $this->assertNull($found);
+    }
+
+    #[Test]
+    public function close_connection_with_metrics_removes_from_pool(): void
+    {
+        /** @var SocketInterface&MockObject $socket */
+        $socket = $this->createMock(SocketInterface::class);
+        /** @var SocketResourceInterface&MockObject $clientResource */
+        $clientResource = $this->createMock(SocketResourceInterface::class);
+
+        $clientResource->method('isValid')->willReturn(true);
+        $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
+
+        $socket->method('accept')->willReturnOnConsecutiveCalls($clientResource, false);
+
+        $this->manager->acceptFromServerSocket($socket, 10, false);
+        $this->assertSame(1, $this->pool->count());
+
+        $connection = $this->manager->getAll()[0];
+        $this->manager->closeConnectionWithMetrics($connection);
+
+        $this->assertSame(0, $this->pool->count());
+    }
+
+    #[Test]
+    public function close_connection_with_metrics_increments_metric(): void
+    {
+        /** @var SocketInterface&MockObject $socket */
+        $socket = $this->createMock(SocketInterface::class);
+        /** @var SocketResourceInterface&MockObject $clientResource */
+        $clientResource = $this->createMock(SocketResourceInterface::class);
+
+        $clientResource->method('isValid')->willReturn(true);
+        $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
+
+        $socket->method('accept')->willReturnOnConsecutiveCalls($clientResource, false);
+
+        $this->manager->acceptFromServerSocket($socket, 10, false);
+        $connection = $this->manager->getAll()[0];
+
+        $this->manager->closeConnectionWithMetrics($connection);
+
+        $metricsData = $this->metrics->getMetrics();
+        $this->assertSame(1, $metricsData['closed_connections']);
+    }
+
+    #[Test]
+    public function close_connection_with_metrics_logs_in_debug_mode(): void
+    {
+        /** @var \Psr\Log\LoggerInterface&MockObject $logger */
+        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        $logger->expects($this->once())->method('debug')->with(
+            'Closing connection',
+            $this->callback(fn(array $context): bool => '10.0.0.5:5500' === $context['remote']
+                && 0 === $context['active_connections']
+                && 0 === $context['request_count']),
+        );
+
+        $config = new \Duyler\HttpServer\Config\ServerConfig(debugMode: true);
+        $pool = new ConnectionPool();
+        $httpParser = new HttpParser(100);
+        $psrFactory = new Psr17Factory();
+        $tempFileManager = new \Duyler\HttpServer\Upload\TempFileManager();
+        $requestParser = new \Duyler\HttpServer\Parser\RequestParser($httpParser, $psrFactory, $tempFileManager);
+        $responseWriter = new \Duyler\HttpServer\Parser\ResponseWriter();
+        $metrics = new ServerMetrics();
+
+        $requestProcessor = new HttpRequestProcessor(
+            $config,
+            $httpParser,
+            $requestParser,
+            $responseWriter,
+            $pool,
+            $metrics,
+            $tempFileManager,
+            new RequestQueue(),
+            new ResponseSender($config, $responseWriter),
+        );
+
+        $manager = new ConnectionManager(
+            $pool,
+            $httpParser,
+            $requestProcessor,
+            $metrics,
+            $config,
+            $logger,
+        );
+
+        $requestProcessor->setConnectionManager($manager);
+
+        /** @var SocketInterface&MockObject $socket */
+        $socket = $this->createMock(SocketInterface::class);
+        /** @var SocketResourceInterface&MockObject $clientResource */
+        $clientResource = $this->createMock(SocketResourceInterface::class);
+
+        $clientResource->method('isValid')->willReturn(true);
+        $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.5', 'port' => 5500]);
+
+        $socket->method('accept')->willReturnOnConsecutiveCalls($clientResource, false);
+
+        $manager->acceptFromServerSocket($socket, 10, false);
+        $connection = $manager->getAll()[0];
+        $manager->closeConnectionWithMetrics($connection);
+
+        $this->assertSame(0, $pool->count());
+    }
+
+    #[Test]
+    public function read_from_connection_direct_closes_on_invalid(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(false);
+        $connection->expects($this->once())->method('close');
+
+        $this->manager->readFromConnectionDirect($connection, 8192, static fn() => null);
+    }
+
+    #[Test]
+    public function read_from_connection_direct_closes_when_read_fails(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('read')->willReturn(false);
+        $connection->expects($this->once())->method('close');
+
+        $this->manager->readFromConnectionDirect($connection, 8192, static fn() => null);
+    }
+
+    #[Test]
+    public function read_from_connection_direct_closes_when_read_empty(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('read')->willReturn('');
+        $connection->expects($this->once())->method('close');
+
+        $this->manager->readFromConnectionDirect($connection, 8192, static fn() => null);
+    }
+
+    #[Test]
+    public function read_from_connection_direct_closes_when_closed_after_append(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('read')->willReturn('some data');
+        $connection->method('isClosed')->willReturn(true);
+        $connection->expects($this->once())->method('close');
+
+        $this->manager->readFromConnectionDirect($connection, 8192, static fn() => null);
+    }
+
+    #[Test]
+    public function read_from_connection_direct_calls_callback_on_success(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('read')->willReturn('HTTP data');
+        $connection->method('isClosed')->willReturn(false);
+
+        $callbackCalled = false;
+        $callbackConnection = null;
+        $callback = function (ConnectionInterface $conn) use (&$callbackCalled, &$callbackConnection): void {
+            $callbackCalled = true;
+            $callbackConnection = $conn;
+        };
+
+        $this->manager->readFromConnectionDirect($connection, 8192, $callback);
+        $this->assertTrue($callbackCalled);
+        $this->assertSame($connection, $callbackConnection);
+    }
+
+    #[Test]
+    public function read_from_connection_returns_false_on_invalid(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(false);
+
+        $result = $this->manager->readFromConnection($connection, 8192, static fn() => null);
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function read_from_connection_returns_false_when_socket_not_stream_resource(): void
+    {
+        /** @var SocketResourceInterface&MockObject $mockSocket */
+        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        $mockSocket->method('isValid')->willReturn(true);
+
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('getSocket')->willReturn($mockSocket);
+
+        $result = $this->manager->readFromConnection($connection, 8192, static fn() => null);
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function close_connection_with_metrics_removes_from_processor(): void
+    {
+        /** @var SocketInterface&MockObject $socket */
+        $socket = $this->createMock(SocketInterface::class);
+        /** @var SocketResourceInterface&MockObject $clientResource */
+        $clientResource = $this->createMock(SocketResourceInterface::class);
+
+        $clientResource->method('isValid')->willReturn(true);
+        $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
+
+        $socket->method('accept')->willReturnOnConsecutiveCalls($clientResource, false);
+
+        $this->manager->acceptFromServerSocket($socket, 10, false);
+        $connection = $this->manager->getAll()[0];
+
+        $this->manager->closeConnectionWithMetrics($connection);
+
+        $this->assertSame(0, $this->manager->count());
+        $this->assertSame(1, $this->metrics->getMetrics()['total_connections']);
+        $this->assertSame(1, $this->metrics->getMetrics()['closed_connections']);
+    }
+
+    #[Test]
+    public function read_from_connection_direct_appends_data_to_buffer(): void
+    {
+        /** @var ConnectionInterface&MockObject $connection */
+        $connection = $this->createMock(ConnectionInterface::class);
+        $connection->method('isValid')->willReturn(true);
+        $connection->method('read')->willReturn('buffer content');
+        $connection->method('isClosed')->willReturn(false);
+        $connection->expects($this->once())->method('appendToBuffer')->with('buffer content');
+
+        $this->manager->readFromConnectionDirect($connection, 8192, static fn() => null);
     }
 }
