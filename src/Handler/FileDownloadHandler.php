@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Handler;
 
+use Duyler\HttpServer\Util\MimeTypeMap;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\Stream;
 use Psr\Http\Message\ResponseInterface;
@@ -213,23 +214,6 @@ final class FileDownloadHandler
             }
         }
 
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
-        $mimeTypes = [
-            'pdf' => 'application/pdf',
-            'zip' => 'application/zip',
-            'jpg' => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'png' => 'image/png',
-            'gif' => 'image/gif',
-            'mp4' => 'video/mp4',
-            'mp3' => 'audio/mpeg',
-            'txt' => 'text/plain',
-            'html' => 'text/html',
-            'json' => 'application/json',
-            'xml' => 'application/xml',
-        ];
-
-        return $mimeTypes[$extension] ?? 'application/octet-stream';
+        return MimeTypeMap::getFromFilePath($filePath);
     }
 }

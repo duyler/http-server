@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Handler;
 
 use Duyler\HttpServer\Security\AuditLoggerInterface;
 use Duyler\HttpServer\Util\ClientIpResolver;
+use Duyler\HttpServer\Util\MimeTypeMap;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -13,29 +14,6 @@ use stdClass;
 
 final class StaticFileHandler
 {
-    /** @var array<string, string> */
-    private const array MIME_TYPES = [
-        'html' => 'text/html',
-        'htm' => 'text/html',
-        'css' => 'text/css',
-        'js' => 'application/javascript',
-        'json' => 'application/json',
-        'xml' => 'application/xml',
-        'txt' => 'text/plain',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'gif' => 'image/gif',
-        'svg' => 'image/svg+xml',
-        'ico' => 'image/x-icon',
-        'pdf' => 'application/pdf',
-        'zip' => 'application/zip',
-        'woff' => 'font/woff',
-        'woff2' => 'font/woff2',
-        'ttf' => 'font/ttf',
-        'otf' => 'font/otf',
-    ];
-
     /** @var array<string, array{content: string, mtime: int, etag: string, size: int, lruNode: object}> */
     private array $cache = [];
     private int $cacheSize = 0;
@@ -319,9 +297,7 @@ final class StaticFileHandler
 
     private function getMimeType(string $filePath): string
     {
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
-        return self::MIME_TYPES[$extension] ?? 'application/octet-stream';
+        return MimeTypeMap::getFromFilePath($filePath);
     }
 
     /**
