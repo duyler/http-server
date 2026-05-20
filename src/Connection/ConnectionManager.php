@@ -14,7 +14,6 @@ use Duyler\HttpServer\Socket\StreamSocketResource;
 use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Socket;
 
 final class ConnectionManager implements ConnectionManagerInterface
 {
@@ -173,21 +172,10 @@ final class ConnectionManager implements ConnectionManagerInterface
             $remoteAddr = '0.0.0.0';
             $remotePort = 0;
 
-            $internalResource = $clientSocketResource instanceof StreamSocketResource
-                ? $clientSocketResource->getInternalResource()
-                : null;
-
-            if (null !== $internalResource) {
-                if ($internalResource instanceof Socket) {
-                    socket_getpeername($internalResource, $remoteAddr, $remotePort);
-                } else {
-                    $remoteName = stream_socket_get_name($internalResource, true);
-                    if (false !== $remoteName) {
-                        $parts = explode(':', $remoteName, 2);
-                        $remoteAddr = $parts[0];
-                        $remotePort = isset($parts[1]) ? (int) $parts[1] : 0;
-                    }
-                }
+            $peerInfo = $clientSocketResource->getPeerName();
+            if (false !== $peerInfo) {
+                $remoteAddr = $peerInfo['ip'];
+                $remotePort = $peerInfo['port'];
             }
 
             $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort, $this->config->maxRequestSize);
