@@ -41,7 +41,6 @@ class ServerRequestIdTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $processorProperty = $reflection->getProperty('requestProcessor');
-        $processorProperty->setAccessible(true);
         $processor = $processorProperty->getValue($this->server);
 
         $processorReflection = new ReflectionClass($processor);
@@ -124,16 +123,13 @@ class ServerRequestIdTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $request = new \Nyholm\Psr7\ServerRequest('GET', '/test');
         $requestData = new RequestData('req_test', $request, 42);
 
@@ -166,16 +162,13 @@ class ServerRequestIdTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $contextsProperty->setValue($requestQueue, [
             'req_test' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
@@ -195,18 +188,14 @@ class ServerRequestIdTest extends TestCase
         $reflection = new ReflectionClass($this->server);
 
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
-        $counterProperty->setAccessible(true);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $counterProperty->setValue($requestProcessor, 100);
         $contextsProperty->setValue($requestQueue, ['test' => []]);
 

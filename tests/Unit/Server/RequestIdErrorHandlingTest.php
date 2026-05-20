@@ -70,16 +70,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
@@ -110,16 +107,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
         $connection->expects($this->once())->method('close');
@@ -147,16 +141,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->expects($this->once())->method('isValid')->willReturn(false);
         $connection->expects($this->never())->method('write');
@@ -182,16 +173,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->expects($this->never())->method('isValid');
 
@@ -248,16 +236,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $contextsProperty->setValue($requestQueue, [
             'req_1' => [
                 'connection' => $this->createMock(ConnectionInterface::class),
@@ -342,16 +327,13 @@ class RequestIdErrorHandlingTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $contextsProperty->setAccessible(true);
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 

@@ -32,7 +32,6 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $id1 = $requestProcessor->generateRequestId();
@@ -52,7 +51,6 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $ids = [];
@@ -73,7 +71,6 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         for ($i = 0; $i < 10; $i++) {
@@ -90,7 +87,6 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $id = $requestProcessor->generateRequestId();
@@ -106,12 +102,10 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
-        $counterProperty->setAccessible(true);
 
         self::assertSame(0, $counterProperty->getValue($requestProcessor));
 
@@ -133,12 +127,10 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
-        $counterProperty->setAccessible(true);
 
         $counterProperty->setValue($requestProcessor, 999999);
 
@@ -155,12 +147,10 @@ class RequestIdGenerationTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
-        $counterProperty->setAccessible(true);
 
         for ($i = 0; $i < 50; $i++) {
             $requestProcessor->generateRequestId();
