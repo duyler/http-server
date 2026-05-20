@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
 use Socket;
+use Throwable;
 
 final class ExistingSocket implements SocketInterface
 {
@@ -106,5 +107,43 @@ final class ExistingSocket implements SocketInterface
     public function getInternalResource(): mixed
     {
         return $this->socket;
+    }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if ($this->closed) {
+            return false;
+        }
+
+        $ip = '';
+        $port = 0;
+        $result = socket_getpeername($this->socket, $ip, $port);
+
+        if (false === $result) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if ($this->closed) {
+            return false;
+        }
+
+        try {
+            error_clear_last();
+            socket_set_block($this->socket);
+        } catch (Throwable) {
+            return false;
+        }
+
+        $stream = socket_export_stream($this->socket);
+        socket_set_nonblock($this->socket);
+
+        return $stream;
     }
 }

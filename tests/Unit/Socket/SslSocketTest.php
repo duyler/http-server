@@ -92,4 +92,24 @@ class SslSocketTest extends TestCase
 
         $this->expectNotToPerformAssertions();
     }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_invalid_socket(): void
+    {
+        $socket = new SslSocket('/path/to/cert.pem', '/path/to/key.pem');
+
+        $result = $socket->getPeerName();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function export_stream_returns_false_on_invalid_socket(): void
+    {
+        $socket = new SslSocket('/path/to/cert.pem', '/path/to/key.pem');
+
+        $result = $socket->exportStream();
+
+        $this->assertFalse($result);
+    }
 }

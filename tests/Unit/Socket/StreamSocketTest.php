@@ -168,4 +168,93 @@ class StreamSocketTest extends TestCase
 
         $this->assertFalse($client);
     }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_invalid_socket(): void
+    {
+        $result = $this->socket->getPeerName();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_unconnected_socket(): void
+    {
+        $this->socket->bind('127.0.0.1', 0);
+        $this->socket->listen();
+
+        $previousHandler = set_error_handler(static fn(): bool => true);
+        $result = $this->socket->getPeerName();
+        restore_error_handler();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_peer_info_on_connected_socket(): void
+    {
+        $this->socket->bind('127.0.0.1', 0);
+        $this->socket->listen();
+        $this->socket->setBlocking(false);
+
+        $port = $this->getSocketPort($this->socket);
+
+        $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_set_nonblock($client);
+        $previousErrorReporting = error_reporting(0);
+        socket_connect($client, '127.0.0.1', $port);
+        error_reporting($previousErrorReporting);
+
+        usleep(10000);
+
+        $accepted = $this->socket->accept();
+        $this->assertNotFalse($accepted);
+
+        $peerName = $accepted->getPeerName();
+
+        $this->assertIsArray($peerName);
+        $this->assertArrayHasKey('ip', $peerName);
+        $this->assertArrayHasKey('port', $peerName);
+        $this->assertSame('127.0.0.1', $peerName['ip']);
+        $this->assertIsInt($peerName['port']);
+
+        $accepted->close();
+        socket_close($client);
+    }
+
+    #[Test]
+    public function export_stream_returns_false_on_invalid_socket(): void
+    {
+        $result = $this->socket->exportStream();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function export_stream_returns_resource_on_valid_socket(): void
+    {
+        $this->socket->bind('127.0.0.1', 0);
+        $this->socket->listen();
+        $this->socket->setBlocking(false);
+
+        $port = $this->getSocketPort($this->socket);
+
+        $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_set_nonblock($client);
+        $previousErrorReporting = error_reporting(0);
+        socket_connect($client, '127.0.0.1', $port);
+        error_reporting($previousErrorReporting);
+
+        usleep(10000);
+
+        $accepted = $this->socket->accept();
+        $this->assertNotFalse($accepted);
+
+        $stream = $accepted->exportStream();
+
+        $this->assertIsResource($stream);
+
+        $accepted->close();
+        socket_close($client);
+    }
 }

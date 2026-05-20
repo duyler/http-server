@@ -162,4 +162,45 @@ final class SslSocket implements SocketInterface
     {
         return $this->socket;
     }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert(null !== $this->socket);
+        $address = stream_socket_get_name($this->socket, true);
+
+        if (false === $address) {
+            return false;
+        }
+
+        $colonPos = strrpos($address, ':');
+
+        if (false === $colonPos) {
+            return false;
+        }
+
+        $ip = substr($address, 0, $colonPos);
+        $port = substr($address, $colonPos + 1);
+
+        if (false === is_numeric($port)) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => (int) $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert(null !== $this->socket);
+        return $this->socket;
+    }
 }
