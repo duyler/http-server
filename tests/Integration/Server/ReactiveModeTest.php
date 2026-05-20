@@ -13,6 +13,7 @@ use EvIo;
 use Nyholm\Psr7\Response;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -38,6 +39,7 @@ class ReactiveModeTest extends TestCase
     }
 
     #[Test]
+    #[Group('ev')]
     public function reactiveModeProcessesRequest(): void
     {
         if (!extension_loaded('ev')) {
@@ -91,6 +93,7 @@ class ReactiveModeTest extends TestCase
     }
 
     #[Test]
+    #[Group('ev')]
     public function reactiveModeHandlesMultipleRequests(): void
     {
         if (!extension_loaded('ev')) {

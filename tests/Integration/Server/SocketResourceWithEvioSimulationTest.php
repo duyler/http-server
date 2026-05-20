@@ -10,12 +10,14 @@ use Ev;
 use EvIo;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
 
 #[CoversClass(Server::class)]
+#[Group('ev')]
 class SocketResourceWithEvioSimulationTest extends TestCase
 {
     private Server $server;

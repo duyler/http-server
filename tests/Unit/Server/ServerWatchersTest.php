@@ -9,6 +9,7 @@ use Duyler\HttpServer\Exception\ServerException;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -44,6 +45,7 @@ class ServerWatchersTest extends TestCase
     }
 
     #[Test]
+    #[Group('ev')]
     public function startWatchersIsIdempotent(): void
     {
         if (!extension_loaded('ev')) {
@@ -64,6 +66,7 @@ class ServerWatchersTest extends TestCase
     }
 
     #[Test]
+    #[Group('ev')]
     public function stopWatchersClearsFlag(): void
     {
         if (!extension_loaded('ev')) {

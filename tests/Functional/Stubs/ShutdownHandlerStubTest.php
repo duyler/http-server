@@ -9,6 +9,7 @@ use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -81,6 +82,7 @@ class ShutdownHandlerStubTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function signal_handler_registers_for_sigterm(): void
     {
         if (false === function_exists('pcntl_signal')) {
@@ -95,6 +97,7 @@ class ShutdownHandlerStubTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function signal_handler_invokes_callback(): void
     {
         if (false === defined('SIGTERM')) {
@@ -120,6 +123,7 @@ class ShutdownHandlerStubTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function signal_handler_callback_exception_is_caught(): void
     {
         if (false === defined('SIGTERM')) {
@@ -238,6 +242,7 @@ class ShutdownHandlerStubTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function sigint_invokes_graceful_shutdown(): void
     {
         if (false === defined('SIGINT')) {
@@ -263,6 +268,7 @@ class ShutdownHandlerStubTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function sighup_does_not_invoke_shutdown_callback(): void
     {
         if (false === defined('SIGHUP')) {

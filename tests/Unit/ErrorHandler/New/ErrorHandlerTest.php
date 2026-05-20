@@ -8,6 +8,7 @@ use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -157,6 +158,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal(): void
     {
         if (!defined('SIGTERM')) {
@@ -178,6 +180,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal_with_callback(): void
     {
         if (!defined('SIGTERM')) {
@@ -370,6 +373,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal_with_callback_exception(): void
     {
         if (!defined('SIGTERM')) {
@@ -394,6 +398,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal_with_sigint(): void
     {
         if (!defined('SIGINT')) {
@@ -410,6 +415,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal_with_sighup(): void
     {
         if (!defined('SIGHUP')) {
@@ -423,6 +429,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function get_signal_name_with_sigquit(): void
     {
         if (!defined('SIGQUIT')) {
@@ -437,6 +444,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function get_signal_name_with_sigkill(): void
     {
         if (!defined('SIGKILL')) {
@@ -451,6 +459,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function get_signal_name_with_sigusr_1(): void
     {
         if (!defined('SIGUSR1')) {
@@ -465,6 +474,7 @@ class ErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function get_signal_name_with_sigusr_2(): void
     {
         if (!defined('SIGUSR2')) {

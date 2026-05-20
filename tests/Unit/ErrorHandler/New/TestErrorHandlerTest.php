@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\ErrorHandler\New;
 
 use Duyler\HttpServer\ErrorHandler\TestErrorHandler;
 use Override;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
@@ -106,6 +107,7 @@ class TestErrorHandlerTest extends TestCase
     }
 
     #[Test]
+    #[Group('pcntl')]
     public function handle_signal_does_nothing(): void
     {
         $this->handler->handleSignal(SIGTERM);

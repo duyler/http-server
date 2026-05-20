@@ -8,12 +8,14 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
 
 #[CoversClass(Server::class)]
+#[Group('ev')]
 class ServerClientWatchersTest extends TestCase
 {
     private ?Server $server = null;

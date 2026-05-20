@@ -1,10 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/13.0/phpunit.xsd" bootstrap="vendor/autoload.php" cacheDirectory=".phpunit.cache" executionOrder="depends,defects" requireCoverageMetadata="false" beStrictAboutCoverageMetadata="false" beStrictAboutOutputDuringTests="false" failOnRisky="false" failOnWarning="false" failOnNotice="false" colors="true" stopOnError="false" stopOnFailure="false" stopOnIncomplete="false" displayDetailsOnTestsThatTriggerDeprecations="true" displayDetailsOnTestsThatTriggerErrors="true" displayDetailsOnTestsThatTriggerNotices="true" displayDetailsOnTestsThatTriggerWarnings="true" displayDetailsOnPhpunitDeprecations="true" stopOnSkipped="false">
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/13.0/phpunit.xsd" bootstrap="vendor/autoload.php" cacheDirectory=".phpunit.cache" executionOrder="depends,defects" requireCoverageMetadata="false" beStrictAboutCoverageMetadata="false" beStrictAboutOutputDuringTests="false" failOnRisky="true" failOnWarning="true" failOnNotice="true" colors="true" stopOnError="false" stopOnFailure="false" stopOnIncomplete="false" displayDetailsOnTestsThatTriggerDeprecations="true" displayDetailsOnTestsThatTriggerErrors="true" displayDetailsOnTestsThatTriggerNotices="true" displayDetailsOnTestsThatTriggerWarnings="true" displayDetailsOnPhpunitDeprecations="true" stopOnSkipped="true">
   <testsuites>
     <testsuite name="default">
       <directory>tests</directory>
     </testsuite>
   </testsuites>
+  <groups>
+    <exclude>
+      <group>ev</group>
+      <group>pcntl</group>
+    </exclude>
+  </groups>
   <source restrictNotices="true" restrictWarnings="true" ignoreIndirectDeprecations="true">
     <include>
       <directory>src</directory>
