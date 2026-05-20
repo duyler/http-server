@@ -282,10 +282,7 @@ final class WebSocketHandler implements WebSocketHandlerInterface
     #[Override]
     public function reset(): void
     {
-        foreach ($this->wsServers as $wsServer) {
-            $wsServer->closeAll();
-        }
-        $this->wsConnections = [];
+        $this->closeAll();
     }
 
     public function removeConnection(TcpConnection $connection): void
