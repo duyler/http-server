@@ -27,14 +27,7 @@ final class WebSocketServer
      */
     private array $eventListeners = [];
 
-    private LoggerInterface $logger;
-
-    public function __construct(
-        private readonly WebSocketConfig $config = new WebSocketConfig(),
-        LoggerInterface $logger = new NullLogger(),
-    ) {
-        $this->logger = $logger;
-    }
+    public function __construct(private readonly WebSocketConfig $config = new WebSocketConfig(), private LoggerInterface $logger = new NullLogger()) {}
 
     public function setLogger(LoggerInterface $logger): void
     {
