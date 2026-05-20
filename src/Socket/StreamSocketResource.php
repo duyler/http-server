@@ -34,6 +34,14 @@ final class StreamSocketResource implements SocketResourceInterface
         $this->resource = $resource;
     }
 
+    public static function configureClient(Socket $client): self
+    {
+        socket_set_nonblock($client);
+        socket_set_option($client, SOL_TCP, TCP_NODELAY, 1);
+
+        return new self($client);
+    }
+
     #[Override]
     public function read(int $length): string|false
     {

@@ -95,10 +95,7 @@ final class StreamSocket implements SocketInterface
             );
         }
 
-        socket_set_nonblock($client);
-        socket_set_option($client, SOL_TCP, TCP_NODELAY, 1);
-
-        return new StreamSocketResource($client);
+        return StreamSocketResource::configureClient($client);
     }
 
     #[Override]
