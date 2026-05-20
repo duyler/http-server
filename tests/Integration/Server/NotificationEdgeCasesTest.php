@@ -294,7 +294,7 @@ class NotificationEdgeCasesTest extends TestCase
         $this->assertGreaterThan(0, $changed);
 
         $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 4096));
-        $this->assertGreaterThanOrEqual(1, strlen($data));
+        $this->assertGreaterThanOrEqual(1, strlen((string) $data));
     }
 
     #[Test]
