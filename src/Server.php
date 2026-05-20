@@ -13,7 +13,7 @@ use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Dto\RequestData;
 use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
-use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
+use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Exception\InvalidConfigException;
 use Duyler\HttpServer\Exception\MemoryLimitExceededException;
 use Duyler\HttpServer\Exception\ServerException;
@@ -213,7 +213,7 @@ final class Server implements ServerInterface
             ),
         );
 
-        $this->errorHandler = $errorHandler ?? new ProductionErrorHandler(
+        $this->errorHandler = $errorHandler ?? new ErrorHandler(
             $this->logger,
             /**
              * @param array{type: int, message: string, file: string, line: int} $error

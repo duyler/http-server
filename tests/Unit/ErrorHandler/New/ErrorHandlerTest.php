@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\ErrorHandler\New;
 
-use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
+use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -13,11 +13,11 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-class ProductionErrorHandlerTest extends TestCase
+class ErrorHandlerTest extends TestCase
 {
     use ErrorHandlerTestTrait;
 
-    private ProductionErrorHandler $handler;
+    private ErrorHandler $handler;
     private LoggerInterface&MockObject $logger;
 
     #[Override]
@@ -25,7 +25,7 @@ class ProductionErrorHandlerTest extends TestCase
     {
         parent::setUp();
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->handler = new ProductionErrorHandler($this->logger);
+        $this->handler = new ErrorHandler($this->logger);
     }
 
     #[Override]
@@ -186,7 +186,7 @@ class ProductionErrorHandlerTest extends TestCase
 
         $callbackInvoked = false;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal) use (&$callbackInvoked): void {
@@ -371,7 +371,7 @@ class ProductionErrorHandlerTest extends TestCase
             $this->markTestSkipped('SIGTERM not available');
         }
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal): void {
@@ -479,7 +479,7 @@ class ProductionErrorHandlerTest extends TestCase
         $onFatalError = function (array $error): void {};
         $onSignal = function (int $signal): void {};
 
-        $handler = new ProductionErrorHandler($this->logger, $onFatalError, $onSignal);
+        $handler = new ErrorHandler($this->logger, $onFatalError, $onSignal);
 
         $this->logger->method('info');
         $handler->register();

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Functional\Stubs;
 
-use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
+use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -14,12 +14,12 @@ use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-#[CoversClass(ProductionErrorHandler::class)]
+#[CoversClass(ErrorHandler::class)]
 class ShutdownHandlerStubTest extends TestCase
 {
     use ErrorHandlerTestTrait;
 
-    private ProductionErrorHandler $handler;
+    private ErrorHandler $handler;
     private LoggerInterface&MockObject $logger;
 
     #[Override]
@@ -27,7 +27,7 @@ class ShutdownHandlerStubTest extends TestCase
     {
         parent::setUp();
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->handler = new ProductionErrorHandler($this->logger);
+        $this->handler = new ErrorHandler($this->logger);
     }
 
     #[Override]
@@ -53,7 +53,7 @@ class ShutdownHandlerStubTest extends TestCase
     {
         $fatalErrorCalled = false;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             function (array $error) use (&$fatalErrorCalled): void {
                 $fatalErrorCalled = true;
@@ -101,7 +101,7 @@ class ShutdownHandlerStubTest extends TestCase
 
         $signalReceived = null;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal) use (&$signalReceived): void {
@@ -124,7 +124,7 @@ class ShutdownHandlerStubTest extends TestCase
             $this->markTestSkipped('SIGTERM not available');
         }
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal): void {
@@ -223,7 +223,7 @@ class ShutdownHandlerStubTest extends TestCase
     {
         $callbackInvoked = false;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             function (array $error) use (&$callbackInvoked): void {
                 $callbackInvoked = true;
@@ -246,7 +246,7 @@ class ShutdownHandlerStubTest extends TestCase
 
         $signalReceived = null;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal) use (&$signalReceived): void {
@@ -271,7 +271,7 @@ class ShutdownHandlerStubTest extends TestCase
 
         $callbackInvoked = false;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal) use (&$callbackInvoked): void {

@@ -9,7 +9,7 @@ use Override;
 use Psr\Log\LoggerInterface;
 use Throwable;
 
-final class ProductionErrorHandler implements ErrorHandlerInterface
+final class ErrorHandler implements ErrorHandlerInterface
 {
     private bool $registered = false;
     private bool $isShuttingDown = false;
