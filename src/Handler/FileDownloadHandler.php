@@ -14,40 +14,25 @@ final class FileDownloadHandler
 
     public function download(string $filePath, ?string $filename = null, ?string $mimeType = null): ResponseInterface
     {
-        if (!file_exists($filePath)) {
-            return new Response(404, [], 'File not found');
-        }
-
-        if (!is_readable($filePath)) {
-            return new Response(403, [], 'File not readable');
-        }
-
-        $fileSize = filesize($filePath);
-        if (false === $fileSize) {
-            return new Response(500, [], 'Failed to get file size');
+        $result = $this->validateAndOpenFile($filePath, $filename, $mimeType);
+        if ($result instanceof Response) {
+            return $result;
         }
 
         $mtime = filemtime($filePath);
         if (false === $mtime) {
+            fclose($result['handle']);
             return new Response(500, [], 'Failed to get file modification time');
         }
 
-        $filename ??= basename($filePath);
-        $mimeType ??= $this->guessMimeType($filePath);
-
-        $handle = fopen($filePath, 'r');
-        if (false === $handle) {
-            return new Response(500, [], 'Failed to open file');
-        }
-
-        $stream = Stream::create($handle);
+        $stream = Stream::create($result['handle']);
 
         return new Response(
             200,
             [
-                'Content-Type' => $mimeType,
-                'Content-Length' => (string) $fileSize,
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
+                'Content-Type' => $result['mimeType'],
+                'Content-Length' => (string) $result['fileSize'],
+                'Content-Disposition' => sprintf('attachment; filename="%s"', $result['filename']),
                 'Last-Modified' => gmdate('D, d M Y H:i:s', $mtime) . ' GMT',
                 'Accept-Ranges' => 'bytes',
             ],
@@ -62,38 +47,23 @@ final class FileDownloadHandler
         ?string $filename = null,
         ?string $mimeType = null,
     ): ResponseInterface {
-        if (!file_exists($filePath)) {
-            return new Response(404, [], 'File not found');
+        $result = $this->validateAndOpenFile($filePath, $filename, $mimeType);
+        if ($result instanceof Response) {
+            return $result;
         }
 
-        if (!is_readable($filePath)) {
-            return new Response(403, [], 'File not readable');
+        if ($start < 0 || $start >= $result['fileSize'] || $end < $start || $end >= $result['fileSize']) {
+            fclose($result['handle']);
+            return new Response(416, ['Content-Range' => "bytes */{$result['fileSize']}"], 'Range not satisfiable');
         }
 
-        $fileSize = filesize($filePath);
-        if (false === $fileSize) {
-            return new Response(500, [], 'Failed to get file size');
-        }
-
-        if ($start < 0 || $start >= $fileSize || $end < $start || $end >= $fileSize) {
-            return new Response(416, ['Content-Range' => "bytes */$fileSize"], 'Range not satisfiable');
-        }
-
-        $filename ??= basename($filePath);
-        $mimeType ??= $this->guessMimeType($filePath);
-
-        $handle = fopen($filePath, 'r');
-        if (false === $handle) {
-            return new Response(500, [], 'Failed to open file');
-        }
-
-        if (-1 === fseek($handle, $start)) {
-            fclose($handle);
+        if (-1 === fseek($result['handle'], $start)) {
+            fclose($result['handle']);
             return new Response(500, [], 'Failed to seek in file');
         }
 
-        $content = fread($handle, $end - $start + 1);
-        fclose($handle);
+        $content = fread($result['handle'], $end - $start + 1);
+        fclose($result['handle']);
 
         if (false === $content) {
             return new Response(500, [], 'Failed to read file');
@@ -102,10 +72,10 @@ final class FileDownloadHandler
         return new Response(
             206,
             [
-                'Content-Type' => $mimeType,
+                'Content-Type' => $result['mimeType'],
                 'Content-Length' => (string) ($end - $start + 1),
-                'Content-Range' => sprintf('bytes %d-%d/%d', $start, $end, $fileSize),
-                'Content-Disposition' => sprintf('attachment; filename="%s"', $filename),
+                'Content-Range' => sprintf('bytes %d-%d/%d', $start, $end, $result['fileSize']),
+                'Content-Disposition' => sprintf('attachment; filename="%s"', $result['filename']),
                 'Accept-Ranges' => 'bytes',
             ],
             $content,
@@ -198,6 +168,40 @@ final class FileDownloadHandler
         }
 
         return $intVal;
+    }
+
+    /**
+     * @return array{handle: resource, fileSize: int, filename: string, mimeType: string}|Response
+     */
+    private function validateAndOpenFile(string $filePath, ?string $filename, ?string $mimeType): array|Response
+    {
+        if (!file_exists($filePath)) {
+            return new Response(404, [], 'File not found');
+        }
+
+        if (!is_readable($filePath)) {
+            return new Response(403, [], 'File not readable');
+        }
+
+        $fileSize = filesize($filePath);
+        if (false === $fileSize) {
+            return new Response(500, [], 'Failed to get file size');
+        }
+
+        $filename ??= basename($filePath);
+        $mimeType ??= $this->guessMimeType($filePath);
+
+        $handle = fopen($filePath, 'r');
+        if (false === $handle) {
+            return new Response(500, [], 'Failed to open file');
+        }
+
+        return [
+            'handle' => $handle,
+            'fileSize' => $fileSize,
+            'filename' => $filename,
+            'mimeType' => $mimeType,
+        ];
     }
 
     private function guessMimeType(string $filePath): string
