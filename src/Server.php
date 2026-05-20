@@ -796,26 +796,16 @@ final class Server implements ServerInterface
         $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
         $clientPort = 0;
 
-        if ($clientSocket instanceof Socket) {
-            if (false === socket_getpeername($clientSocket, $clientIp, $clientPort)) {
-                $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
-                $clientPort = 0;
-
-                $this->logger->warning('Failed to get peer name', [
-                    'error' => socket_strerror(socket_last_error($clientSocket)),
-                    'fallback_ip' => $clientIp,
-                ]);
-            }
-        } else {
-            $peerName = stream_socket_get_name($clientSocket, true);
-            if (false !== $peerName) {
-                $parts = explode(':', $peerName);
-                $clientIp = $parts[0] ?? $clientIp;
-                $clientPort = (int) ($parts[1] ?? $clientPort);
-            }
-        }
-
         $socketResource = new StreamSocketResource($clientSocket);
+        $peerInfo = $socketResource->getPeerName();
+        if (false !== $peerInfo) {
+            $clientIp = $peerInfo['ip'];
+            $clientPort = $peerInfo['port'];
+        } else {
+            $this->logger->warning('Failed to get peer name', [
+                'fallback_ip' => $clientIp,
+            ]);
+        }
         $connection = new Connection($socketResource, $clientIp, $clientPort, $this->config->maxRequestSize);
 
         $this->connectionPool->add($connection);
@@ -1065,16 +1055,11 @@ final class Server implements ServerInterface
      */
     private function exportToStream(Socket $socket)
     {
-        socket_set_block($socket);
-        error_clear_last();
-        $stream = socket_export_stream($socket);
-        socket_set_nonblock($socket);
+        $socketResource = new StreamSocketResource($socket);
+        $stream = $socketResource->exportStream();
 
         if (false === $stream) {
-            $error = error_get_last();
-            $this->logger->warning('socket_export_stream failed', [
-                'error' => $error['message'] ?? 'Unknown error',
-            ]);
+            $this->logger->warning('socket_export_stream failed');
         }
 
         return $stream;
