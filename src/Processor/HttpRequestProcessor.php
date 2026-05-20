@@ -182,12 +182,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
             if (null !== $this->staticFileHandler && $this->staticFileHandler->isStaticFile($request)) {
                 $connection->incrementRequestCount();
 
-                $connectionHeader = $request->getHeaderLine('Connection');
-                $keepAlive = $this->config->enableKeepAlive
-                    && (strcasecmp($connectionHeader, 'close') !== 0)
-                    && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
-
-                $connection->setKeepAlive($keepAlive);
+                $this->resolveKeepAlive($connection, $request);
 
                 $response = $this->staticFileHandler->handle($request);
 
@@ -221,12 +216,7 @@ final class HttpRequestProcessor implements RequestProcessorInterface
             $connection->consumeBuffer($consumed);
             $connection->incrementRequestCount();
 
-            $connectionHeader = $request->getHeaderLine('Connection');
-            $keepAlive = $this->config->enableKeepAlive
-                && strcasecmp($connectionHeader, 'keep-alive') === 0
-                && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
-
-            $connection->setKeepAlive($keepAlive);
+            $this->resolveKeepAlive($connection, $request);
         } catch (Throwable $e) {
             $this->logger->error('Failed to process request', [
                 'error' => $e->getMessage(),
@@ -412,5 +402,16 @@ final class HttpRequestProcessor implements RequestProcessorInterface
         ]);
 
         return null;
+    }
+
+    public function resolveKeepAlive(
+        ConnectionInterface $connection,
+        ServerRequestInterface $request,
+    ): void {
+        $connectionHeader = $request->getHeaderLine('Connection');
+        $keepAlive = $this->config->enableKeepAlive
+            && (strcasecmp($connectionHeader, 'close') !== 0)
+            && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
+        $connection->setKeepAlive($keepAlive);
     }
 }

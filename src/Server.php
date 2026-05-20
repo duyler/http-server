@@ -1244,11 +1244,7 @@ final class Server implements ServerInterface
 
         $connection->incrementRequestCount();
 
-        $connectionHeader = $request->getHeaderLine('Connection');
-        $keepAlive = $this->config->enableKeepAlive
-            && (strcasecmp($connectionHeader, 'close') !== 0)
-            && $connection->getRequestCount() < $this->config->keepAliveMaxRequests;
-        $connection->setKeepAlive($keepAlive);
+        $this->requestProcessor->resolveKeepAlive($connection, $request);
 
         $this->requestProcessor->sendResponse($connection, $response);
         $connection->consumeBuffer($consumed);
