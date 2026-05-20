@@ -131,6 +131,11 @@ final class WebSocketHandler implements WebSocketHandlerInterface
             return false;
         }
 
+        return $this->processFrameLoop($connection, $wsConn);
+    }
+
+    private function processFrameLoop(TcpConnection $connection, Connection $wsConn): bool
+    {
         try {
             $data = $connection->read($this->config->bufferSize);
 
@@ -207,58 +212,7 @@ final class WebSocketHandler implements WebSocketHandlerInterface
             return true;
         }
 
-        try {
-            $data = $connection->read($this->config->bufferSize);
-
-            if (false === $data || '' === $data) {
-                $wsConn->close();
-                return false;
-            }
-
-            $connection->appendToBuffer($data);
-
-            if ($connection->isClosed()) {
-                return false;
-            }
-
-            while (true) {
-                $buffer = $connection->getBuffer();
-                $frame = Frame::decode($buffer);
-
-                if (null === $frame) {
-                    break;
-                }
-
-                $frameSize = $frame->getSize();
-                $remaining = substr($buffer, $frameSize);
-
-                $connection->clearBuffer();
-                if ('' !== $remaining) {
-                    $connection->appendToBuffer($remaining);
-
-                    if ($connection->isClosed()) {
-                        return false;
-                    }
-                }
-
-                $message = $wsConn->processFrame($frame);
-
-                if (null !== $message) {
-                    $wsConn->getServer()->emit('message', $wsConn, $message);
-                }
-            }
-
-            return true;
-        } catch (Throwable $e) {
-            if ($this->config->debugMode) {
-                $this->logger->debug('WebSocket read error, closing connection', [
-                    'conn_id' => $wsConn->getId(),
-                    'error' => $e->getMessage(),
-                ]);
-            }
-            $wsConn->close();
-            return false;
-        }
+        return $this->processFrameLoop($connection, $wsConn);
     }
 
     #[Override]
