@@ -55,7 +55,7 @@ class WebSocketHandlerCoverageTest extends TestCase
         $this->handler->attachWebSocketServer('/ws', $wsServer);
         $this->handler->setLogger($logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue($this->handler->hasWebSocketServers());
     }
 
     #[Test]

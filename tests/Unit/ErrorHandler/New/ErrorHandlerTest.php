@@ -217,7 +217,9 @@ class ErrorHandlerTest extends TestCase
     public function reset_when_not_registered(): void
     {
         $this->handler->reset();
-        $this->expectNotToPerformAssertions();
+
+        $this->logger->expects($this->once())->method('info');
+        $this->handler->handleShutdown();
     }
 
     #[Test]
@@ -247,13 +249,16 @@ class ErrorHandlerTest extends TestCase
             E_USER_DEPRECATED => 'E_USER_DEPRECATED',
         ];
 
+        $results = [];
         foreach ($errorTypes as $errno => $expectedType) {
-            $this->handler->handleError($errno, "Test $expectedType", __FILE__, __LINE__);
+            $results[] = $this->handler->handleError($errno, "Test $expectedType", __FILE__, __LINE__);
         }
 
         error_reporting($oldReporting);
 
-        $this->expectNotToPerformAssertions();
+        foreach ($results as $result) {
+            $this->assertFalse($result);
+        }
     }
 
     #[Test]
@@ -484,13 +489,17 @@ class ErrorHandlerTest extends TestCase
         $this->logger->method('info');
         $handler->register();
         $handler->reset();
-        $this->expectNotToPerformAssertions();
+
+        $this->assertInstanceOf(ErrorHandler::class, $handler);
     }
 
     #[Test]
     public function handle_shutdown_resets_is_shutting_down_on_reset(): void
     {
-        $this->logger->method('info');
+        $infoCalls = 0;
+        $this->logger->method('info')->willReturnCallback(function () use (&$infoCalls): void {
+            $infoCalls++;
+        });
 
         $this->handler->register();
         $this->handler->handleShutdown();
@@ -499,6 +508,6 @@ class ErrorHandlerTest extends TestCase
         $this->handler->register();
         $this->handler->handleShutdown();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(4, $infoCalls);
     }
 }

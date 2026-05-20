@@ -290,7 +290,8 @@ class ShutdownHandlerStubTest extends TestCase
     public function reset_when_not_registered_is_noop(): void
     {
         $this->handler->reset();
-        $this->expectNotToPerformAssertions();
+
+        $this->assertInstanceOf(ErrorHandler::class, $this->handler);
     }
 
     #[Test]

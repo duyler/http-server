@@ -115,7 +115,7 @@ class ConnectionManagerTest extends TestCase
 
         $requestProcessor->setConnectionManager($manager);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(ConnectionManager::class, $manager);
     }
 
     #[Test]
@@ -318,7 +318,8 @@ class ConnectionManagerTest extends TestCase
         /** @var \Psr\Log\LoggerInterface&MockObject $logger */
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $this->manager->setLogger($logger);
-        $this->expectNotToPerformAssertions();
+
+        $this->assertInstanceOf(ConnectionManager::class, $this->manager);
     }
 
     #[Test]

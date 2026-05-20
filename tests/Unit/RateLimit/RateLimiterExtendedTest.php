@@ -64,7 +64,7 @@ class RateLimiterExtendedTest extends TestCase
 
         $limiter->reset('nonexistent');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $limiter->getActiveIdentifiersCount());
     }
 
     #[Test]

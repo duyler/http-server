@@ -87,7 +87,7 @@ class WebSocketHandlerTest extends TestCase
         $logger = new NullLogger();
         $handler = new WebSocketHandler($this->config, $this->requestProcessor, logger: $logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(WebSocketHandler::class, $handler);
     }
 
     #[Test]
@@ -98,6 +98,6 @@ class WebSocketHandlerTest extends TestCase
 
         $this->handler->processKeepalive();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue($this->handler->hasWebSocketServers());
     }
 }

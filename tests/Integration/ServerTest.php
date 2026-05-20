@@ -135,7 +135,7 @@ class ServerTest extends TestCase
 
         fclose($client1);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertFalse($this->server->hasPendingResponse());
     }
 
     private function sendHttpRequest(string $request): void

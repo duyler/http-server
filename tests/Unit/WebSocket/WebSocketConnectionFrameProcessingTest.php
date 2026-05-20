@@ -172,7 +172,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(ConnectionState::OPEN, $this->connection->getState());
     }
 
     #[Test]
@@ -339,7 +339,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
 
         $this->connection->broadcast('message', excludeSelf: true);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -349,6 +349,6 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
 
         $this->connection->sendToRoom('chat', 'message', excludeSelf: false);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 }

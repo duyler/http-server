@@ -165,7 +165,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $this->server->broadcast('hello'));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(2, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -179,7 +179,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $this->server->broadcast('hello', $conn1));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(2, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -242,7 +242,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->server->removeConnectionFromRoom($conn, 'nonexistent');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getRoomCount('nonexistent'));
     }
 
     #[Test]
@@ -262,7 +262,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $this->server->broadcastToRoom('chat', 'msg'));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(2, $this->server->getRoomCount('chat'));
     }
 
     #[Test]
@@ -279,7 +279,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $this->server->broadcastToRoom('chat', 'msg', $conn1));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(2, $this->server->getRoomCount('chat'));
     }
 
     #[Test]
@@ -346,7 +346,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $this->withSuppressedErrors(fn() => $server->processPings());
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(ConnectionState::CLOSED, $closedConn->getState());
     }
 
     #[Test]

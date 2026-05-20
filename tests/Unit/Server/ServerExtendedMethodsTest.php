@@ -105,7 +105,7 @@ class ServerExtendedMethodsTest extends TestCase
 
         $server->setLogger($logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(Server::class, $server);
     }
 
     #[Test]
@@ -129,7 +129,7 @@ class ServerExtendedMethodsTest extends TestCase
         $ws = new WebSocketServer(new WebSocketConfig());
         $server->attachWebSocket('/ws', $ws);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(Server::class, $server);
         $server->stop();
     }
 

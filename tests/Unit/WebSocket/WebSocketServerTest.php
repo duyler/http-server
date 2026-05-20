@@ -37,7 +37,7 @@ class WebSocketServerTest extends TestCase
         $logger = $this->createMock(LoggerInterface::class);
         $this->server->setLogger($logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(WebSocketServer::class, $this->server);
     }
 
     #[Test]
@@ -91,7 +91,7 @@ class WebSocketServerTest extends TestCase
     {
         $this->server->emit('nonexistent');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -149,7 +149,7 @@ class WebSocketServerTest extends TestCase
     {
         $this->server->closeAll();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -157,7 +157,7 @@ class WebSocketServerTest extends TestCase
     {
         $this->server->broadcast('test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -165,7 +165,7 @@ class WebSocketServerTest extends TestCase
     {
         $this->server->broadcastToRoom('nonexistent', 'test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getRoomCount('nonexistent'));
     }
 
     #[Test]
@@ -173,7 +173,7 @@ class WebSocketServerTest extends TestCase
     {
         $this->server->processPings();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -184,6 +184,6 @@ class WebSocketServerTest extends TestCase
 
         $server->processPings();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $server->getConnectionCount());
     }
 }

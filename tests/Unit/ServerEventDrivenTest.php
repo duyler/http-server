@@ -174,7 +174,8 @@ class ServerEventDrivenTest extends TestCase
         $this->server->hasRequest();
 
         $this->server->stop();
-        $this->expectNotToPerformAssertions();
+
+        $this->assertFalse($this->server->isEventLoopActive());
     }
 
     #[Test]

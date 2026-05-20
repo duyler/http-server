@@ -95,7 +95,7 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcast('test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(2, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -109,7 +109,7 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcast(['key' => 'value']);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 
     #[Test]
@@ -152,7 +152,8 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcastToRoom('room1', 'test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getRoomCount('room1'));
+        $this->assertSame(1, $this->server->getRoomCount('room2'));
     }
 
     #[Test]
@@ -167,7 +168,7 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcastToRoom('room1', 'test', $conn);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getRoomCount('room1'));
     }
 
     #[Test]
