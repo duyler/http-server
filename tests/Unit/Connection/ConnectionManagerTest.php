@@ -56,6 +56,8 @@ class ConnectionManagerTest extends TestCase
             $config,
             new NullLogger(),
         );
+
+        $requestProcessor->setConnectionManager($this->manager);
     }
 
     #[Test]
@@ -110,6 +112,8 @@ class ConnectionManagerTest extends TestCase
             $config,
             $logger,
         );
+
+        $requestProcessor->setConnectionManager($manager);
 
         $this->expectNotToPerformAssertions();
     }
@@ -281,6 +285,8 @@ class ConnectionManagerTest extends TestCase
             $config,
             $logger,
         );
+
+        $requestProcessor->setConnectionManager($manager);
 
         $accepted = $manager->acceptFromServerSocket($socket, 10, true);
 

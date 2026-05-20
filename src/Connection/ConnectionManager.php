@@ -74,8 +74,17 @@ final class ConnectionManager implements ConnectionManagerInterface
         return count($this->pool->removeTimedOut($timeout));
     }
 
+    #[Override]
     public function closeConnectionWithMetrics(ConnectionInterface $connection): void
     {
+        if ($this->config->debugMode) {
+            $this->logger->debug('Closing connection', [
+                'remote' => $connection->getRemoteAddress() . ':' . $connection->getRemotePort(),
+                'request_count' => $connection->getRequestCount(),
+                'active_connections' => $this->pool->count() - 1,
+            ]);
+        }
+
         $this->requestProcessor->removeConnectionsByConnection($connection);
         $connection->close();
         $this->pool->remove($connection);

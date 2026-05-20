@@ -198,6 +198,8 @@ final class Server implements ServerInterface
             $this->logger,
         );
 
+        $this->requestProcessor->setConnectionManager($this->connectionManager);
+
         $this->memoryMonitor = new MemoryMonitor($this->config->memoryLimit);
 
         $this->requestProcessor->setWebSocketUpgradeHandler(

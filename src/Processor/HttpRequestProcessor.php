@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Processor;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Connection\ConnectionInterface;
+use Duyler\HttpServer\Connection\ConnectionManagerInterface;
 use Duyler\HttpServer\Connection\ConnectionPool;
 use Duyler\HttpServer\Dto\RequestData;
 use Duyler\HttpServer\Dto\ResponseData;
@@ -39,6 +40,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     private ?CorsService $corsService = null;
 
     private ?AuditLoggerInterface $auditLogger = null;
+
+    private ?ConnectionManagerInterface $connectionManager = null;
 
     public function __construct(
         private readonly ServerConfig $config,
@@ -78,6 +81,11 @@ final class HttpRequestProcessor implements RequestProcessorInterface
     public function setAuditLogger(AuditLoggerInterface $auditLogger): void
     {
         $this->auditLogger = $auditLogger;
+    }
+
+    public function setConnectionManager(ConnectionManagerInterface $connectionManager): void
+    {
+        $this->connectionManager = $connectionManager;
     }
 
     #[Override]
@@ -367,18 +375,8 @@ final class HttpRequestProcessor implements RequestProcessorInterface
 
     private function closeConnection(ConnectionInterface $connection): void
     {
-        if ($this->config->debugMode) {
-            $this->logger->debug('Closing connection', [
-                'remote' => $connection->getRemoteAddress(),
-                'requests_handled' => $connection->getRequestCount(),
-            ]);
-        }
-
-        $this->removeConnectionsByConnection($connection);
-
-        $connection->close();
-        $this->connectionPool->remove($connection);
-        $this->metrics->incrementClosedConnections();
+        assert(null !== $this->connectionManager);
+        $this->connectionManager->closeConnectionWithMetrics($connection);
     }
 
     private function resolveCorsOrigin(ServerRequestInterface $request): ?string
