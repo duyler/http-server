@@ -53,7 +53,7 @@ class RateLimitIntegrationTest extends TestCase
 
         for ($i = 0; $i < 10; $i++) {
             $client = $this->connectClient();
-            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
 
             usleep(50000);
 
@@ -87,7 +87,7 @@ class RateLimitIntegrationTest extends TestCase
 
         for ($i = 0; $i < 5; $i++) {
             $client = $this->connectClient();
-            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
 
             usleep(100000);
 
@@ -148,7 +148,7 @@ class RateLimitIntegrationTest extends TestCase
 
         for ($i = 0; $i < 2; $i++) {
             $client = $this->connectClient();
-            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\n\r\n");
+            fwrite($client, "GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n");
             usleep(100000);
 
             if ($this->server->hasRequest()) {
