@@ -34,6 +34,7 @@ use Duyler\HttpServer\Security\CorsService;
 use Duyler\HttpServer\Security\SecurityHeadersService;
 use Duyler\HttpServer\Socket\ExistingSocket;
 use Duyler\HttpServer\Socket\SocketInterface;
+use Duyler\HttpServer\Socket\SocketNotificationPair;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Duyler\HttpServer\Socket\StreamSocketResource;
@@ -131,7 +132,10 @@ final class Server implements ServerInterface
 
         $this->connectionPool = new ConnectionPool($this->config->maxConnections);
         $this->metrics = new ServerMetrics();
-        $this->notificationManager = new NotificationManager($this->logger);
+        $this->notificationManager = new NotificationManager(
+            new SocketNotificationPair($this->logger),
+            $this->logger,
+        );
 
         if (null !== $this->config->publicPath) {
             $this->staticFileHandler = new StaticFileHandler(
