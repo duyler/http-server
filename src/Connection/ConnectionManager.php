@@ -107,6 +107,27 @@ final class ConnectionManager implements ConnectionManagerInterface
             return true;
         }
 
+        return $this->readAndProcess($connection, $bufferSize, $onDataCallback);
+    }
+
+    public function readFromConnectionDirect(
+        ConnectionInterface $connection,
+        int $bufferSize,
+        callable $onDataCallback,
+    ): void {
+        $this->readAndProcess($connection, $bufferSize, $onDataCallback);
+    }
+
+    private function readAndProcess(
+        ConnectionInterface $connection,
+        int $bufferSize,
+        callable $onDataCallback,
+    ): bool {
+        if (false === $connection->isValid()) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
         $data = $connection->read($bufferSize);
 
         if (false === $data || '' === $data) {
@@ -124,33 +145,6 @@ final class ConnectionManager implements ConnectionManagerInterface
         $onDataCallback($connection);
 
         return true;
-    }
-
-    public function readFromConnectionDirect(
-        ConnectionInterface $connection,
-        int $bufferSize,
-        callable $onDataCallback,
-    ): void {
-        if (false === $connection->isValid()) {
-            $this->closeConnectionWithMetrics($connection);
-            return;
-        }
-
-        $data = $connection->read($bufferSize);
-
-        if (false === $data || '' === $data) {
-            $this->closeConnectionWithMetrics($connection);
-            return;
-        }
-
-        $connection->appendToBuffer($data);
-
-        if ($connection->isClosed()) {
-            $this->closeConnectionWithMetrics($connection);
-            return;
-        }
-
-        $onDataCallback($connection);
     }
 
     public function acceptFromServerSocket(
