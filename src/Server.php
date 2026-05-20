@@ -35,6 +35,7 @@ use Duyler\HttpServer\Security\SecurityHeadersService;
 use Duyler\HttpServer\Socket\ExistingSocket;
 use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SocketNotificationPair;
+use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Duyler\HttpServer\Socket\SslSocket;
 use Duyler\HttpServer\Socket\StreamSocket;
 use Duyler\HttpServer\Socket\StreamSocketResource;
@@ -803,7 +804,10 @@ final class Server implements ServerInterface
         $clientIp = $metadata['client_ip'] ?? '0.0.0.0';
         $clientPort = 0;
 
-        $socketResource = new StreamSocketResource($clientSocket);
+        $socketResource = ($clientSocket instanceof SocketResourceInterface)
+            ? $clientSocket
+            : new StreamSocketResource($clientSocket);
+
         $peerInfo = ClientIpResolver::resolveFromResource($socketResource);
         if (false !== $peerInfo) {
             $clientIp = $peerInfo['ip'];
@@ -1060,9 +1064,12 @@ final class Server implements ServerInterface
     /**
      * @return resource|false
      */
-    private function exportToStream(Socket $socket)
+    private function exportToStream(Socket|SocketResourceInterface $socket)
     {
-        $socketResource = new StreamSocketResource($socket);
+        $socketResource = ($socket instanceof SocketResourceInterface)
+            ? $socket
+            : new StreamSocketResource($socket);
+
         $stream = $socketResource->exportStream();
 
         if (false === $stream) {
