@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Nyholm\Psr7\Response;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 
 class HttpRequestSmugglingTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Server $server = null;
     private int $port;
 
@@ -204,14 +206,12 @@ class HttpRequestSmugglingTest extends TestCase
      */
     private function createClient()
     {
-        $previousErrorReporting = error_reporting(0);
-        $client = stream_socket_client(
+        $client = $this->withSuppressedErrors(fn() => stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
-        );
-        error_reporting($previousErrorReporting);
+        ));
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\ExistingSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -15,6 +16,7 @@ use Socket;
 #[CoversClass(ExistingSocket::class)]
 class ExistingSocketCoverageTest extends TestCase
 {
+    use ErrorReportingScope;
     private Socket $socket;
     private ExistingSocket $sut;
 
@@ -76,9 +78,7 @@ class ExistingSocketCoverageTest extends TestCase
     {
         socket_set_nonblock($this->socket);
 
-        $previousErrorReporting = error_reporting(0);
-        $result = $this->sut->accept();
-        error_reporting($previousErrorReporting);
+        $result = $this->withSuppressedErrors(fn() => $this->sut->accept());
 
         $this->assertFalse($result);
     }
@@ -382,9 +382,7 @@ class ExistingSocketCoverageTest extends TestCase
 
         $es = new ExistingSocket($socket);
 
-        $previousErrorReporting = error_reporting(0);
-        $result = $es->accept();
-        error_reporting($previousErrorReporting);
+        $result = $this->withSuppressedErrors(fn() => $es->accept());
 
         $this->assertFalse($result);
 

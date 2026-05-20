@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\ExistingSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,6 +16,7 @@ use Socket;
 #[CoversClass(ExistingSocket::class)]
 class ExistingSocketTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Socket $socket = null;
     private ?ExistingSocket $existingSocket = null;
 
@@ -266,9 +268,7 @@ class ExistingSocketTest extends TestCase
 
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($clientSocket);
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($clientSocket, '127.0.0.1', 19001);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', 19001));
 
         usleep(10000);
 
@@ -317,9 +317,7 @@ class ExistingSocketTest extends TestCase
 
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($clientSocket);
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($clientSocket, '127.0.0.1', $port);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
 
         usleep(10000);
 

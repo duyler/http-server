@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\StreamSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -14,6 +15,7 @@ use Socket;
 
 class StreamSocketTest extends TestCase
 {
+    use ErrorReportingScope;
     private StreamSocket $socket;
 
     #[Override]
@@ -201,9 +203,7 @@ class StreamSocketTest extends TestCase
 
         $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($client);
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($client, '127.0.0.1', $port);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($client, '127.0.0.1', $port));
 
         usleep(10000);
 
@@ -241,9 +241,7 @@ class StreamSocketTest extends TestCase
 
         $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($client);
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($client, '127.0.0.1', $port);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($client, '127.0.0.1', $port));
 
         usleep(10000);
 

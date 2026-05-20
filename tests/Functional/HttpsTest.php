@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Functional;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,6 +16,7 @@ use Throwable;
 #[CoversClass(Server::class)]
 class HttpsTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Server $server = null;
     private string $certFile;
     private string $keyFile;
@@ -123,9 +125,9 @@ class HttpsTest extends TestCase
         $port = $this->findAvailablePort();
         $server = $this->startSslServer($port);
 
-        $previousErrorReporting = error_reporting(0);
-        $client = @stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 5);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(function () use ($port, &$client, &$errno, &$errstr): void {
+            $client = @stream_socket_client("tcp://127.0.0.1:{$port}", $errno, $errstr, 5);
+        });
 
         $this->assertNotFalse($client, "Should be able to connect to SSL server via TCP: $errstr ($errno)");
 

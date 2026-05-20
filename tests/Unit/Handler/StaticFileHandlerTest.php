@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Handler;
 
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Duyler\HttpServer\Security\AuditLoggerInterface;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Nyholm\Psr7\ServerRequest;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
@@ -13,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 
 class StaticFileHandlerTest extends TestCase
 {
+    use ErrorReportingScope;
     private string $tempDir;
     private StaticFileHandler $handler;
 
@@ -143,9 +145,7 @@ class StaticFileHandlerTest extends TestCase
 
         $this->assertNull($response);
 
-        $previousErrorReporting = error_reporting(0);
-        unlink($file);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => unlink($file));
     }
 
     #[Test]

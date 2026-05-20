@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Functional\Stubs;
 
 use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,7 @@ use RuntimeException;
 class ShutdownHandlerStubTest extends TestCase
 {
     use ErrorHandlerTestTrait;
+    use ErrorReportingScope;
 
     private ErrorHandler $handler;
     private LoggerInterface&MockObject $logger;
@@ -167,16 +169,14 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function handle_error_logs_with_suppressed_reporting(): void
     {
-        $oldReporting = error_reporting(0);
+        $this->withSuppressedErrors(function (): void {
+            $this->logger->expects($this->never())
+                ->method('error');
 
-        $this->logger->expects($this->never())
-            ->method('error');
+            $result = $this->handler->handleError(E_WARNING, 'Suppressed', __FILE__, __LINE__);
 
-        $result = $this->handler->handleError(E_WARNING, 'Suppressed', __FILE__, __LINE__);
-
-        error_reporting($oldReporting);
-
-        $this->assertFalse($result);
+            $this->assertFalse($result);
+        });
     }
 
     #[Test]

@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Integration\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -16,6 +17,7 @@ use Throwable;
 #[CoversClass(Server::class)]
 class NotificationEdgeCasesTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Server $server = null;
 
     #[Override]
@@ -120,9 +122,7 @@ class NotificationEdgeCasesTest extends TestCase
         $changed = socket_select($read, $write, $except, 1);
         $this->assertGreaterThan(0, $changed, 'Notification should be sent after Event Loop finishes');
 
-        $previousErrorReporting = error_reporting(0);
-        $data = socket_read($notifySocket, 1);
-        error_reporting($previousErrorReporting);
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 1));
         $this->assertSame('x', $data);
     }
 
@@ -188,9 +188,7 @@ class NotificationEdgeCasesTest extends TestCase
 
         $this->assertGreaterThan(0, $changed, 'Notification should work during shutdown');
 
-        $previousErrorReporting = error_reporting(0);
-        $data = socket_read($notifySocket, 1);
-        error_reporting($previousErrorReporting);
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 1));
         $this->assertSame('x', $data);
 
         $this->server->shutdown(1);
@@ -295,9 +293,7 @@ class NotificationEdgeCasesTest extends TestCase
 
         $this->assertGreaterThan(0, $changed);
 
-        $previousErrorReporting = error_reporting(0);
-        $data = socket_read($notifySocket, 4096);
-        error_reporting($previousErrorReporting);
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 4096));
         $this->assertGreaterThanOrEqual(1, strlen($data));
     }
 

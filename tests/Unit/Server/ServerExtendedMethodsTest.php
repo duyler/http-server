@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
 use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Override;
@@ -18,6 +19,7 @@ use Psr\Log\LoggerInterface;
 
 class ServerExtendedMethodsTest extends TestCase
 {
+    use ErrorReportingScope;
     private ErrorHandlerInterface&MockObject $errorHandler;
 
     #[Override]
@@ -171,9 +173,7 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '127.0.0.1',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $this->assertSame(1, $server->getWorkerId());
@@ -214,9 +214,7 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '10.0.0.1',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $server->stop();

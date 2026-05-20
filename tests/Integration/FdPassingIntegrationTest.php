@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -12,6 +13,7 @@ use Socket;
 #[Group('pcntl')]
 class FdPassingIntegrationTest extends TestCase
 {
+    use ErrorReportingScope;
     #[Test]
     public function scm_rights_api_is_available(): void
     {
@@ -58,9 +60,7 @@ class FdPassingIntegrationTest extends TestCase
             ],
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $sent = socket_sendmsg($sock1, $message, 0);
-        error_reporting($previousErrorReporting);
+        $sent = $this->withSuppressedErrors(fn() => socket_sendmsg($sock1, $message, 0));
 
         $this->assertNotFalse($sent, 'socket_sendmsg should succeed with SCM_RIGHTS');
 
@@ -71,9 +71,7 @@ class FdPassingIntegrationTest extends TestCase
         ];
 
         socket_set_nonblock($sock2);
-        $previousErrorReporting = error_reporting(0);
-        $received = socket_recvmsg($sock2, $recvMsg, 0);
-        error_reporting($previousErrorReporting);
+        $received = $this->withSuppressedErrors(fn() => socket_recvmsg($sock2, $recvMsg, 0));
 
         if (false !== $received) {
             $this->assertGreaterThan(0, $received, 'Should receive data');

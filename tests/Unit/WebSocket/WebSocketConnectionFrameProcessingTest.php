@@ -20,6 +20,7 @@ use Socket;
 
 class WebSocketConnectionFrameProcessingTest extends TestCase
 {
+    use \Duyler\HttpServer\Tests\Support\ErrorReportingScope;
     private WebSocketServer $server;
     private Connection $connection;
 
@@ -48,9 +49,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->sockets as $socket) {
-            $previousErrorReporting = error_reporting(0);
-            socket_close($socket);
-            error_reporting($previousErrorReporting);
+            $this->withSuppressedErrors(static fn() => socket_close($socket));
         }
     }
 
@@ -121,9 +120,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $payload = pack('n', CloseCode::NORMAL->value) . 'Goodbye';
         $frame = new Frame(Opcode::CLOSE, $payload, fin: true, masked: false);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->processFrame($frame);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(ConnectionState::CLOSED, $this->connection->getState());
     }
@@ -144,9 +141,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $payload = pack('n', CloseCode::GOING_AWAY->value) . 'Shutdown';
         $frame = new Frame(Opcode::CLOSE, $payload, fin: true, masked: false);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->processFrame($frame);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(CloseCode::GOING_AWAY->value, $receivedCode);
         $this->assertSame('Shutdown', $receivedReason);
@@ -165,9 +160,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
 
         $frame = new Frame(Opcode::CLOSE, '', fin: true, masked: false);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->processFrame($frame);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(CloseCode::NORMAL->value, $receivedCode);
     }
@@ -177,9 +170,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     {
         $frame = new Frame(Opcode::PING, 'ping-data', fin: true, masked: false);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->processFrame($frame);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->expectNotToPerformAssertions();
     }
@@ -220,9 +211,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     #[Test]
     public function close_changes_state_to_closing(): void
     {
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->close();
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->close());
 
         $this->assertSame(ConnectionState::CLOSING, $this->connection->getState());
     }
@@ -330,9 +319,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     {
         $this->assertNull($this->connection->getLastPing());
 
-        $previousErrorReporting = error_reporting(0);
-        $this->connection->ping();
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->connection->ping());
 
         $this->assertNotNull($this->connection->getLastPing());
     }
@@ -340,9 +327,7 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     #[Test]
     public function send_array_data_returns_boolean(): void
     {
-        $previousErrorReporting = error_reporting(0);
-        $result = $this->connection->send(['type' => 'test']);
-        error_reporting($previousErrorReporting);
+        $result = $this->withSuppressedErrors(fn() => $this->connection->send(['type' => 'test']));
 
         $this->assertIsBool($result);
     }

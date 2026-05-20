@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Socket\StreamSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -13,6 +14,7 @@ use Socket;
 
 class StreamSocketReadWriteTest extends TestCase
 {
+    use ErrorReportingScope;
     private StreamSocket $server;
     private StreamSocket $client;
 
@@ -80,13 +82,11 @@ class StreamSocketReadWriteTest extends TestCase
         $this->client->bind('127.0.0.1', 0);
         $this->client->setBlocking(false);
 
-        $previousErrorReporting = error_reporting(0);
-        socket_connect(
+        $this->withSuppressedErrors(fn() => socket_connect(
             $this->extractSocket($this->client),
             '127.0.0.1',
             $port,
-        );
-        error_reporting($previousErrorReporting);
+        ));
 
         usleep(10000);
 
@@ -107,9 +107,7 @@ class StreamSocketReadWriteTest extends TestCase
         $this->assertNotFalse($clientSocket);
 
         socket_set_nonblock($clientSocket);
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($clientSocket, '127.0.0.1', $port);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
 
         usleep(10000);
 
@@ -153,9 +151,7 @@ class StreamSocketReadWriteTest extends TestCase
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $this->assertNotFalse($clientSocket);
 
-        $previousErrorReporting = error_reporting(0);
-        socket_connect($clientSocket, '127.0.0.1', $port);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
         usleep(10000);
 
         $serverConn = $this->server->accept();

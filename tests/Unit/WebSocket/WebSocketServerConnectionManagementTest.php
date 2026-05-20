@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 
 use Duyler\HttpServer\Connection\Connection as TcpConnection;
 use Duyler\HttpServer\Socket\StreamSocketResource;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Duyler\HttpServer\WebSocket\Connection;
 use Duyler\HttpServer\WebSocket\Enum\CloseCode;
 use Duyler\HttpServer\WebSocket\Enum\ConnectionState;
@@ -24,6 +25,7 @@ use Throwable;
 
 class WebSocketServerConnectionManagementTest extends TestCase
 {
+    use ErrorReportingScope;
     private WebSocketServer $server;
 
     /** @var array<Socket> */
@@ -39,9 +41,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->sockets as $socket) {
-            $previousErrorReporting = error_reporting(0);
-            socket_close($socket);
-            error_reporting($previousErrorReporting);
+            $this->withSuppressedErrors(static fn() => socket_close($socket));
         }
         $this->sockets = [];
     }
@@ -163,9 +163,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnection($openConn);
         $this->server->addConnection($closedConn);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->broadcast('hello');
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->broadcast('hello'));
 
         $this->expectNotToPerformAssertions();
     }
@@ -179,9 +177,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnection($conn1);
         $this->server->addConnection($conn2);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->broadcast('hello', $conn1);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->broadcast('hello', $conn1));
 
         $this->expectNotToPerformAssertions();
     }
@@ -264,9 +260,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnectionToRoom($openConn, 'chat');
         $this->server->addConnectionToRoom($closedConn, 'chat');
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->broadcastToRoom('chat', 'msg');
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->broadcastToRoom('chat', 'msg'));
 
         $this->expectNotToPerformAssertions();
     }
@@ -283,9 +277,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnectionToRoom($conn1, 'chat');
         $this->server->addConnectionToRoom($conn2, 'chat');
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->broadcastToRoom('chat', 'msg', $conn1);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->broadcastToRoom('chat', 'msg', $conn1));
 
         $this->expectNotToPerformAssertions();
     }
@@ -299,9 +291,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $this->server->addConnection($conn1);
         $this->server->addConnection($conn2);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->closeAll();
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->closeAll());
 
         $this->assertSame(ConnectionState::CLOSING, $conn1->getState());
         $this->assertSame(ConnectionState::CLOSING, $conn2->getState());
@@ -313,9 +303,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
         $conn = $this->createWsConnection('conn_1');
         $this->server->addConnection($conn);
 
-        $previousErrorReporting = error_reporting(0);
-        $this->server->closeAll(CloseCode::NORMAL->value, 'Custom reason');
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $this->server->closeAll(CloseCode::NORMAL->value, 'Custom reason'));
 
         $this->assertSame(ConnectionState::CLOSING, $conn->getState());
     }
@@ -356,9 +344,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $server->addConnection($closedConn);
 
-        $previousErrorReporting = error_reporting(0);
-        $server->processPings();
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->processPings());
 
         $this->expectNotToPerformAssertions();
     }
@@ -376,9 +362,7 @@ class WebSocketServerConnectionManagementTest extends TestCase
 
         $server->addConnection($conn);
 
-        $previousErrorReporting = error_reporting(0);
-        $server->processPings();
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->processPings());
 
         $this->assertNotNull($conn->getLastPing());
     }

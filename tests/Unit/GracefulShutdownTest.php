@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
@@ -13,6 +14,7 @@ use Throwable;
 
 class GracefulShutdownTest extends TestCase
 {
+    use ErrorReportingScope;
     private Server $server;
     private int $port;
 
@@ -153,14 +155,12 @@ class GracefulShutdownTest extends TestCase
      */
     private function connectClient()
     {
-        $previousErrorReporting = error_reporting(0);
-        $client = stream_socket_client(
+        $client = $this->withSuppressedErrors(fn() => stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
-        );
-        error_reporting($previousErrorReporting);
+        ));
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

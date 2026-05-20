@@ -8,6 +8,7 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
 use Duyler\HttpServer\Exception\InvalidConfigException;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -19,6 +20,7 @@ use Socket;
 #[CoversClass(Server::class)]
 class ServerExternalConnectionTest extends TestCase
 {
+    use ErrorReportingScope;
     private ErrorHandlerInterface&MockObject $errorHandler;
 
     private int $basePort = 28080;
@@ -69,9 +71,7 @@ class ServerExternalConnectionTest extends TestCase
             'client_ip' => '192.168.1.1',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($clientSocket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($clientSocket, $metadata));
 
         $this->assertSame(1, $server->getWorkerId());
 
@@ -94,9 +94,7 @@ class ServerExternalConnectionTest extends TestCase
             'client_ip' => '10.0.0.5',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(2, $server->getWorkerId());
 
@@ -116,9 +114,7 @@ class ServerExternalConnectionTest extends TestCase
             'worker_id' => 3,
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(3, $server->getWorkerId());
 
@@ -140,9 +136,7 @@ class ServerExternalConnectionTest extends TestCase
             'client_ip' => '172.16.0.1',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(4, $server->getWorkerId());
 
@@ -239,9 +233,7 @@ class ServerExternalConnectionTest extends TestCase
             'client_ip' => '10.10.10.10',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         socket_close($socket);
     }
@@ -277,9 +269,7 @@ class ServerExternalConnectionTest extends TestCase
             'client_ip' => '192.168.99.99',
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         socket_close($socket);
     }
@@ -297,9 +287,7 @@ class ServerExternalConnectionTest extends TestCase
             'worker_id' => 7,
         ];
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket, $metadata);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(\Duyler\HttpServer\Config\ServerMode::WorkerPool, $server->getMode());
 
@@ -364,10 +352,10 @@ class ServerExternalConnectionTest extends TestCase
         $this->assertNotFalse($socket1);
         $this->assertNotFalse($socket2);
 
-        $previousErrorReporting = error_reporting(0);
-        $server->addExternalConnection($socket1, ['worker_id' => 10, 'client_ip' => '10.0.0.1']);
-        $server->addExternalConnection($socket2, ['worker_id' => 10, 'client_ip' => '10.0.0.2']);
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(function () use ($server, $socket1, $socket2): void {
+            $server->addExternalConnection($socket1, ['worker_id' => 10, 'client_ip' => '10.0.0.1']);
+            $server->addExternalConnection($socket2, ['worker_id' => 10, 'client_ip' => '10.0.0.2']);
+        });
 
         $this->assertSame(10, $server->getWorkerId());
 
@@ -430,11 +418,11 @@ class ServerExternalConnectionTest extends TestCase
     #[Override]
     protected function tearDown(): void
     {
-        $previousErrorReporting = error_reporting(0);
-        try {
-            parent::tearDown();
-        } catch (Throwable) {
-        }
-        error_reporting($previousErrorReporting);
+        $this->withSuppressedErrors(function (): void {
+            try {
+                parent::tearDown();
+            } catch (Throwable) {
+            }
+        });
     }
 }
