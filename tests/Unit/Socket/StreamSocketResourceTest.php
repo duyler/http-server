@@ -291,4 +291,242 @@ class StreamSocketResourceTest extends TestCase
         socket_close($server);
     }
 
+    #[Test]
+    public function get_peer_name_returns_false_on_closed_socket(): void
+    {
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $resource = new StreamSocketResource($socket);
+        $resource->close();
+
+        $result = $resource->getPeerName();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_unconnected_socket(): void
+    {
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $resource = new StreamSocketResource($socket);
+
+        $previousHandler = set_error_handler(static fn(): bool => true);
+        $result = $resource->getPeerName();
+        restore_error_handler();
+
+        $this->assertFalse($result);
+
+        $resource->close();
+    }
+
+    #[Test]
+    public function get_peer_name_returns_peer_info_on_connected_socket(): void
+    {
+        $server = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_bind($server, '127.0.0.1', 0);
+        socket_listen($server, 1);
+        socket_getsockname($server, $address, $port);
+
+        $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_set_nonblock($client);
+        socket_connect($client, '127.0.0.1', $port);
+
+        usleep(10000);
+        $accepted = socket_accept($server);
+
+        socket_getpeername($accepted, $expectedIp, $expectedPort);
+
+        $resource = new StreamSocketResource($accepted);
+        $result = $resource->getPeerName();
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('ip', $result);
+        $this->assertArrayHasKey('port', $result);
+        $this->assertSame($expectedIp, $result['ip']);
+        $this->assertIsInt($result['port']);
+        $this->assertSame($expectedPort, $result['port']);
+
+        $resource->close();
+        socket_close($client);
+        socket_close($server);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_closed_stream(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $resource = new StreamSocketResource($stream);
+        $resource->close();
+
+        $result = $resource->getPeerName();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_non_socket_stream(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $resource = new StreamSocketResource($stream);
+
+        $result = $resource->getPeerName();
+
+        $this->assertFalse($result);
+
+        $resource->close();
+    }
+
+    #[Test]
+    public function get_peer_name_returns_address_on_socket_stream(): void
+    {
+        $server = stream_socket_server('tcp://127.0.0.1:0');
+        $address = stream_socket_get_name($server, false);
+        $colonPos = strrpos($address, ':');
+        $port = (int) substr($address, $colonPos + 1);
+
+        $client = stream_socket_client("tcp://127.0.0.1:$port");
+        $accepted = stream_socket_accept($server);
+
+        $clientAddress = stream_socket_get_name($client, false);
+        $clientPort = (int) substr($clientAddress, strrpos($clientAddress, ':') + 1);
+
+        $resource = new StreamSocketResource($accepted);
+        $result = $resource->getPeerName();
+
+        $this->assertIsArray($result);
+        $this->assertSame('127.0.0.1', $result['ip']);
+        $this->assertIsInt($result['port']);
+        $this->assertSame($clientPort, $result['port']);
+
+        $resource->close();
+        fclose($client);
+        fclose($server);
+    }
+
+    #[Test]
+    public function get_peer_name_returns_false_on_client_stream_with_remote(): void
+    {
+        $server = stream_socket_server('tcp://127.0.0.1:0');
+        $address = stream_socket_get_name($server, false);
+        $colonPos = strrpos($address, ':');
+        $port = (int) substr($address, $colonPos + 1);
+
+        $client = stream_socket_client("tcp://127.0.0.1:$port");
+
+        $resource = new StreamSocketResource($client);
+        $result = $resource->getPeerName();
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('ip', $result);
+        $this->assertArrayHasKey('port', $result);
+
+        $resource->close();
+        fclose($server);
+    }
+
+    #[Test]
+    public function export_stream_returns_false_on_closed_socket(): void
+    {
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $resource = new StreamSocketResource($socket);
+        $resource->close();
+
+        $result = $resource->exportStream();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function export_stream_returns_stream_from_socket(): void
+    {
+        $sockets = [];
+        socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
+        [$server, $client] = $sockets;
+
+        socket_set_nonblock($client);
+
+        $resource = new StreamSocketResource($client);
+        $stream = $resource->exportStream();
+
+        $this->assertIsResource($stream);
+
+        $resource->close();
+        socket_close($server);
+    }
+
+    #[Test]
+    public function export_stream_returns_same_stream_resource_from_stream(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $resource = new StreamSocketResource($stream);
+
+        $result = $resource->exportStream();
+
+        $this->assertIsResource($result);
+        $this->assertSame($stream, $result);
+
+        $resource->close();
+    }
+
+    #[Test]
+    public function export_stream_returns_false_on_closed_stream(): void
+    {
+        $stream = fopen('php://memory', 'r+');
+        $resource = new StreamSocketResource($stream);
+        $resource->close();
+
+        $result = $resource->exportStream();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function export_stream_restores_nonblocking_after_export(): void
+    {
+        $sockets = [];
+        socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
+        [$server, $client] = $sockets;
+
+        socket_set_nonblock($client);
+
+        $resource = new StreamSocketResource($client);
+        $resource->exportStream();
+
+        $data = socket_read($client, 1, PHP_BINARY_READ);
+        $this->assertFalse($data);
+
+        $this->assertTrue($resource->isValid());
+
+        $resource->close();
+        socket_close($server);
+    }
+
+    #[Test]
+    public function export_stream_returns_false_when_set_block_fails(): void
+    {
+        $socket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        $resource = new StreamSocketResource($socket);
+
+        socket_close($socket);
+
+        $result = $resource->exportStream();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function export_stream_returns_resource_on_valid_socket(): void
+    {
+        $sockets = [];
+        socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $sockets);
+        [$server, $client] = $sockets;
+
+        $resource = new StreamSocketResource($client);
+        $stream = $resource->exportStream();
+
+        $this->assertIsResource($stream);
+
+        $resource->close();
+        socket_close($server);
+    }
+
 }

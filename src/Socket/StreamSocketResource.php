@@ -150,6 +150,73 @@ final class StreamSocketResource implements SocketResourceInterface
         return $this->resource;
     }
 
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        if ($this->resource instanceof Socket) {
+            $ip = '';
+            $port = 0;
+            $result = socket_getpeername($this->resource, $ip, $port);
+
+            if (false === $result) {
+                return false;
+            }
+
+            return ['ip' => $ip, 'port' => $port];
+        }
+
+        assert(is_resource($this->resource));
+        $address = stream_socket_get_name($this->resource, true);
+
+        if (false === $address) {
+            return false;
+        }
+
+        $colonPos = strrpos($address, ':');
+
+        if (false === $colonPos) {
+            return false;
+        }
+
+        $ip = substr($address, 0, $colonPos);
+        $port = substr($address, $colonPos + 1);
+
+        if (false === is_numeric($port)) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => (int) $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        if ($this->resource instanceof Socket) {
+            try {
+                error_clear_last();
+                socket_set_block($this->resource);
+            } catch (Throwable) {
+                return false;
+            }
+
+            $stream = socket_export_stream($this->resource);
+            socket_set_nonblock($this->resource);
+
+            return $stream;
+        }
+
+        assert(is_resource($this->resource));
+        return $this->resource;
+    }
+
     /**
      * Select for readable data on Socket or stream resources
      *
