@@ -123,31 +123,19 @@ $config = new ServerConfig(
     rateLimitRequests: 100,        // Max requests per window
     rateLimitWindow: 60,           // Rate limit window in seconds
     
-    // CORS
-    enableCors: false,             // Enable CORS handling
-    corsAllowedOrigins: [],        // Allowed origins (required when enabled)
-    corsAllowedMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    corsAllowedHeaders: ['Content-Type', 'Authorization'],
-    corsAllowCredentials: false,   // Allow credentials (no wildcard origin)
-    corsMaxAge: 86400,             // Preflight cache duration
-    corsExposeHeaders: [],         // Headers exposed to client
-    
-    // CSP (Content Security Policy)
-    contentSecurityPolicy: null,   // CSP directives as array
-    contentSecurityPolicyReportOnly: null, // Report-only CSP directives
-    enableCspNonce: false,         // Generate per-request CSP nonce
-    
-    // HSTS (HTTP Strict Transport Security)
-    enableHsts: false,             // Enable HSTS header (requires SSL)
-    hstsMaxAge: 31536000,          // HSTS max-age in seconds
-    hstsIncludeSubDomains: false,  // Include subdomains in HSTS
-    hstsPreload: false,            // Opt-in to HSTS preload lists
-    
-    // Security Headers
-    enableSecurityHeaders: true,   // Enable automatic security headers
-    frameOptions: 'DENY',          // X-Frame-Options: DENY or SAMEORIGIN
-    referrerPolicy: 'strict-origin-when-cross-origin', // Referrer-Policy value
-    permissionsPolicy: 'geolocation=(), microphone=(), camera=()', // Permissions-Policy
+    // Security (see Security Configuration section for details)
+    enableCors: false,
+    contentSecurityPolicy: null,
+    contentSecurityPolicyReportOnly: null,
+    enableCspNonce: false,
+    enableHsts: false,
+    hstsMaxAge: 31536000,
+    hstsIncludeSubDomains: false,
+    hstsPreload: false,
+    enableSecurityHeaders: true,
+    frameOptions: 'DENY',
+    referrerPolicy: 'strict-origin-when-cross-origin',
+    permissionsPolicy: 'geolocation=(), microphone=(), camera=()',
     
     // Debug
     debugMode: false,              // Enable debug logging mode
@@ -512,22 +500,6 @@ foreach ($uploadedFiles as $field => $file) {
 }
 ```
 
-### Rate Limiting
-
-```php
-$config = new ServerConfig(
-    enableRateLimit: true,
-    rateLimitRequests: 100,     // Max 100 requests
-    rateLimitWindow: 60,        // Per 60 seconds (per IP)
-);
-
-$server = new Server($config);
-$server->start();
-
-// Rate limiting is applied automatically
-// Clients exceeding limits receive 429 Too Many Requests
-```
-
 ### Graceful Shutdown
 
 ```php
@@ -770,38 +742,12 @@ while (true) {
 - Better resource utilization
 - Improved throughput for mixed workloads
 
-### RequestData and ResponseData
-
-#### RequestData
-
-```php
-final readonly class RequestData
-{
-    public string $id;                    // Unique request ID (e.g., "req_1")
-    public ServerRequestInterface $request; // PSR-7 request object
-    public int $connectionId;             // Internal connection identifier
-    
-    public function respond(ResponseInterface $response): ResponseData;
-}
-```
-
-#### ResponseData
-
-```php
-final readonly class ResponseData
-{
-    public string $requestId;             // ID of the request this response belongs to
-    public ResponseInterface $response;   // PSR-7 response object
-}
-```
-
 ### Examples
 
 See the following examples for different use cases:
 
 - **Basic usage**: `examples/request-id-basic.php` - Simple sequential processing
 - **Parallel processing**: `examples/parallel-processing.php` - Concurrent request handling with Fibers
-- **Migration guide**: `examples/migration-guide.php` - How to migrate to new API
 
 ### Performance
 
@@ -906,28 +852,6 @@ $ioWatcher = new EvIo($notifySocket, Ev::READ, function() use ($server): void {
 Ev::run();
 ```
 
-### API Reference
-
-#### Server::enableNotification(): void
-
-Creates notification socket pair. Event Loop should monitor the socket via `getSocketResource()`.
-
-#### Server::disableNotification(): void
-
-Closes notification sockets and cleans up resources.
-
-#### Server::getSocketResource(): Socket|resource|null
-
-Returns notification read socket if enabled, otherwise listening socket (legacy mode).
-
-#### Server::setEventLoopActive(bool $active): void
-
-Sets Event Loop active flag. Server only sends notification when Event Loop is inactive.
-
-#### Server::isEventLoopActive(): bool
-
-Returns current active flag state.
-
 ### Best Practices
 
 1. **Always set active flag** - prevents redundant notifications while processing
@@ -947,60 +871,17 @@ Returns current active flag state.
 - **Minimal overhead** - single socket write (~1μs)
 - **Scalability** - one watcher regardless of connection count
 
----
-
-## Event Loop Integration (Legacy)
-
-The server provides access to the underlying socket resource for integration with event loop libraries like `ev` extension (EvIo watchers).
-
-### Getting Socket Resource
-
-Use `getSocketResource()` to obtain the socket file descriptor:
-
-```php
-$server = new Server($config);
-$server->start();
-
-$resource = $server->getSocketResource();
-
-if ($resource !== null) {
-    // Use with EvIo
-    $ioWatcher = new EvIo($resource, Ev::READ, function (): void {
-        $server->hasRequest();
-    });
-}
-```
-
-### Return Values by Mode
-
-| Mode | Resource Type | Description |
-|------|---------------|-------------|
-| Notification enabled | `Socket` | Notification read socket |
-| Standalone | `Socket` or `resource` | Listening socket |
-
-### Manual Resource Assignment
-
-For custom implementations:
-
-```php
-$server = new Server($config);
-$server->setExternalSocketResource($customSocket);
-```
-
-See `examples/evio-integration.php` for a complete example.
-
 ## Examples
 
 The `examples/` directory contains various usage examples:
 
 ### Basic Examples
 - **request-id-basic.php** - Simple HTTP server with Request ID mechanism (beginner-friendly)
-- **migration-guide.php** - Migration guide from old API to new Request ID API
 
 ### Advanced Examples
 - **parallel-processing.php** - Parallel request processing with Fibers and out-of-order responses
 - **reactive-event-loop.php** - Reactive Event Loop with Notification Socket Pair
-- **evio-integration.php** - EvIo integration (reactive and legacy modes)
+- **evio-integration.php** - EvIo integration with reactive Event Loop
 
 ### Feature Examples
 - **websocket-chat.php** - WebSocket chat application
