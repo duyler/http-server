@@ -6,6 +6,8 @@ namespace Duyler\HttpServer\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 final class SslSocket implements SocketInterface
 {
@@ -18,6 +20,7 @@ final class SslSocket implements SocketInterface
         private readonly string $certPath,
         private readonly string $keyPath,
         private readonly bool $ipv6 = false,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
 
     #[Override]
@@ -79,7 +82,9 @@ final class SslSocket implements SocketInterface
         if (false === $client) {
             $sslError = error_get_last();
             if (null !== $sslError) {
-                error_log(sprintf('SSL accept error: %s', $sslError['message']));
+                $this->logger->warning('SSL accept error', [
+                    'error' => $sslError['message'],
+                ]);
             }
             return false;
         }

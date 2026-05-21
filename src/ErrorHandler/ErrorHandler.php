@@ -20,11 +20,13 @@ final class ErrorHandler implements ErrorHandlerInterface
     /**
      * @param Closure(array{type: int, message: string, file: string, line: int}): void|null $onFatalError
      * @param Closure(int): void|null $onSignal
+     * @param Closure(string): void|null $errorOutput Output handler for error messages, defaults to STDERR
      */
     public function __construct(
         private readonly LoggerInterface $logger,
         private readonly ?Closure $onFatalError = null,
         private readonly ?Closure $onSignal = null,
+        private readonly ?Closure $errorOutput = null,
     ) {}
 
     #[Override]
@@ -83,7 +85,7 @@ final class ErrorHandler implements ErrorHandlerInterface
         ]);
 
         if (in_array($errno, [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
-            fwrite(STDERR, sprintf(
+            $this->writeError(sprintf(
                 "[FATAL] %s: %s in %s on line %d\n",
                 $errorType,
                 $errstr,
@@ -109,7 +111,7 @@ final class ErrorHandler implements ErrorHandlerInterface
             'memory_peak' => memory_get_peak_usage(true),
         ]);
 
-        fwrite(STDERR, sprintf(
+        $this->writeError(sprintf(
             "[CRITICAL] Uncaught %s: %s in %s:%d\n%s\n",
             $exception::class,
             $exception->getMessage(),
@@ -150,7 +152,7 @@ final class ErrorHandler implements ErrorHandlerInterface
                 'memory_peak' => memory_get_peak_usage(true),
             ]);
 
-            fwrite(STDERR, sprintf(
+            $this->writeError(sprintf(
                 "[FATAL] %s: %s in %s on line %d\n",
                 $errorType,
                 $error['message'],
@@ -191,7 +193,7 @@ final class ErrorHandler implements ErrorHandlerInterface
             'memory_usage' => memory_get_usage(true),
         ]);
 
-        fwrite(STDERR, sprintf("[SIGNAL] Received %s (%d)\n", $signalName, $signal));
+        $this->writeError(sprintf("[SIGNAL] Received %s (%d)\n", $signalName, $signal));
 
         if (in_array($signal, [SIGTERM, SIGINT], true)) {
             $this->logger->info('Graceful shutdown initiated');
@@ -223,6 +225,16 @@ final class ErrorHandler implements ErrorHandlerInterface
 
         $this->previousErrorHandler = null;
         $this->previousExceptionHandler = null;
+    }
+
+    private function writeError(string $message): void
+    {
+        if (null !== $this->errorOutput) {
+            ($this->errorOutput)($message);
+            return;
+        }
+
+        fwrite(STDERR, $message);
     }
 
     private function getErrorType(int $errno): string

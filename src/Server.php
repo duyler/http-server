@@ -602,6 +602,7 @@ final class Server implements ServerInterface
                 $cert,
                 $key,
                 str_contains($this->config->host, ':'),
+                $this->logger,
             );
         }
 

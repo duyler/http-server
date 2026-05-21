@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\ErrorHandler\New;
 
+use Closure;
 use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
@@ -22,13 +23,16 @@ class ErrorHandlerTest extends TestCase
     private ErrorHandler $handler;
     private LoggerInterface $logger;
 
+    /** @var Closure(string): void */
+    private Closure $errorOutput;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         $this->logger = $this->createStub(LoggerInterface::class);
-        $this->handler = new ErrorHandler($this->logger);
+        $this->errorOutput = static function (string $message): void {};
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
     }
 
     #[Override]
@@ -42,7 +46,7 @@ class ErrorHandlerTest extends TestCase
     private function useMockLogger(): void
     {
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->handler = new ErrorHandler($this->logger);
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
     }
 
     #[Test]
@@ -211,6 +215,7 @@ class ErrorHandlerTest extends TestCase
             function (int $signal) use (&$callbackInvoked): void {
                 $callbackInvoked = true;
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -413,6 +418,7 @@ class ErrorHandlerTest extends TestCase
             function (int $signal): void {
                 throw new RuntimeException('Signal callback error');
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -527,7 +533,7 @@ class ErrorHandlerTest extends TestCase
         $onFatalError = function (array $error): void {};
         $onSignal = function (int $signal): void {};
 
-        $handler = new ErrorHandler($this->logger, $onFatalError, $onSignal);
+        $handler = new ErrorHandler($this->logger, $onFatalError, $onSignal, $this->errorOutput);
 
         $this->logger->method('info');
         $handler->register();

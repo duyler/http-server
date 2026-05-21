@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Functional\Stubs;
 
+use Closure;
 use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
 use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
@@ -24,13 +25,16 @@ class ShutdownHandlerStubTest extends TestCase
     private ErrorHandler $handler;
     private LoggerInterface $logger;
 
+    /** @var Closure(string): void */
+    private Closure $errorOutput;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
         $this->logger = $this->createStub(LoggerInterface::class);
-        $this->handler = new ErrorHandler($this->logger);
+        $this->errorOutput = static function (string $message): void {};
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
     }
 
     #[Override]
@@ -44,7 +48,7 @@ class ShutdownHandlerStubTest extends TestCase
     private function useMockLogger(): void
     {
         $this->logger = $this->createMock(LoggerInterface::class);
-        $this->handler = new ErrorHandler($this->logger);
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
     }
 
     #[Test]
@@ -68,6 +72,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (array $error) use (&$fatalErrorCalled): void {
                 $fatalErrorCalled = true;
             },
+            errorOutput: $this->errorOutput,
         );
 
         $this->logger->method('emergency');
@@ -121,6 +126,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (int $signal) use (&$signalReceived): void {
                 $signalReceived = $signal;
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -146,6 +152,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (int $signal): void {
                 throw new RuntimeException('Signal handler error');
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -247,6 +254,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (array $error) use (&$callbackInvoked): void {
                 $callbackInvoked = true;
             },
+            errorOutput: $this->errorOutput,
         );
 
         $this->logger->method('info');
@@ -272,6 +280,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (int $signal) use (&$signalReceived): void {
                 $signalReceived = $signal;
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -298,6 +307,7 @@ class ShutdownHandlerStubTest extends TestCase
             function (int $signal) use (&$callbackInvoked): void {
                 $callbackInvoked = true;
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
