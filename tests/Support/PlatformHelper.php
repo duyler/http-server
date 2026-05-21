@@ -8,6 +8,8 @@ use Socket;
 
 class PlatformHelper
 {
+    use ErrorReportingScope;
+
     public static function isDocker(): bool
     {
         return file_exists('/.dockerenv') || file_exists('/run/.containerenv');
@@ -58,131 +60,133 @@ class PlatformHelper
 
     private static function testFdPassingWorks(): bool
     {
-        $server = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        if (false === $server) {
-            return false;
-        }
+        return (new self())->withSuppressedErrors(static function (): bool {
+            $server = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if (false === $server) {
+                return false;
+            }
 
-        @socket_set_option($server, SOL_SOCKET, SO_REUSEADDR, 1);
-        if (false === @socket_bind($server, '127.0.0.1', 0)) {
-            socket_close($server);
-            return false;
-        }
+            socket_set_option($server, SOL_SOCKET, SO_REUSEADDR, 1);
+            if (false === socket_bind($server, '127.0.0.1', 0)) {
+                socket_close($server);
+                return false;
+            }
 
-        if (false === @socket_listen($server, 1)) {
-            socket_close($server);
-            return false;
-        }
+            if (false === socket_listen($server, 1)) {
+                socket_close($server);
+                return false;
+            }
 
-        socket_getsockname($server, $addr, $port);
+            socket_getsockname($server, $addr, $port);
 
-        $client = @socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
-        if (false === $client) {
-            socket_close($server);
-            return false;
-        }
+            $client = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+            if (false === $client) {
+                socket_close($server);
+                return false;
+            }
 
-        if (false === @socket_connect($client, $addr, $port)) {
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
+            if (false === socket_connect($client, $addr, $port)) {
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
 
-        $accepted = @socket_accept($server);
-        if (false === $accepted) {
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
+            $accepted = socket_accept($server);
+            if (false === $accepted) {
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
 
-        @socket_write($client, 'test_data');
+            socket_write($client, 'test_data');
 
-        $pair = [];
-        if (false === @socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair)) {
-            socket_close($accepted);
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
+            $pair = [];
+            if (false === socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair)) {
+                socket_close($accepted);
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
 
-        [$sock1, $sock2] = $pair;
+            [$sock1, $sock2] = $pair;
 
-        $msg = [
-            'iov' => ['x'],
-            'control' => [
-                [
-                    'level' => SOL_SOCKET,
-                    'type' => SCM_RIGHTS,
-                    'data' => [$accepted],
+            $msg = [
+                'iov' => ['x'],
+                'control' => [
+                    [
+                        'level' => SOL_SOCKET,
+                        'type' => SCM_RIGHTS,
+                        'data' => [$accepted],
+                    ],
                 ],
-            ],
-        ];
+            ];
 
-        $sendResult = @socket_sendmsg($sock1, $msg, 0);
-        if (false === $sendResult) {
+            $sendResult = socket_sendmsg($sock1, $msg, 0);
+            if (false === $sendResult) {
+                socket_close($sock1);
+                socket_close($sock2);
+                socket_close($accepted);
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
+
+            usleep(10000);
+
+            $rmsg = [
+                'iov' => [''],
+                'control' => [],
+                'controllen' => 256,
+            ];
+
+            $recvResult = socket_recvmsg($sock2, $rmsg, 0);
+            if (false === $recvResult) {
+                socket_close($sock1);
+                socket_close($sock2);
+                socket_close($accepted);
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
+
+            if (!isset($rmsg['control'][0]['data'][0])) {
+                socket_close($sock1);
+                socket_close($sock2);
+                socket_close($accepted);
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
+
+            $recvFd = $rmsg['control'][0]['data'][0];
+            if (!is_resource($recvFd) && !($recvFd instanceof Socket)) {
+                socket_close($sock1);
+                socket_close($sock2);
+                socket_close($accepted);
+                socket_close($client);
+                socket_close($server);
+                return false;
+            }
+
+            $isFunctional = false;
+            if (is_resource($recvFd)) {
+                stream_set_blocking($recvFd, false);
+                $data = fread($recvFd, 1024);
+                $isFunctional = strlen($data) > 0;
+            } elseif ($recvFd instanceof Socket) {
+                socket_set_nonblock($recvFd);
+                $data = socket_read($recvFd, 1024);
+                $isFunctional = strlen((string) $data) > 0;
+            }
+
             socket_close($sock1);
             socket_close($sock2);
             socket_close($accepted);
             socket_close($client);
             socket_close($server);
-            return false;
-        }
 
-        usleep(10000);
-
-        $rmsg = [
-            'iov' => [''],
-            'control' => [],
-            'controllen' => 256,
-        ];
-
-        $recvResult = @socket_recvmsg($sock2, $rmsg, 0);
-        if (false === $recvResult) {
-            socket_close($sock1);
-            socket_close($sock2);
-            socket_close($accepted);
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
-
-        if (!isset($rmsg['control'][0]['data'][0])) {
-            socket_close($sock1);
-            socket_close($sock2);
-            socket_close($accepted);
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
-
-        $recvFd = $rmsg['control'][0]['data'][0];
-        if (!is_resource($recvFd) && !($recvFd instanceof Socket)) {
-            socket_close($sock1);
-            socket_close($sock2);
-            socket_close($accepted);
-            socket_close($client);
-            socket_close($server);
-            return false;
-        }
-
-        $isFunctional = false;
-        if (is_resource($recvFd)) {
-            stream_set_blocking($recvFd, false);
-            $data = fread($recvFd, 1024);
-            $isFunctional = strlen($data) > 0;
-        } elseif ($recvFd instanceof Socket) {
-            socket_set_nonblock($recvFd);
-            $data = @socket_read($recvFd, 1024);
-            $isFunctional = strlen((string) $data) > 0;
-        }
-
-        socket_close($sock1);
-        socket_close($sock2);
-        socket_close($accepted);
-        socket_close($client);
-        socket_close($server);
-
-        return $isFunctional;
+            return $isFunctional;
+        });
     }
 
     public static function supportsSocketReusePort(): bool

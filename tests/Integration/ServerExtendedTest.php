@@ -9,6 +9,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -72,7 +73,8 @@ class ServerExtendedTest extends TestCase
         return $client;
     }
 
-    public function testHandlesPostRequestWithBody(): void
+    #[Test]
+    public function handles_post_request_with_body(): void
     {
         $this->server->start();
 
@@ -107,7 +109,8 @@ class ServerExtendedTest extends TestCase
         fclose($client);
     }
 
-    public function testHandlesMultipleHeaders(): void
+    #[Test]
+    public function handles_multiple_headers(): void
     {
         $this->server->start();
 
@@ -134,7 +137,8 @@ class ServerExtendedTest extends TestCase
         fclose($client);
     }
 
-    public function testHandlesQueryParameters(): void
+    #[Test]
+    public function handles_query_parameters(): void
     {
         $this->server->start();
 
@@ -153,7 +157,8 @@ class ServerExtendedTest extends TestCase
         fclose($client);
     }
 
-    public function testHandlesKeepAliveConnection(): void
+    #[Test]
+    public function handles_keep_alive_connection(): void
     {
         $this->server->start();
 
@@ -178,7 +183,8 @@ class ServerExtendedTest extends TestCase
         fclose($client);
     }
 
-    public function testServerRestart(): void
+    #[Test]
+    public function server_restart(): void
     {
         $result = $this->server->start();
         $this->assertTrue($result);
@@ -191,7 +197,8 @@ class ServerExtendedTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testServerWithPublicPath(): void
+    #[Test]
+    public function server_with_public_path(): void
     {
         $this->server->stop();
         $this->server->reset();
@@ -237,7 +244,8 @@ class ServerExtendedTest extends TestCase
         $this->assertTrue($requestReceived || true, 'Server with public path should handle requests');
     }
 
-    public function testHandlesChunkedRequest(): void
+    #[Test]
+    public function handles_chunked_request(): void
     {
         $this->server->start();
 
@@ -268,7 +276,8 @@ class ServerExtendedTest extends TestCase
         fclose($client);
     }
 
-    public function testHandlesMalformedRequest(): void
+    #[Test]
+    public function handles_malformed_request(): void
     {
         $this->server->start();
 

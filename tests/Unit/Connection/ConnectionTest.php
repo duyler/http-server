@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\Connection;
 use Duyler\HttpServer\Connection\Connection;
 use Duyler\HttpServer\Socket\StreamSocketResource;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ConnectionTest extends TestCase
@@ -32,27 +33,32 @@ class ConnectionTest extends TestCase
         }
     }
 
-    public function testReturnsSocketResource(): void
+    #[Test]
+    public function returns_socket_resource(): void
     {
         $this->assertSame($this->socketResource, $this->connection->getSocket());
     }
 
-    public function testReturnsRemoteAddress(): void
+    #[Test]
+    public function returns_remote_address(): void
     {
         $this->assertSame('127.0.0.1', $this->connection->getRemoteAddress());
     }
 
-    public function testReturnsRemotePort(): void
+    #[Test]
+    public function returns_remote_port(): void
     {
         $this->assertSame(12345, $this->connection->getRemotePort());
     }
 
-    public function testBufferIsEmptyInitially(): void
+    #[Test]
+    public function buffer_is_empty_initially(): void
     {
         $this->assertSame('', $this->connection->getBuffer());
     }
 
-    public function testAppendsDataToBuffer(): void
+    #[Test]
+    public function appends_data_to_buffer(): void
     {
         $this->connection->appendToBuffer('Hello');
         $this->assertSame('Hello', $this->connection->getBuffer());
@@ -61,7 +67,8 @@ class ConnectionTest extends TestCase
         $this->assertSame('Hello World', $this->connection->getBuffer());
     }
 
-    public function testClearsBuffer(): void
+    #[Test]
+    public function clears_buffer(): void
     {
         $this->connection->appendToBuffer('test data');
         $this->connection->clearBuffer();
@@ -69,7 +76,8 @@ class ConnectionTest extends TestCase
         $this->assertSame('', $this->connection->getBuffer());
     }
 
-    public function testTracksRequestCount(): void
+    #[Test]
+    public function tracks_request_count(): void
     {
         $this->assertSame(0, $this->connection->getRequestCount());
 
@@ -80,7 +88,8 @@ class ConnectionTest extends TestCase
         $this->assertSame(2, $this->connection->getRequestCount());
     }
 
-    public function testUpdatesLastActivityTime(): void
+    #[Test]
+    public function updates_last_activity_time(): void
     {
         $initialTime = $this->connection->getLastActivityTime();
 
@@ -90,7 +99,8 @@ class ConnectionTest extends TestCase
         $this->assertGreaterThan($initialTime, $this->connection->getLastActivityTime());
     }
 
-    public function testDetectsTimeout(): void
+    #[Test]
+    public function detects_timeout(): void
     {
         $this->assertFalse($this->connection->isTimedOut(1));
 
@@ -99,7 +109,8 @@ class ConnectionTest extends TestCase
         $this->assertTrue($this->connection->isTimedOut(1));
     }
 
-    public function testManagesKeepAliveFlag(): void
+    #[Test]
+    public function manages_keep_alive_flag(): void
     {
         $this->assertFalse($this->connection->isKeepAlive());
 
@@ -110,7 +121,8 @@ class ConnectionTest extends TestCase
         $this->assertFalse($this->connection->isKeepAlive());
     }
 
-    public function testWritesData(): void
+    #[Test]
+    public function writes_data(): void
     {
         $written = $this->connection->write('test data');
 
@@ -118,7 +130,8 @@ class ConnectionTest extends TestCase
         $this->assertGreaterThan(0, $written);
     }
 
-    public function testReadsData(): void
+    #[Test]
+    public function reads_data(): void
     {
         fwrite($this->socket, 'test content');
         rewind($this->socket);
@@ -128,10 +141,44 @@ class ConnectionTest extends TestCase
         $this->assertSame('test', $data);
     }
 
-    public function testClosesConnection(): void
+    #[Test]
+    public function closes_connection(): void
     {
         $this->connection->close();
 
         $this->assertFalse(is_resource($this->socket));
+    }
+
+    #[Test]
+    public function consume_buffer_removes_exact_bytes(): void
+    {
+        $this->connection->appendToBuffer('Hello World');
+        $this->connection->consumeBuffer(6);
+
+        $this->assertSame('World', $this->connection->getBuffer());
+    }
+
+    #[Test]
+    public function consume_buffer_clears_all_when_bytes_exceed_buffer(): void
+    {
+        $this->connection->appendToBuffer('Hello');
+        $this->connection->consumeBuffer(100);
+
+        $this->assertSame('', $this->connection->getBuffer());
+    }
+
+    #[Test]
+    public function consume_buffer_clears_request_cache(): void
+    {
+        $this->connection->appendToBuffer('data');
+        $this->connection->setCachedHeaders(['Host' => ['example.com']]);
+        $this->connection->setExpectedContentLength(42);
+        $this->connection->startRequestTimer();
+
+        $this->connection->consumeBuffer(2);
+
+        $this->assertNull($this->connection->getCachedHeaders());
+        $this->assertNull($this->connection->getExpectedContentLength());
+        $this->assertNull($this->connection->getRequestStartTime());
     }
 }

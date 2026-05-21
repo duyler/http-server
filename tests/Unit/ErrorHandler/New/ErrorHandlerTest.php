@@ -4,27 +4,35 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\ErrorHandler\New;
 
-use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
+use Closure;
+use Duyler\HttpServer\ErrorHandler\ErrorHandler;
 use Duyler\HttpServer\Tests\Support\ErrorHandlerTestTrait;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
 
-class ProductionErrorHandlerTest extends TestCase
+class ErrorHandlerTest extends TestCase
 {
     use ErrorHandlerTestTrait;
+    use ErrorReportingScope;
 
-    private ProductionErrorHandler $handler;
-    private LoggerInterface&MockObject $logger;
+    private ErrorHandler $handler;
+    private LoggerInterface $logger;
+
+    /** @var Closure(string): void */
+    private Closure $errorOutput;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->logger = $this->createMock(LoggerInterface::class);
-        $this->handler = new ProductionErrorHandler($this->logger);
+        $this->logger = $this->createStub(LoggerInterface::class);
+        $this->errorOutput = static function (string $message): void {};
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
     }
 
     #[Override]
@@ -35,8 +43,16 @@ class ProductionErrorHandlerTest extends TestCase
         parent::tearDown();
     }
 
-    public function testRegisterLogsInfo(): void
+    private function useMockLogger(): void
     {
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->handler = new ErrorHandler($this->logger, errorOutput: $this->errorOutput);
+    }
+
+    #[Test]
+    public function register_logs_info(): void
+    {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Error handler registered', $this->callback(fn($arg) => is_array($arg)));
@@ -44,8 +60,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->register();
     }
 
-    public function testRegisterOnlyOnce(): void
+    #[Test]
+    public function register_only_once(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info');
 
@@ -53,22 +71,24 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->register();
     }
 
-    public function testHandleErrorWithSuppressedReporting(): void
+    #[Test]
+    public function handle_error_with_suppressed_reporting(): void
     {
-        $oldReporting = error_reporting(0);
+        $this->useMockLogger();
+        $this->withSuppressedErrors(function (): void {
+            $this->logger->expects($this->never())
+                ->method('error');
 
-        $this->logger->expects($this->never())
-            ->method('error');
+            $result = $this->handler->handleError(E_WARNING, 'Test', __FILE__, __LINE__);
 
-        $result = $this->handler->handleError(E_WARNING, 'Test', __FILE__, __LINE__);
-
-        error_reporting($oldReporting);
-
-        $this->assertFalse($result);
+            $this->assertFalse($result);
+        });
     }
 
-    public function testHandleErrorLogsError(): void
+    #[Test]
+    public function handle_error_logs_error(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -82,8 +102,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testHandleErrorForFatalError(): void
+    #[Test]
+    public function handle_error_for_fatal_error(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -97,8 +119,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testHandleErrorForUserError(): void
+    #[Test]
+    public function handle_error_for_user_error(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -112,8 +136,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testHandleException(): void
+    #[Test]
+    public function handle_exception(): void
     {
+        $this->useMockLogger();
         $exception = new RuntimeException('Test exception');
 
         $this->logger->expects($this->once())
@@ -127,8 +153,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleException($exception);
     }
 
-    public function testHandleShutdownWithoutError(): void
+    #[Test]
+    public function handle_shutdown_without_error(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Server shutdown normally', $this->callback(fn($ctx) => is_array($ctx)));
@@ -136,8 +164,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleShutdown();
     }
 
-    public function testHandleShutdownOnlyRunsOnce(): void
+    #[Test]
+    public function handle_shutdown_only_runs_once(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Server shutdown normally');
@@ -146,8 +176,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleShutdown();
     }
 
-    public function testHandleSignal(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function handle_signal(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGTERM')) {
             $this->markTestSkipped('SIGTERM not available');
         }
@@ -166,7 +199,9 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGTERM);
     }
 
-    public function testHandleSignalWithCallback(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function handle_signal_with_callback(): void
     {
         if (!defined('SIGTERM')) {
             $this->markTestSkipped('SIGTERM not available');
@@ -174,12 +209,13 @@ class ProductionErrorHandlerTest extends TestCase
 
         $callbackInvoked = false;
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal) use (&$callbackInvoked): void {
                 $callbackInvoked = true;
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -190,8 +226,10 @@ class ProductionErrorHandlerTest extends TestCase
         $this->assertTrue($callbackInvoked);
     }
 
-    public function testHandleSignalWithoutPcntl(): void
+    #[Test]
+    public function handle_signal_without_pcntl(): void
     {
+        $this->useMockLogger();
         $signal = 15;
 
         $this->logger->expects($this->once())
@@ -200,13 +238,18 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal($signal);
     }
 
-    public function testResetWhenNotRegistered(): void
+    #[Test]
+    public function reset_when_not_registered(): void
     {
+        $this->useMockLogger();
         $this->handler->reset();
-        $this->assertTrue(true);
+
+        $this->logger->expects($this->once())->method('info');
+        $this->handler->handleShutdown();
     }
 
-    public function testResetRestoresHandlers(): void
+    #[Test]
+    public function reset_restores_handlers(): void
     {
         $this->logger->method('info');
         $this->logger->method('error');
@@ -218,7 +261,8 @@ class ProductionErrorHandlerTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testHandleErrorWithNonFatalErrorTypes(): void
+    #[Test]
+    public function handle_error_with_non_fatal_error_types(): void
     {
         $oldReporting = error_reporting(E_ALL);
 
@@ -231,17 +275,22 @@ class ProductionErrorHandlerTest extends TestCase
             E_USER_DEPRECATED => 'E_USER_DEPRECATED',
         ];
 
+        $results = [];
         foreach ($errorTypes as $errno => $expectedType) {
-            $this->handler->handleError($errno, "Test $expectedType", __FILE__, __LINE__);
+            $results[] = $this->handler->handleError($errno, "Test $expectedType", __FILE__, __LINE__);
         }
 
         error_reporting($oldReporting);
 
-        $this->assertTrue(true);
+        foreach ($results as $result) {
+            $this->assertFalse($result);
+        }
     }
 
-    public function testHandleErrorWithFatalErrorType(): void
+    #[Test]
+    public function handle_error_with_fatal_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -253,8 +302,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithCoreErrorType(): void
+    #[Test]
+    public function handle_error_with_core_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -266,8 +317,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithCompileErrorType(): void
+    #[Test]
+    public function handle_error_with_compile_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -279,8 +332,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithUserErrorType(): void
+    #[Test]
+    public function handle_error_with_user_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -292,8 +347,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithRecoverableErrorType(): void
+    #[Test]
+    public function handle_error_with_recoverable_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -305,8 +362,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithParseErrorType(): void
+    #[Test]
+    public function handle_error_with_parse_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -318,8 +377,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleErrorWithUnknownErrorType(): void
+    #[Test]
+    public function handle_error_with_unknown_error_type(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -331,8 +392,10 @@ class ProductionErrorHandlerTest extends TestCase
         error_reporting($oldReporting);
     }
 
-    public function testHandleSignalWithUnknownSignal(): void
+    #[Test]
+    public function handle_signal_with_unknown_signal(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('warning')
             ->with('Received signal', $this->callback(fn($ctx) => str_contains((string) $ctx['name'], 'SIGNAL_')));
@@ -340,18 +403,22 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(999);
     }
 
-    public function testHandleSignalWithCallbackException(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function handle_signal_with_callback_exception(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGTERM')) {
             $this->markTestSkipped('SIGTERM not available');
         }
 
-        $this->handler = new ProductionErrorHandler(
+        $this->handler = new ErrorHandler(
             $this->logger,
             null,
             function (int $signal): void {
                 throw new RuntimeException('Signal callback error');
             },
+            $this->errorOutput,
         );
 
         $this->logger->method('warning');
@@ -363,8 +430,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGTERM);
     }
 
-    public function testHandleSignalWithSigint(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function handle_signal_with_sigint(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGINT')) {
             $this->markTestSkipped('SIGINT not available');
         }
@@ -378,8 +448,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGINT);
     }
 
-    public function testHandleSignalWithSighup(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function handle_signal_with_sighup(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGHUP')) {
             $this->markTestSkipped('SIGHUP not available');
         }
@@ -390,8 +463,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGHUP);
     }
 
-    public function testGetSignalNameWithSigquit(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function get_signal_name_with_sigquit(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGQUIT')) {
             $this->markTestSkipped('SIGQUIT not available');
         }
@@ -403,8 +479,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGQUIT);
     }
 
-    public function testGetSignalNameWithSigkill(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function get_signal_name_with_sigkill(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGKILL')) {
             $this->markTestSkipped('SIGKILL not available');
         }
@@ -416,8 +495,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGKILL);
     }
 
-    public function testGetSignalNameWithSigusr1(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function get_signal_name_with_sigusr_1(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGUSR1')) {
             $this->markTestSkipped('SIGUSR1 not available');
         }
@@ -429,8 +511,11 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGUSR1);
     }
 
-    public function testGetSignalNameWithSigusr2(): void
+    #[Test]
+    #[Group('pcntl')]
+    public function get_signal_name_with_sigusr_2(): void
     {
+        $this->useMockLogger();
         if (!defined('SIGUSR2')) {
             $this->markTestSkipped('SIGUSR2 not available');
         }
@@ -442,22 +527,28 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->handleSignal(SIGUSR2);
     }
 
-    public function testConstructorWithAllParameters(): void
+    #[Test]
+    public function constructor_with_all_parameters(): void
     {
         $onFatalError = function (array $error): void {};
         $onSignal = function (int $signal): void {};
 
-        $handler = new ProductionErrorHandler($this->logger, $onFatalError, $onSignal);
+        $handler = new ErrorHandler($this->logger, $onFatalError, $onSignal, $this->errorOutput);
 
         $this->logger->method('info');
         $handler->register();
         $handler->reset();
-        $this->assertTrue(true);
+
+        $this->assertInstanceOf(ErrorHandler::class, $handler);
     }
 
-    public function testHandleShutdownResetsIsShuttingDownOnReset(): void
+    #[Test]
+    public function handle_shutdown_resets_is_shutting_down_on_reset(): void
     {
-        $this->logger->method('info');
+        $infoCalls = 0;
+        $this->logger->method('info')->willReturnCallback(function () use (&$infoCalls): void {
+            $infoCalls++;
+        });
 
         $this->handler->register();
         $this->handler->handleShutdown();
@@ -466,6 +557,6 @@ class ProductionErrorHandlerTest extends TestCase
         $this->handler->register();
         $this->handler->handleShutdown();
 
-        $this->assertTrue(true);
+        $this->assertSame(4, $infoCalls);
     }
 }

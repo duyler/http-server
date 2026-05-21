@@ -2,60 +2,58 @@
 
 declare(strict_types=1);
 
-namespace Duyler\HttpServer;
+namespace Duyler\HttpServer\ErrorHandler;
 
 use Closure;
-use Duyler\HttpServer\ErrorHandler\ProductionErrorHandler;
+use Override;
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Throwable;
 
-/**
- * @deprecated Use ProductionErrorHandler instead
- * @see ProductionErrorHandler
- */
-final class ErrorHandler
+final class ErrorHandler implements ErrorHandlerInterface
 {
-    private static ?LoggerInterface $logger = null;
-    private static bool $registered = false;
-    private static bool $isShuttingDown = false;
-    private static ?Closure $onFatalError = null;
-    private static ?Closure $onSignal = null;
-    private static mixed $previousErrorHandler = null;
-    private static mixed $previousExceptionHandler = null;
+    private bool $registered = false;
+    private bool $isShuttingDown = false;
+    private bool $shutdownHandlerRegistered = false;
+    private mixed $previousErrorHandler = null;
+    private mixed $previousExceptionHandler = null;
 
     /**
      * @param Closure(array{type: int, message: string, file: string, line: int}): void|null $onFatalError
      * @param Closure(int): void|null $onSignal
+     * @param Closure(string): void|null $errorOutput Output handler for error messages, defaults to STDERR
      */
-    public static function register(
-        ?LoggerInterface $logger = null,
-        ?Closure $onFatalError = null,
-        ?Closure $onSignal = null,
-    ): void {
-        if (self::$registered) {
+    public function __construct(
+        private readonly LoggerInterface $logger,
+        private readonly ?Closure $onFatalError = null,
+        private readonly ?Closure $onSignal = null,
+        private readonly ?Closure $errorOutput = null,
+    ) {}
+
+    #[Override]
+    public function register(): void
+    {
+        if ($this->registered) {
             return;
         }
 
-        error_clear_last();
+        $this->registered = true;
 
-        self::$logger = $logger ?? new NullLogger();
-        self::$onFatalError = $onFatalError;
-        self::$onSignal = $onSignal;
-        self::$registered = true;
+        $this->previousErrorHandler = set_error_handler($this->handleError(...));
+        $this->previousExceptionHandler = set_exception_handler($this->handleException(...));
 
-        self::$previousErrorHandler = set_error_handler(self::handleError(...));
-        self::$previousExceptionHandler = set_exception_handler(self::handleException(...));
-        register_shutdown_function([self::class, 'handleShutdown']);
+        if (false === $this->shutdownHandlerRegistered) {
+            register_shutdown_function($this->handleShutdown(...));
+            $this->shutdownHandlerRegistered = true;
+        }
 
         if (function_exists('pcntl_signal')) {
-            pcntl_signal(SIGTERM, self::handleSignal(...));
-            pcntl_signal(SIGINT, self::handleSignal(...));
-            pcntl_signal(SIGHUP, self::handleSignal(...));
+            pcntl_signal(SIGTERM, $this->handleSignal(...));
+            pcntl_signal(SIGINT, $this->handleSignal(...));
+            pcntl_signal(SIGHUP, $this->handleSignal(...));
             pcntl_async_signals(true);
         }
 
-        self::$logger->info('Error handler registered', [
+        $this->logger->info('Error handler registered', [
             'error_handler' => 'yes',
             'exception_handler' => 'yes',
             'shutdown_handler' => 'yes',
@@ -63,7 +61,8 @@ final class ErrorHandler
         ]);
     }
 
-    public static function handleError(
+    #[Override]
+    public function handleError(
         int $errno,
         string $errstr,
         string $errfile,
@@ -73,9 +72,9 @@ final class ErrorHandler
             return false;
         }
 
-        $errorType = self::getErrorType($errno);
+        $errorType = $this->getErrorType($errno);
 
-        self::$logger?->error('PHP Error', [
+        $this->logger->error('PHP Error', [
             'type' => $errorType,
             'errno' => $errno,
             'message' => $errstr,
@@ -86,7 +85,7 @@ final class ErrorHandler
         ]);
 
         if (in_array($errno, [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
-            fwrite(STDERR, sprintf(
+            $this->writeError(sprintf(
                 "[FATAL] %s: %s in %s on line %d\n",
                 $errorType,
                 $errstr,
@@ -98,9 +97,10 @@ final class ErrorHandler
         return false;
     }
 
-    public static function handleException(Throwable $exception): void
+    #[Override]
+    public function handleException(Throwable $exception): void
     {
-        self::$logger?->critical('Uncaught exception', [
+        $this->logger->critical('Uncaught exception', [
             'exception' => $exception::class,
             'message' => $exception->getMessage(),
             'code' => $exception->getCode(),
@@ -111,7 +111,7 @@ final class ErrorHandler
             'memory_peak' => memory_get_peak_usage(true),
         ]);
 
-        fwrite(STDERR, sprintf(
+        $this->writeError(sprintf(
             "[CRITICAL] Uncaught %s: %s in %s:%d\n%s\n",
             $exception::class,
             $exception->getMessage(),
@@ -121,16 +121,18 @@ final class ErrorHandler
         ));
     }
 
-    public static function handleShutdown(): void
+    #[Override]
+    public function handleShutdown(): void
     {
-        if (self::$isShuttingDown) {
+        if ($this->isShuttingDown) {
             return;
         }
 
-        self::$isShuttingDown = true;
+        $this->isShuttingDown = true;
 
         $error = error_get_last();
 
+        // @codeCoverageIgnoreStart
         if (null !== $error && in_array($error['type'], [
             E_ERROR,
             E_CORE_ERROR,
@@ -139,9 +141,9 @@ final class ErrorHandler
             E_RECOVERABLE_ERROR,
             E_USER_ERROR,
         ], true)) {
-            $errorType = self::getErrorType($error['type']);
+            $errorType = $this->getErrorType($error['type']);
 
-            self::$logger?->emergency('Fatal error detected on shutdown', [
+            $this->logger->emergency('Fatal error detected on shutdown', [
                 'type' => $errorType,
                 'message' => $error['message'],
                 'file' => $error['file'],
@@ -150,7 +152,7 @@ final class ErrorHandler
                 'memory_peak' => memory_get_peak_usage(true),
             ]);
 
-            fwrite(STDERR, sprintf(
+            $this->writeError(sprintf(
                 "[FATAL] %s: %s in %s on line %d\n",
                 $errorType,
                 $error['message'],
@@ -160,11 +162,11 @@ final class ErrorHandler
 
             flush();
 
-            if (null !== self::$onFatalError) {
+            if (null !== $this->onFatalError) {
                 try {
-                    (self::$onFatalError)($error);
+                    ($this->onFatalError)($error);
                 } catch (Throwable $e) {
-                    self::$logger?->error('Error in fatal error callback', [
+                    $this->logger->error('Error in fatal error callback', [
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -172,33 +174,35 @@ final class ErrorHandler
 
             return;
         }
+        // @codeCoverageIgnoreEnd
 
-        self::$logger?->info('Server shutdown normally', [
+        $this->logger->info('Server shutdown normally', [
             'memory_usage' => memory_get_usage(true),
             'memory_peak' => memory_get_peak_usage(true),
         ]);
     }
 
-    public static function handleSignal(int $signal): void
+    #[Override]
+    public function handleSignal(int $signal): void
     {
-        $signalName = self::getSignalName($signal);
+        $signalName = $this->getSignalName($signal);
 
-        self::$logger?->warning('Received signal', [
+        $this->logger->warning('Received signal', [
             'signal' => $signal,
             'name' => $signalName,
             'memory_usage' => memory_get_usage(true),
         ]);
 
-        fwrite(STDERR, sprintf("[SIGNAL] Received %s (%d)\n", $signalName, $signal));
+        $this->writeError(sprintf("[SIGNAL] Received %s (%d)\n", $signalName, $signal));
 
         if (in_array($signal, [SIGTERM, SIGINT], true)) {
-            self::$logger?->info('Graceful shutdown initiated');
+            $this->logger->info('Graceful shutdown initiated');
 
-            if (null !== self::$onSignal) {
+            if (null !== $this->onSignal) {
                 try {
-                    (self::$onSignal)($signal);
+                    ($this->onSignal)($signal);
                 } catch (Throwable $e) {
-                    self::$logger?->error('Error in signal callback', [
+                    $this->logger->error('Error in signal callback', [
                         'error' => $e->getMessage(),
                     ]);
                 }
@@ -206,7 +210,34 @@ final class ErrorHandler
         }
     }
 
-    private static function getErrorType(int $errno): string
+    #[Override]
+    public function reset(): void
+    {
+        if (false === $this->registered) {
+            return;
+        }
+
+        $this->registered = false;
+        $this->isShuttingDown = false;
+
+        restore_error_handler();
+        restore_exception_handler();
+
+        $this->previousErrorHandler = null;
+        $this->previousExceptionHandler = null;
+    }
+
+    private function writeError(string $message): void
+    {
+        if (null !== $this->errorOutput) {
+            ($this->errorOutput)($message);
+            return;
+        }
+
+        fwrite(STDERR, $message);
+    }
+
+    private function getErrorType(int $errno): string
     {
         return match ($errno) {
             E_ERROR => 'E_ERROR',
@@ -227,7 +258,7 @@ final class ErrorHandler
         };
     }
 
-    private static function getSignalName(int $signal): string
+    private function getSignalName(int $signal): string
     {
         if (false === defined('SIGTERM')) {
             return "SIGNAL_$signal";
@@ -243,25 +274,5 @@ final class ErrorHandler
             SIGUSR2 => 'SIGUSR2',
             default => "SIGNAL_$signal",
         };
-    }
-
-    public static function reset(): void
-    {
-        if (!self::$registered) {
-            self::$isShuttingDown = false;
-            return;
-        }
-
-        self::$logger = null;
-        self::$registered = false;
-        self::$isShuttingDown = false;
-        self::$onFatalError = null;
-        self::$onSignal = null;
-
-        restore_error_handler();
-        restore_exception_handler();
-
-        self::$previousErrorHandler = null;
-        self::$previousExceptionHandler = null;
     }
 }

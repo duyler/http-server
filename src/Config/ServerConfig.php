@@ -9,6 +9,14 @@ use Duyler\HttpServer\Exception\InvalidConfigException;
 
 final readonly class ServerConfig
 {
+    /**
+     * @param list<string> $corsAllowedOrigins
+     * @param list<string> $corsAllowedMethods
+     * @param list<string> $corsAllowedHeaders
+     * @param list<string> $corsExposeHeaders
+     * @param ?array<non-empty-string, list<non-empty-string>> $contentSecurityPolicy
+     * @param ?array<non-empty-string, list<non-empty-string>> $contentSecurityPolicyReportOnly
+     */
     public function __construct(
         public string $host = '0.0.0.0',
         public int $port = 8080,
@@ -32,6 +40,20 @@ final readonly class ServerConfig
         public int $maxAcceptsPerCycle = 10,
         public int $socketBacklog = 511,
         public int $headerCacheLimit = 100,
+        public bool $enableCors = false,
+        public array $corsAllowedOrigins = [],
+        public array $corsAllowedMethods = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        public array $corsAllowedHeaders = ['Content-Type', 'Authorization'],
+        public bool $corsAllowCredentials = false,
+        public int $corsMaxAge = 86400,
+        public array $corsExposeHeaders = [],
+        public ?array $contentSecurityPolicy = null,
+        public ?array $contentSecurityPolicyReportOnly = null,
+        public bool $enableCspNonce = false,
+        public bool $enableHsts = false,
+        public int $hstsMaxAge = 31536000,
+        public bool $hstsIncludeSubDomains = false,
+        public bool $hstsPreload = false,
         public bool $debugMode = false,
         public int $memoryLimit = 134217728,
         public bool $enableSecurityHeaders = true,
@@ -44,6 +66,23 @@ final readonly class ServerConfig
 
     private function validate(): void
     {
+        if ('' === $this->host) {
+            throw new InvalidConfigException('Host cannot be empty');
+        }
+
+        if (false === filter_var($this->host, FILTER_VALIDATE_IP)
+            && false === filter_var($this->host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME)) {
+            throw new InvalidConfigException(sprintf('Invalid host: %s', $this->host));
+        }
+
+        if ($this->enableCors && [] === $this->corsAllowedOrigins) {
+            throw new InvalidConfigException('CORS enabled but no allowed origins specified');
+        }
+
+        if ($this->corsAllowCredentials && in_array('*', $this->corsAllowedOrigins, true)) {
+            throw new InvalidConfigException('CORS credentials are not allowed with wildcard origin');
+        }
+
         if ($this->port < Constants::MIN_PORT || $this->port > Constants::MAX_PORT) {
             throw new InvalidConfigException(sprintf(
                 'Port must be between %d and %d',
@@ -73,24 +112,24 @@ final readonly class ServerConfig
         }
 
         if ($this->ssl) {
-            if ($this->sslCert === null || $this->sslCert === '') {
+            if (null === $this->sslCert || '' === $this->sslCert) {
                 throw new InvalidConfigException('SSL certificate path is required when SSL is enabled');
             }
 
-            if ($this->sslKey === null || $this->sslKey === '') {
+            if (null === $this->sslKey || '' === $this->sslKey) {
                 throw new InvalidConfigException('SSL key path is required when SSL is enabled');
             }
 
-            if (!file_exists($this->sslCert)) {
+            if (false === file_exists($this->sslCert)) {
                 throw new InvalidConfigException(sprintf('SSL certificate file not found: %s', $this->sslCert));
             }
 
-            if (!file_exists($this->sslKey)) {
+            if (false === file_exists($this->sslKey)) {
                 throw new InvalidConfigException(sprintf('SSL key file not found: %s', $this->sslKey));
             }
         }
 
-        if ($this->publicPath !== null && !is_dir($this->publicPath)) {
+        if (null !== $this->publicPath && false === is_dir($this->publicPath)) {
             throw new InvalidConfigException(sprintf('Public path is not a directory: %s', $this->publicPath));
         }
 
@@ -128,6 +167,10 @@ final readonly class ServerConfig
 
         if ($this->memoryLimit < 1048576) {
             throw new InvalidConfigException('Memory limit must be at least 1MB');
+        }
+
+        if ($this->enableHsts && $this->hstsMaxAge < 0) {
+            throw new InvalidConfigException('HSTS max-age must be non-negative');
         }
 
         $validFrameOptions = ['DENY', 'SAMEORIGIN'];

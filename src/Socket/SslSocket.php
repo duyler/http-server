@@ -6,6 +6,8 @@ namespace Duyler\HttpServer\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 
 final class SslSocket implements SocketInterface
 {
@@ -18,6 +20,7 @@ final class SslSocket implements SocketInterface
         private readonly string $certPath,
         private readonly string $keyPath,
         private readonly bool $ipv6 = false,
+        private readonly LoggerInterface $logger = new NullLogger(),
     ) {}
 
     #[Override]
@@ -45,8 +48,11 @@ final class SslSocket implements SocketInterface
         );
 
         if (false === $socket) {
+            $sslError = error_get_last();
+            $sslMessage = null !== $sslError ? $sslError['message'] : 'Unknown SSL error';
+
             throw new SocketException(
-                sprintf('Failed to create SSL socket on %s: [%d] %s', $uri, $errno, $errstr),
+                sprintf('Failed to create SSL socket on %s: [%d] %s (SSL: %s)', $uri, $errno, $errstr, $sslMessage),
             );
         }
 
@@ -70,14 +76,25 @@ final class SslSocket implements SocketInterface
             throw new SocketException('Socket must be listening before accepting connections');
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         $client = stream_socket_accept($this->socket, 0);
 
         if (false === $client) {
+            $sslError = error_get_last();
+            if (null !== $sslError) {
+                $this->logger->warning('SSL accept error', [
+                    'error' => $sslError['message'],
+                ]);
+            }
             return false;
         }
 
         stream_set_blocking($client, false);
+
+        $socket = socket_import_stream($client);
+        if (false !== $socket) {
+            socket_set_option($socket, SOL_TCP, TCP_NODELAY, 1);
+        }
 
         return new StreamSocketResource($client);
     }
@@ -89,7 +106,7 @@ final class SslSocket implements SocketInterface
             throw new SocketException('Socket is not valid');
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         if (false === stream_set_blocking($this->socket, $blocking)) {
             throw new SocketException('Failed to set blocking mode on SSL socket');
         }
@@ -106,9 +123,8 @@ final class SslSocket implements SocketInterface
             return false;
         }
 
-        assert($this->socket !== null);
-        $data = fread($this->socket, $length);
-        return $data === false ? false : $data;
+        assert(null !== $this->socket);
+        return fread($this->socket, $length);
     }
 
     #[Override]
@@ -118,7 +134,7 @@ final class SslSocket implements SocketInterface
             return false;
         }
 
-        assert($this->socket !== null);
+        assert(null !== $this->socket);
         $written = fwrite($this->socket, $data);
         if (false !== $written) {
             fflush($this->socket);
@@ -130,7 +146,7 @@ final class SslSocket implements SocketInterface
     public function close(): void
     {
         if ($this->isValid()) {
-            assert($this->socket !== null);
+            assert(null !== $this->socket);
             $socket = $this->socket;
             $this->socket = null;
             fclose($socket);
@@ -148,6 +164,47 @@ final class SslSocket implements SocketInterface
     #[Override]
     public function getInternalResource(): mixed
     {
+        return $this->socket;
+    }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert(null !== $this->socket);
+        $address = stream_socket_get_name($this->socket, true);
+
+        if (false === $address) {
+            return false;
+        }
+
+        $colonPos = strrpos($address, ':');
+
+        if (false === $colonPos) {
+            return false;
+        }
+
+        $ip = substr($address, 0, $colonPos);
+        $port = substr($address, $colonPos + 1);
+
+        if (false === is_numeric($port)) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => (int) $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert(null !== $this->socket);
         return $this->socket;
     }
 }

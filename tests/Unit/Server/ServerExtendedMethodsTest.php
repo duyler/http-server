@@ -6,24 +6,42 @@ namespace Duyler\HttpServer\Tests\Unit\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Config\ServerMode;
+use Duyler\HttpServer\ErrorHandler\ErrorHandlerInterface;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
+use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 class ServerExtendedMethodsTest extends TestCase
 {
-    private function createServer(int $port = 18080): Server
+    use ErrorReportingScope;
+    private ErrorHandlerInterface $errorHandler;
+
+    #[Override]
+    protected function setUp(): void
     {
-        return new Server(new ServerConfig(
-            host: '127.0.0.1',
-            port: $port,
-            memoryLimit: 134217728,
-        ));
+        $this->errorHandler = $this->createStub(ErrorHandlerInterface::class);
+        $this->errorHandler->method('handleError')->willReturn(false);
     }
 
-    public function testRestartReturnsTrueAfterSuccessfulStart(): void
+    private function createServer(int $port = 18080): Server
+    {
+        return new Server(
+            new ServerConfig(
+                host: '127.0.0.1',
+                port: $port,
+                memoryLimit: 134217728,
+            ),
+            errorHandler: $this->errorHandler,
+        );
+    }
+
+    #[Test]
+    public function restart_returns_true_after_successful_start(): void
     {
         $server = $this->createServer(18081);
         $started = $server->start();
@@ -35,7 +53,8 @@ class ServerExtendedMethodsTest extends TestCase
         $server->stop();
     }
 
-    public function testGetMetricsReturnsArray(): void
+    #[Test]
+    public function get_metrics_returns_array(): void
     {
         $server = $this->createServer(18082);
         $server->start();
@@ -50,7 +69,8 @@ class ServerExtendedMethodsTest extends TestCase
         $server->stop();
     }
 
-    public function testGetMetricsContainsMemoryInfo(): void
+    #[Test]
+    public function get_metrics_contains_memory_info(): void
     {
         $server = $this->createServer(18083);
         $server->start();
@@ -64,7 +84,8 @@ class ServerExtendedMethodsTest extends TestCase
         $server->stop();
     }
 
-    public function testGetStaticCacheStatsReturnsNullWithoutHandler(): void
+    #[Test]
+    public function get_static_cache_stats_returns_null_without_handler(): void
     {
         $server = $this->createServer(18084);
         $server->start();
@@ -75,17 +96,19 @@ class ServerExtendedMethodsTest extends TestCase
         $server->stop();
     }
 
-    public function testSetLoggerUpdatesLogger(): void
+    #[Test]
+    public function set_logger_updates_logger(): void
     {
         $server = $this->createServer();
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
 
         $server->setLogger($logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(Server::class, $server);
     }
 
-    public function testGetPendingRequestIdReturnsNullInitially(): void
+    #[Test]
+    public function get_pending_request_id_returns_null_initially(): void
     {
         $server = $this->createServer(18085);
         $server->start();
@@ -96,7 +119,8 @@ class ServerExtendedMethodsTest extends TestCase
         $server->stop();
     }
 
-    public function testAttachWebSocketSetsFlag(): void
+    #[Test]
+    public function attach_web_socket_sets_flag(): void
     {
         $server = $this->createServer(18086);
         $server->start();
@@ -104,18 +128,20 @@ class ServerExtendedMethodsTest extends TestCase
         $ws = new WebSocketServer(new WebSocketConfig());
         $server->attachWebSocket('/ws', $ws);
 
-        $this->assertTrue(true);
+        $this->assertInstanceOf(Server::class, $server);
         $server->stop();
     }
 
-    public function testGetModeReturnsStandaloneByDefault(): void
+    #[Test]
+    public function get_mode_returns_standalone_by_default(): void
     {
         $server = $this->createServer();
 
         $this->assertSame(ServerMode::Standalone, $server->getMode());
     }
 
-    public function testSetWorkerIdUpdatesWorkerId(): void
+    #[Test]
+    public function set_worker_id_updates_worker_id(): void
     {
         $server = $this->createServer();
 
@@ -124,14 +150,16 @@ class ServerExtendedMethodsTest extends TestCase
         $this->assertSame(5, $server->getWorkerId());
     }
 
-    public function testGetWorkerIdReturnsNullByDefault(): void
+    #[Test]
+    public function get_worker_id_returns_null_by_default(): void
     {
         $server = $this->createServer();
 
         $this->assertNull($server->getWorkerId());
     }
 
-    public function testAddExternalConnectionWithSocket(): void
+    #[Test]
+    public function add_external_connection_with_socket(): void
     {
         $server = $this->createServer(18087);
         $server->start();
@@ -144,14 +172,15 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '127.0.0.1',
         ];
 
-        $server->addExternalConnection($socket, $metadata);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $this->assertSame(1, $server->getWorkerId());
         $server->stop();
     }
 
-    public function testAddExternalConnectionRequiresWorkerId(): void
+    #[Test]
+    public function add_external_connection_requires_worker_id(): void
     {
         $server = $this->createServer(18088);
         $server->start();
@@ -169,7 +198,8 @@ class ServerExtendedMethodsTest extends TestCase
         }
     }
 
-    public function testAddExternalConnectionWithWorkerPid(): void
+    #[Test]
+    public function add_external_connection_with_worker_pid(): void
     {
         $server = $this->createServer(18089);
         $server->start();
@@ -183,20 +213,22 @@ class ServerExtendedMethodsTest extends TestCase
             'client_ip' => '10.0.0.1',
         ];
 
-        $server->addExternalConnection($socket, $metadata);
+        $this->withSuppressedErrors(fn() => $server->addExternalConnection($socket, $metadata));
 
         $this->assertSame(ServerMode::WorkerPool, $server->getMode());
         $server->stop();
     }
 
-    public function testIsEventLoopActiveReturnsFalseByDefault(): void
+    #[Test]
+    public function is_event_loop_active_returns_false_by_default(): void
     {
         $server = $this->createServer();
 
         $this->assertFalse($server->isEventLoopActive());
     }
 
-    public function testSetEventLoopActiveUpdatesState(): void
+    #[Test]
+    public function set_event_loop_active_updates_state(): void
     {
         $server = $this->createServer();
 

@@ -10,6 +10,7 @@ use Duyler\HttpServer\Upload\TempFileManager;
 use InvalidArgumentException;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class MultipartBoundaryValidationTest extends TestCase
@@ -26,7 +27,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->parser = new RequestParser($httpParser, $psr17Factory, $tempFileManager);
     }
 
-    public function testAcceptsValidBoundary(): void
+    #[Test]
+    public function accepts_valid_boundary(): void
     {
         $boundary = 'boundary123';
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');
@@ -36,7 +38,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testIgnoresEmptyBoundary(): void
+    #[Test]
+    public function ignores_empty_boundary(): void
     {
         $request = "POST / HTTP/1.1\r\n";
         $request .= "Host: localhost\r\n";
@@ -49,7 +52,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertNull($parsed->getParsedBody());
     }
 
-    public function testRejectsBoundaryTooLong(): void
+    #[Test]
+    public function rejects_boundary_too_long(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -59,7 +63,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->parser->parse($request, '127.0.0.1', 8080);
     }
 
-    public function testAcceptsBoundaryMaxLength(): void
+    #[Test]
+    public function accepts_boundary_max_length(): void
     {
         $boundary = str_repeat('a', 70);
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');
@@ -69,7 +74,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testRejectsBoundaryWithInvalidCharacters(): void
+    #[Test]
+    public function rejects_boundary_with_invalid_characters(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -79,7 +85,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->parser->parse($request, '127.0.0.1', 8080);
     }
 
-    public function testAcceptsBoundaryWithAllowedSpecialChars(): void
+    #[Test]
+    public function accepts_boundary_with_allowed_special_chars(): void
     {
         $boundary = "boundary-_.'()+,/:=?";
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');
@@ -89,7 +96,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testRejectsBoundaryEndingWithSpace(): void
+    #[Test]
+    public function rejects_boundary_ending_with_space(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -99,7 +107,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->parser->parse($request, '127.0.0.1', 8080);
     }
 
-    public function testAcceptsQuotedBoundaryWithSpaces(): void
+    #[Test]
+    public function accepts_quoted_boundary_with_spaces(): void
     {
         $boundary = 'boundary part 2';
         $request = $this->createQuotedMultipartRequest($boundary, 'field1', 'value1');
@@ -109,7 +118,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testAcceptsBoundaryWithNumbers(): void
+    #[Test]
+    public function accepts_boundary_with_numbers(): void
     {
         $boundary = 'boundary1234567890';
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');
@@ -119,7 +129,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testAcceptsBoundaryWithQuotes(): void
+    #[Test]
+    public function accepts_boundary_with_quotes(): void
     {
         $boundary = "bound'ary";
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');
@@ -129,7 +140,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testRejectsBoundaryWithBackslash(): void
+    #[Test]
+    public function rejects_boundary_with_backslash(): void
     {
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid multipart boundary');
@@ -139,7 +151,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->parser->parse($request, '127.0.0.1', 8080);
     }
 
-    public function testStripsQuotesFromBoundary(): void
+    #[Test]
+    public function strips_quotes_from_boundary(): void
     {
         $boundary = 'boundary123';
         $quotedBoundary = '"boundary123"';
@@ -159,7 +172,8 @@ class MultipartBoundaryValidationTest extends TestCase
         $this->assertSame(['field1' => 'value1'], $parsed->getParsedBody());
     }
 
-    public function testAcceptsTypicalBrowserBoundary(): void
+    #[Test]
+    public function accepts_typical_browser_boundary(): void
     {
         $boundary = '----WebKitFormBoundary7MA4YWxkTrZu0gW';
         $request = $this->createMultipartRequest($boundary, 'field1', 'value1');

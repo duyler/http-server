@@ -6,12 +6,14 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 
 use Duyler\HttpServer\WebSocket\Enum\Opcode;
 use Duyler\HttpServer\WebSocket\Message;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 class MessageTest extends TestCase
 {
-    public function testCreatesTextMessage(): void
+    #[Test]
+    public function creates_text_message(): void
     {
         $message = new Message('Hello', Opcode::TEXT);
 
@@ -22,7 +24,8 @@ class MessageTest extends TestCase
         $this->assertSame(5, $message->getSize());
     }
 
-    public function testCreatesBinaryMessage(): void
+    #[Test]
+    public function creates_binary_message(): void
     {
         $binaryData = "\x00\x01\x02\x03";
         $message = new Message($binaryData, Opcode::BINARY);
@@ -34,7 +37,8 @@ class MessageTest extends TestCase
         $this->assertSame(4, $message->getSize());
     }
 
-    public function testParsesValidJson(): void
+    #[Test]
+    public function parses_valid_json(): void
     {
         $jsonData = json_encode(['type' => 'hello', 'user' => 'Alice']);
         $message = new Message($jsonData, Opcode::TEXT);
@@ -46,14 +50,16 @@ class MessageTest extends TestCase
         $this->assertSame('Alice', $parsed['user']);
     }
 
-    public function testReturnsNullForInvalidJson(): void
+    #[Test]
+    public function returns_null_for_invalid_json(): void
     {
         $message = new Message('not valid json', Opcode::TEXT);
 
         $this->assertNull($message->getJson());
     }
 
-    public function testReturnsNullForJsonOnBinaryMessage(): void
+    #[Test]
+    public function returns_null_for_json_on_binary_message(): void
     {
         $jsonData = json_encode(['test' => 'value']);
         $message = new Message($jsonData, Opcode::BINARY);
@@ -61,14 +67,16 @@ class MessageTest extends TestCase
         $this->assertNull($message->getJson());
     }
 
-    public function testReturnsNullForNonArrayJson(): void
+    #[Test]
+    public function returns_null_for_non_array_json(): void
     {
         $message = new Message('"just a string"', Opcode::TEXT);
 
         $this->assertNull($message->getJson());
     }
 
-    public function testHandlesEmptyMessage(): void
+    #[Test]
+    public function handles_empty_message(): void
     {
         $message = new Message('', Opcode::TEXT);
 
@@ -76,7 +84,8 @@ class MessageTest extends TestCase
         $this->assertSame(0, $message->getSize());
     }
 
-    public function testHandlesLargeMessage(): void
+    #[Test]
+    public function handles_large_message(): void
     {
         $largeData = str_repeat('A', 100000);
         $message = new Message($largeData, Opcode::TEXT);
@@ -85,7 +94,8 @@ class MessageTest extends TestCase
         $this->assertSame(100000, $message->getSize());
     }
 
-    public function testHandlesUnicodeText(): void
+    #[Test]
+    public function handles_unicode_text(): void
     {
         $unicodeText = '你好世界 🌍';
         $message = new Message($unicodeText, Opcode::TEXT);
@@ -94,7 +104,8 @@ class MessageTest extends TestCase
         $this->assertTrue($message->isText());
     }
 
-    public function testParsesNestedJson(): void
+    #[Test]
+    public function parses_nested_json(): void
     {
         $jsonData = json_encode([
             'type' => 'message',
@@ -112,7 +123,8 @@ class MessageTest extends TestCase
         $this->assertSame('nested value', $parsed['data']['nested']['deeply']);
     }
 
-    public function testLogsDebugOnInvalidJson(): void
+    #[Test]
+    public function logs_debug_on_invalid_json(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger
@@ -131,7 +143,8 @@ class MessageTest extends TestCase
         $message->getJson();
     }
 
-    public function testLogsDebugOnNonArrayJson(): void
+    #[Test]
+    public function logs_debug_on_non_array_json(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger
@@ -146,7 +159,8 @@ class MessageTest extends TestCase
         $message->getJson();
     }
 
-    public function testDoesNotLogOnValidJson(): void
+    #[Test]
+    public function does_not_log_on_valid_json(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger
@@ -158,7 +172,8 @@ class MessageTest extends TestCase
         $message->getJson();
     }
 
-    public function testDoesNotLogOnBinaryMessage(): void
+    #[Test]
+    public function does_not_log_on_binary_message(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger

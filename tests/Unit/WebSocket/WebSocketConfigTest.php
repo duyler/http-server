@@ -6,11 +6,13 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 
 use Duyler\HttpServer\WebSocket\Exception\InvalidWebSocketConfigException;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class WebSocketConfigTest extends TestCase
 {
-    public function testCreatesWithDefaultValues(): void
+    #[Test]
+    public function creates_with_default_values(): void
     {
         $config = new WebSocketConfig();
 
@@ -30,7 +32,8 @@ class WebSocketConfigTest extends TestCase
         $this->assertSame([], $config->subProtocols);
     }
 
-    public function testCreatesWithCustomValues(): void
+    #[Test]
+    public function creates_with_custom_values(): void
     {
         $config = new WebSocketConfig(
             maxMessageSize: 2097152,
@@ -65,7 +68,8 @@ class WebSocketConfigTest extends TestCase
         $this->assertSame(['chat', 'superchat'], $config->subProtocols);
     }
 
-    public function testThrowsOnInvalidMaxMessageSize(): void
+    #[Test]
+    public function throws_on_invalid_max_message_size(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('maxMessageSize must be positive');
@@ -73,7 +77,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(maxMessageSize: 0);
     }
 
-    public function testThrowsOnInvalidMaxFrameSize(): void
+    #[Test]
+    public function throws_on_invalid_max_frame_size(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('maxFrameSize must be positive');
@@ -81,7 +86,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(maxFrameSize: 0);
     }
 
-    public function testThrowsWhenMaxFrameExceedsMaxMessage(): void
+    #[Test]
+    public function throws_when_max_frame_exceeds_max_message(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('maxFrameSize cannot exceed maxMessageSize');
@@ -89,7 +95,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(maxMessageSize: 1024, maxFrameSize: 2048);
     }
 
-    public function testThrowsOnInvalidPingInterval(): void
+    #[Test]
+    public function throws_on_invalid_ping_interval(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('pingInterval must be positive');
@@ -97,7 +104,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(pingInterval: 0);
     }
 
-    public function testThrowsOnInvalidPongTimeout(): void
+    #[Test]
+    public function throws_on_invalid_pong_timeout(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('pongTimeout must be positive');
@@ -105,7 +113,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(pongTimeout: 0);
     }
 
-    public function testThrowsOnInvalidHandshakeTimeout(): void
+    #[Test]
+    public function throws_on_invalid_handshake_timeout(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('handshakeTimeout must be positive');
@@ -113,7 +122,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(handshakeTimeout: 0);
     }
 
-    public function testThrowsOnInvalidCloseTimeout(): void
+    #[Test]
+    public function throws_on_invalid_close_timeout(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('closeTimeout must be positive');
@@ -121,7 +131,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(closeTimeout: 0);
     }
 
-    public function testThrowsOnInvalidWriteBufferSize(): void
+    #[Test]
+    public function throws_on_invalid_write_buffer_size(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('writeBufferSize must be positive');
@@ -129,7 +140,8 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(writeBufferSize: 0);
     }
 
-    public function testThrowsOnNonStringAllowedOrigin(): void
+    #[Test]
+    public function throws_on_non_string_allowed_origin(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('allowedOrigins must contain only strings');
@@ -137,14 +149,16 @@ class WebSocketConfigTest extends TestCase
         new WebSocketConfig(allowedOrigins: ['valid', 123], validateOrigin: false);
     }
 
-    public function testEmptyAllowedOriginsByDefault(): void
+    #[Test]
+    public function empty_allowed_origins_by_default(): void
     {
         $config = new WebSocketConfig();
 
         $this->assertEmpty($config->allowedOrigins);
     }
 
-    public function testThrowsOnWildcardWithValidation(): void
+    #[Test]
+    public function throws_on_wildcard_with_validation(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('Wildcard origin with validation enabled is insecure');
@@ -155,7 +169,8 @@ class WebSocketConfigTest extends TestCase
         );
     }
 
-    public function testAcceptsWildcardWhenValidationDisabled(): void
+    #[Test]
+    public function accepts_wildcard_when_validation_disabled(): void
     {
         $config = new WebSocketConfig(
             allowedOrigins: ['*'],
@@ -165,7 +180,8 @@ class WebSocketConfigTest extends TestCase
         $this->assertSame(['*'], $config->allowedOrigins);
     }
 
-    public function testAcceptsSpecificOriginsWithValidation(): void
+    #[Test]
+    public function accepts_specific_origins_with_validation(): void
     {
         $config = new WebSocketConfig(
             allowedOrigins: ['https://example.com', 'https://test.com'],
@@ -175,7 +191,8 @@ class WebSocketConfigTest extends TestCase
         $this->assertSame(['https://example.com', 'https://test.com'], $config->allowedOrigins);
     }
 
-    public function testThrowsOnNonStringSubProtocol(): void
+    #[Test]
+    public function throws_on_non_string_sub_protocol(): void
     {
         $this->expectException(InvalidWebSocketConfigException::class);
         $this->expectExceptionMessage('subProtocols must contain only strings');

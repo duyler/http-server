@@ -9,7 +9,9 @@ use Override;
 
 final class Connection implements ConnectionInterface
 {
-    private string $buffer = '';
+    /** @var array<int, string> */
+    private array $chunks = [];
+    private int $bufferSize = 0;
     private int $requestCount = 0;
     private float $lastActivityTime;
     private bool $keepAlive = false;
@@ -26,6 +28,7 @@ final class Connection implements ConnectionInterface
         private readonly SocketResourceInterface $socket,
         private readonly string $remoteAddress,
         private readonly int $remotePort,
+        private readonly int $maxBufferSize = 10485760,
     ) {
         $this->lastActivityTime = microtime(true);
     }
@@ -51,20 +54,51 @@ final class Connection implements ConnectionInterface
     #[Override]
     public function getBuffer(): string
     {
-        return $this->buffer;
+        return implode('', $this->chunks);
     }
 
     #[Override]
     public function appendToBuffer(string $data): void
     {
-        $this->buffer .= $data;
+        $this->chunks[] = $data;
+        $this->bufferSize += strlen($data);
+
+        if ($this->bufferSize > $this->maxBufferSize) {
+            $this->close();
+            return;
+        }
+
         $this->updateActivity();
     }
 
     #[Override]
     public function clearBuffer(): void
     {
-        $this->buffer = '';
+        $this->chunks = [];
+        $this->bufferSize = 0;
+        $this->clearRequestCache();
+    }
+
+    #[Override]
+    public function consumeBuffer(int $bytes): void
+    {
+        if ($bytes >= $this->bufferSize) {
+            $this->chunks = [];
+            $this->bufferSize = 0;
+        } else {
+            $remaining = $bytes;
+            while ($remaining > 0 && [] !== $this->chunks) {
+                $chunkLen = strlen($this->chunks[0]);
+                if ($chunkLen <= $remaining) {
+                    $remaining -= $chunkLen;
+                    array_shift($this->chunks);
+                } else {
+                    $this->chunks[0] = substr($this->chunks[0], $remaining);
+                    $remaining = 0;
+                }
+            }
+            $this->bufferSize -= $bytes;
+        }
         $this->clearRequestCache();
     }
 
@@ -74,7 +108,6 @@ final class Connection implements ConnectionInterface
     #[Override]
     public function getCachedHeaders(): ?array
     {
-        /** @var array<string, string|array<int, string>>|null */
         return $this->cachedHeaders;
     }
 

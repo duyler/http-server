@@ -15,7 +15,7 @@ final class SocketException extends HttpServerException
 
     public static function fromLastError(?Socket $socket = null): self
     {
-        $errorCode = $socket !== null ? socket_last_error($socket) : socket_last_error();
+        $errorCode = null !== $socket ? socket_last_error($socket) : socket_last_error();
         $errorMsg = socket_strerror($errorCode);
 
         return new self(

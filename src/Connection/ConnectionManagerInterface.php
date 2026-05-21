@@ -24,4 +24,6 @@ interface ConnectionManagerInterface
     public function closeAll(): void;
 
     public function removeTimedOut(int $timeout): int;
+
+    public function closeConnectionWithMetrics(ConnectionInterface $connection): void;
 }

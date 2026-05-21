@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Integration;
 
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Handler\StaticFileHandler;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class LargeFileMemoryTest extends TestCase
@@ -25,10 +25,10 @@ class LargeFileMemoryTest extends TestCase
     protected function tearDown(): void
     {
         $this->removeDirectory($this->tempDir);
-        ErrorHandler::reset();
     }
 
-    public function testLargeFileStreamingDoesNotCauseMemoryLeak(): void
+    #[Test]
+    public function large_file_streaming_does_not_cause_memory_leak(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576);
 
@@ -70,7 +70,8 @@ class LargeFileMemoryTest extends TestCase
         $this->assertSame(0, $stats['entries'], 'Large files should not be cached');
     }
 
-    public function testMultipleLargeFilesDontAccumulateMemory(): void
+    #[Test]
+    public function multiple_large_files_dont_accumulate_memory(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576);
 
@@ -97,7 +98,8 @@ class LargeFileMemoryTest extends TestCase
         );
     }
 
-    public function testSmallFilesAreCachedLargeFilesAreNot(): void
+    #[Test]
+    public function small_files_are_cached_large_files_are_not(): void
     {
         $handler = new StaticFileHandler($this->tempDir, true, 1048576);
 
@@ -122,7 +124,8 @@ class LargeFileMemoryTest extends TestCase
         $this->assertLessThan(2048, $stats['size'], 'Cache size should only include small file');
     }
 
-    public function testCacheBoundaryExactlyAtLimit(): void
+    #[Test]
+    public function cache_boundary_exactly_at_limit(): void
     {
         $maxCacheSize = 1048576;
         $handler = new StaticFileHandler($this->tempDir, true, $maxCacheSize);

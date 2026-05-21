@@ -45,9 +45,9 @@ final readonly class Frame
             $frame .= pack('J', $payloadLength);
         }
 
-        if ($this->masked && $this->maskingKey !== null) {
+        if ($this->masked && null !== $this->maskingKey) {
             $frame .= $this->maskingKey;
-            $frame .= $this->mask($this->payload, $this->maskingKey);
+            $frame .= self::mask($this->payload, $this->maskingKey);
         } else {
             $frame .= $this->payload;
         }
@@ -118,7 +118,7 @@ final readonly class Frame
         $payload = substr($data, $offset, $payloadLength);
 
         if ($masked && null !== $maskingKey) {
-            $payload = self::unmask($payload, $maskingKey);
+            $payload = self::mask($payload, $maskingKey);
         }
 
         return new self($opcode, $payload, $fin, $masked, $maskingKey);
@@ -143,27 +143,13 @@ final readonly class Frame
         return $headerSize + $payloadLength;
     }
 
-    private function mask(string $data, string $key): string
+    private static function mask(string $data, string $key): string
     {
-        $result = '';
-        $keyLen = 4;
         $dataLen = strlen($data);
+        $result = str_repeat("\0", $dataLen);
 
         for ($i = 0; $i < $dataLen; $i++) {
-            $result .= $data[$i] ^ $key[$i % $keyLen];
-        }
-
-        return $result;
-    }
-
-    private static function unmask(string $data, string $key): string
-    {
-        $result = '';
-        $keyLen = 4;
-        $dataLen = strlen($data);
-
-        for ($i = 0; $i < $dataLen; $i++) {
-            $result .= $data[$i] ^ $key[$i % $keyLen];
+            $result[$i] = $data[$i] ^ $key[$i % 4];
         }
 
         return $result;

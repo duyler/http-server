@@ -10,7 +10,6 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketHandler;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -19,13 +18,13 @@ class WebSocketHandlerTest extends TestCase
     private WebSocketHandler $handler;
     private ServerConfig $config;
 
-    /** @var RequestProcessorInterface&MockObject */
+    /** @var RequestProcessorInterface */
     private RequestProcessorInterface $requestProcessor;
 
     protected function setUp(): void
     {
         $this->config = new ServerConfig();
-        $this->requestProcessor = $this->createMock(RequestProcessorInterface::class);
+        $this->requestProcessor = $this->createStub(RequestProcessorInterface::class);
         $this->handler = new WebSocketHandler($this->config, $this->requestProcessor);
     }
 
@@ -82,12 +81,12 @@ class WebSocketHandlerTest extends TestCase
     }
 
     #[Test]
-    public function set_logger_sets_logger(): void
+    public function logger_injected_via_constructor(): void
     {
         $logger = new NullLogger();
-        $this->handler->setLogger($logger);
+        $handler = new WebSocketHandler($this->config, $this->requestProcessor, logger: $logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(WebSocketHandler::class, $handler);
     }
 
     #[Test]
@@ -98,6 +97,6 @@ class WebSocketHandlerTest extends TestCase
 
         $this->handler->processKeepalive();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertTrue($this->handler->hasWebSocketServers());
     }
 }

@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Tests\Unit\WebSocket;
 use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -21,7 +22,8 @@ class WebSocketServerTest extends TestCase
         $this->server = new WebSocketServer(new WebSocketConfig());
     }
 
-    public function testCreatesWithConfig(): void
+    #[Test]
+    public function creates_with_config(): void
     {
         $config = new WebSocketConfig(maxMessageSize: 2097152, maxFrameSize: 131072);
         $server = new WebSocketServer($config);
@@ -29,15 +31,17 @@ class WebSocketServerTest extends TestCase
         $this->assertSame($config, $server->getConfig());
     }
 
-    public function testSetsLogger(): void
+    #[Test]
+    public function sets_logger(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $this->server->setLogger($logger);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertInstanceOf(WebSocketServer::class, $this->server);
     }
 
-    public function testRegistersEventListener(): void
+    #[Test]
+    public function registers_event_listener(): void
     {
         $called = false;
 
@@ -50,7 +54,8 @@ class WebSocketServerTest extends TestCase
         $this->assertTrue($called);
     }
 
-    public function testEmitsEventToMultipleListeners(): void
+    #[Test]
+    public function emits_event_to_multiple_listeners(): void
     {
         $callCount = 0;
 
@@ -67,7 +72,8 @@ class WebSocketServerTest extends TestCase
         $this->assertSame(2, $callCount);
     }
 
-    public function testPassesArgumentsToEventListeners(): void
+    #[Test]
+    public function passes_arguments_to_event_listeners(): void
     {
         $receivedArgs = [];
 
@@ -80,14 +86,16 @@ class WebSocketServerTest extends TestCase
         $this->assertSame(['arg1', 42, ['key' => 'value']], $receivedArgs);
     }
 
-    public function testHandlesEventWithNoListeners(): void
+    #[Test]
+    public function handles_event_with_no_listeners(): void
     {
         $this->server->emit('nonexistent');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
-    public function testLogsErrorsInEventHandlers(): void
+    #[Test]
+    public function logs_errors_in_event_handlers(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
@@ -108,65 +116,74 @@ class WebSocketServerTest extends TestCase
         $this->server->emit('test');
     }
 
-    public function testReturnsZeroConnectionsInitially(): void
+    #[Test]
+    public function returns_zero_connections_initially(): void
     {
         $this->assertSame(0, $this->server->getConnectionCount());
         $this->assertSame([], $this->server->getConnections());
     }
 
-    public function testReturnsNullForNonexistentConnection(): void
+    #[Test]
+    public function returns_null_for_nonexistent_connection(): void
     {
         $this->assertNull($this->server->getConnection('invalid_id'));
     }
 
-    public function testReturnsEmptyArrayForNonexistentRoom(): void
+    #[Test]
+    public function returns_empty_array_for_nonexistent_room(): void
     {
         $this->assertSame([], $this->server->getRoomConnections('nonexistent'));
         $this->assertSame(0, $this->server->getRoomCount('nonexistent'));
     }
 
-    public function testCleanupReturnsZeroWhenNoClosedConnections(): void
+    #[Test]
+    public function cleanup_returns_zero_when_no_closed_connections(): void
     {
         $removed = $this->server->cleanupClosedConnections();
 
         $this->assertSame(0, $removed);
     }
 
-    public function testCloseAllDoesNotFailWithNoConnections(): void
+    #[Test]
+    public function close_all_does_not_fail_with_no_connections(): void
     {
         $this->server->closeAll();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
-    public function testBroadcastDoesNotFailWithNoConnections(): void
+    #[Test]
+    public function broadcast_does_not_fail_with_no_connections(): void
     {
         $this->server->broadcast('test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
-    public function testBroadcastToRoomDoesNotFailWithNonexistentRoom(): void
+    #[Test]
+    public function broadcast_to_room_does_not_fail_with_nonexistent_room(): void
     {
         $this->server->broadcastToRoom('nonexistent', 'test message');
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getRoomCount('nonexistent'));
     }
 
-    public function testProcessPingsDoesNotFailWithNoConnections(): void
+    #[Test]
+    public function process_pings_does_not_fail_with_no_connections(): void
     {
         $this->server->processPings();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $this->server->getConnectionCount());
     }
 
-    public function testProcessPingsSkipsWhenAutoPingDisabled(): void
+    #[Test]
+    public function process_pings_skips_when_auto_ping_disabled(): void
     {
         $config = new WebSocketConfig(autoPing: false);
         $server = new WebSocketServer($config);
 
         $server->processPings();
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(0, $server->getConnectionCount());
     }
 }

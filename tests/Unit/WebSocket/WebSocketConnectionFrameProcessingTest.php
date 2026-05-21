@@ -14,11 +14,13 @@ use Duyler\HttpServer\WebSocket\Frame;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 
 class WebSocketConnectionFrameProcessingTest extends TestCase
 {
+    use \Duyler\HttpServer\Tests\Support\ErrorReportingScope;
     private WebSocketServer $server;
     private Connection $connection;
 
@@ -47,11 +49,12 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
     protected function tearDown(): void
     {
         foreach ($this->sockets as $socket) {
-            @socket_close($socket);
+            $this->withSuppressedErrors(static fn() => socket_close($socket));
         }
     }
 
-    public function testProcessTextFrameReturnsMessage(): void
+    #[Test]
+    public function process_text_frame_returns_message(): void
     {
         $frame = new Frame(Opcode::TEXT, 'hello', fin: true, masked: false);
 
@@ -62,7 +65,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertTrue($message->isText());
     }
 
-    public function testProcessBinaryFrameReturnsMessage(): void
+    #[Test]
+    public function process_binary_frame_returns_message(): void
     {
         $frame = new Frame(Opcode::BINARY, "\x00\x01\x02", fin: true, masked: false);
 
@@ -72,7 +76,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertFalse($message->isText());
     }
 
-    public function testProcessUnfinishedTextFrameReturnsNull(): void
+    #[Test]
+    public function process_unfinished_text_frame_returns_null(): void
     {
         $frame = new Frame(Opcode::TEXT, 'partial', fin: false, masked: false);
 
@@ -81,7 +86,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertNull($message);
     }
 
-    public function testProcessContinuationFrameWithoutFinReturnsNull(): void
+    #[Test]
+    public function process_continuation_frame_without_fin_returns_null(): void
     {
         $textFrame = new Frame(Opcode::TEXT, 'part1', fin: false, masked: false);
         $this->connection->processFrame($textFrame);
@@ -93,7 +99,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertNull($message);
     }
 
-    public function testProcessContinuationFrameWithFinReturnsCompleteMessage(): void
+    #[Test]
+    public function process_continuation_frame_with_fin_returns_complete_message(): void
     {
         $textFrame = new Frame(Opcode::TEXT, 'part1', fin: false, masked: false);
         $this->connection->processFrame($textFrame);
@@ -107,17 +114,19 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertTrue($message->isText());
     }
 
-    public function testProcessCloseFrameChangesState(): void
+    #[Test]
+    public function process_close_frame_changes_state(): void
     {
         $payload = pack('n', CloseCode::NORMAL->value) . 'Goodbye';
         $frame = new Frame(Opcode::CLOSE, $payload, fin: true, masked: false);
 
-        $this->connection->processFrame($frame);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(ConnectionState::CLOSED, $this->connection->getState());
     }
 
-    public function testProcessCloseFrameEmitsCloseEvent(): void
+    #[Test]
+    public function process_close_frame_emits_close_event(): void
     {
         $receivedCode = 0;
         $receivedReason = '';
@@ -132,13 +141,14 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $payload = pack('n', CloseCode::GOING_AWAY->value) . 'Shutdown';
         $frame = new Frame(Opcode::CLOSE, $payload, fin: true, masked: false);
 
-        $this->connection->processFrame($frame);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(CloseCode::GOING_AWAY->value, $receivedCode);
         $this->assertSame('Shutdown', $receivedReason);
     }
 
-    public function testProcessCloseFrameWithEmptyPayloadUsesDefaults(): void
+    #[Test]
+    public function process_close_frame_with_empty_payload_uses_defaults(): void
     {
         $receivedCode = 0;
 
@@ -150,21 +160,23 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
 
         $frame = new Frame(Opcode::CLOSE, '', fin: true, masked: false);
 
-        $this->connection->processFrame($frame);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
         $this->assertSame(CloseCode::NORMAL->value, $receivedCode);
     }
 
-    public function testProcessPingFrameRespondsWithPong(): void
+    #[Test]
+    public function process_ping_frame_responds_with_pong(): void
     {
         $frame = new Frame(Opcode::PING, 'ping-data', fin: true, masked: false);
 
-        $this->connection->processFrame($frame);
+        $this->withSuppressedErrors(fn() => $this->connection->processFrame($frame));
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(ConnectionState::OPEN, $this->connection->getState());
     }
 
-    public function testProcessPongFrameUpdatesLastPong(): void
+    #[Test]
+    public function process_pong_frame_updates_last_pong(): void
     {
         $frame = new Frame(Opcode::PONG, 'pong-data', fin: true, masked: false);
 
@@ -176,7 +188,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertGreaterThanOrEqual($beforePong, $this->connection->getLastPong());
     }
 
-    public function testSendReturnsFalseWhenNotOpen(): void
+    #[Test]
+    public function send_returns_false_when_not_open(): void
     {
         $this->connection->setState(ConnectionState::CLOSED);
 
@@ -185,7 +198,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testCloseDoesNothingWhenAlreadyClosed(): void
+    #[Test]
+    public function close_does_nothing_when_already_closed(): void
     {
         $this->connection->setState(ConnectionState::CLOSED);
 
@@ -194,40 +208,46 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertSame(ConnectionState::CLOSED, $this->connection->getState());
     }
 
-    public function testCloseChangesStateToClosing(): void
+    #[Test]
+    public function close_changes_state_to_closing(): void
     {
-        $this->connection->close();
+        $this->withSuppressedErrors(fn() => $this->connection->close());
 
         $this->assertSame(ConnectionState::CLOSING, $this->connection->getState());
     }
 
-    public function testSetDataAndGetData(): void
+    #[Test]
+    public function set_data_and_get_data(): void
     {
         $this->connection->setData('key', 'value');
 
         $this->assertSame('value', $this->connection->getData('key'));
     }
 
-    public function testGetDataReturnsDefaultWhenKeyNotSet(): void
+    #[Test]
+    public function get_data_returns_default_when_key_not_set(): void
     {
         $result = $this->connection->getData('nonexistent', 'default');
 
         $this->assertSame('default', $result);
     }
 
-    public function testHasDataReturnsTrueForSetKey(): void
+    #[Test]
+    public function has_data_returns_true_for_set_key(): void
     {
         $this->connection->setData('key', 'value');
 
         $this->assertTrue($this->connection->hasData('key'));
     }
 
-    public function testHasDataReturnsFalseForUnsetKey(): void
+    #[Test]
+    public function has_data_returns_false_for_unset_key(): void
     {
         $this->assertFalse($this->connection->hasData('nonexistent'));
     }
 
-    public function testJoinRoomAddsToRooms(): void
+    #[Test]
+    public function join_room_adds_to_rooms(): void
     {
         $this->server->addConnection($this->connection);
 
@@ -237,7 +257,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertSame(['chat'], $this->connection->getRooms());
     }
 
-    public function testJoinRoomDoesNotDuplicate(): void
+    #[Test]
+    public function join_room_does_not_duplicate(): void
     {
         $this->server->addConnection($this->connection);
 
@@ -247,7 +268,8 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertSame(['chat'], $this->connection->getRooms());
     }
 
-    public function testLeaveRoomRemovesFromRooms(): void
+    #[Test]
+    public function leave_room_removes_from_rooms(): void
     {
         $this->server->addConnection($this->connection);
 
@@ -258,66 +280,75 @@ class WebSocketConnectionFrameProcessingTest extends TestCase
         $this->assertSame([], $this->connection->getRooms());
     }
 
-    public function testGetRequestReturnsUpgradeRequest(): void
+    #[Test]
+    public function get_request_returns_upgrade_request(): void
     {
         $request = $this->connection->getRequest();
 
         $this->assertSame('GET', $request->getMethod());
     }
 
-    public function testGetRemoteAddress(): void
+    #[Test]
+    public function get_remote_address(): void
     {
         $this->assertSame('127.0.0.1', $this->connection->getRemoteAddress());
     }
 
-    public function testGetRemotePort(): void
+    #[Test]
+    public function get_remote_port(): void
     {
         $this->assertSame(8080, $this->connection->getRemotePort());
     }
 
-    public function testGetServer(): void
+    #[Test]
+    public function get_server(): void
     {
         $this->assertSame($this->server, $this->connection->getServer());
     }
 
-    public function testGetTcpConnection(): void
+    #[Test]
+    public function get_tcp_connection(): void
     {
         $tcp = $this->connection->getTcpConnection();
 
         $this->assertInstanceOf(TcpConnection::class, $tcp);
     }
 
-    public function testPingUpdatesLastPing(): void
+    #[Test]
+    public function ping_updates_last_ping(): void
     {
         $this->assertNull($this->connection->getLastPing());
 
-        $this->connection->ping();
+        $this->withSuppressedErrors(fn() => $this->connection->ping());
 
         $this->assertNotNull($this->connection->getLastPing());
     }
 
-    public function testSendArrayDataReturnsBoolean(): void
+    #[Test]
+    public function send_array_data_returns_boolean(): void
     {
-        $result = $this->connection->send(['type' => 'test']);
+        $result = $this->withSuppressedErrors(fn() => $this->connection->send(['type' => 'test']));
 
         $this->assertIsBool($result);
     }
 
-    public function testBroadcastDelegatesToServer(): void
+    #[Test]
+    public function broadcast_delegates_to_server(): void
     {
         $this->server->addConnection($this->connection);
 
         $this->connection->broadcast('message', excludeSelf: true);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 
-    public function testSendToRoomDelegatesToServer(): void
+    #[Test]
+    public function send_to_room_delegates_to_server(): void
     {
         $this->server->addConnection($this->connection);
 
         $this->connection->sendToRoom('chat', 'message', excludeSelf: false);
 
-        $this->expectNotToPerformAssertions();
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 }

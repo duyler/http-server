@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Support;
 
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Server;
 use Throwable;
 
@@ -31,11 +30,6 @@ trait ErrorHandlerTestTrait
             } catch (Throwable) {
             }
             $this->testServer = null;
-        }
-
-        try {
-            ErrorHandler::reset();
-        } catch (Throwable) {
         }
 
         error_clear_last();

@@ -11,6 +11,7 @@ use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
@@ -32,14 +33,14 @@ class ServerRequestIdTest extends TestCase
         parent::tearDown();
     }
 
-    public function testItGeneratesSequentialRequestIds(): void
+    #[Test]
+    public function it_generates_sequential_request_ids(): void
     {
         $config = new ServerConfig(port: 18085);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $processorProperty = $reflection->getProperty('requestProcessor');
-        $processorProperty->setAccessible(true);
         $processor = $processorProperty->getValue($this->server);
 
         $processorReflection = new ReflectionClass($processor);
@@ -54,7 +55,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame('req_2', $id3);
     }
 
-    public function testItCreatesRequestDataWithId(): void
+    #[Test]
+    public function it_creates_request_data_with_id(): void
     {
         $config = new ServerConfig(port: 18086);
         $this->server = new Server($config);
@@ -67,7 +69,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame(42, $requestData->connectionId);
     }
 
-    public function testItCreatesResponseDataViaRespondMethod(): void
+    #[Test]
+    public function it_creates_response_data_via_respond_method(): void
     {
         $request = new \Nyholm\Psr7\ServerRequest('GET', '/test');
         $requestData = new RequestData('req_123', $request, 42);
@@ -80,7 +83,8 @@ class ServerRequestIdTest extends TestCase
         self::assertSame($response, $responseData->response);
     }
 
-    public function testItValidatesRequestIdInRespond(): void
+    #[Test]
+    public function it_validates_request_id_in_respond(): void
     {
         $config = new ServerConfig(port: 18080);
         $this->server = new Server($config);
@@ -95,7 +99,8 @@ class ServerRequestIdTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItHandlesInvalidRequestIdGracefully(): void
+    #[Test]
+    public function it_handles_invalid_request_id_gracefully(): void
     {
         $config = new ServerConfig(port: 18081);
         $this->server = new Server($config);
@@ -110,31 +115,32 @@ class ServerRequestIdTest extends TestCase
         self::assertFalse($this->server->hasPendingResponse());
     }
 
-    public function testItRemovesMappingAfterRespond(): void
+    #[Test]
+    public function it_removes_mapping_after_respond(): void
     {
         $config = new ServerConfig(port: 18082);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $request = new \Nyholm\Psr7\ServerRequest('GET', '/test');
         $requestData = new RequestData('req_test', $request, 42);
 
-        $property->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_test' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertArrayHasKey('req_test', $mapping);
 
         $response = new Response(200, [], 'OK');
@@ -142,11 +148,12 @@ class ServerRequestIdTest extends TestCase
 
         $this->server->respond($responseData);
 
-        $mapping = $property->getValue($requestProcessor);
+        $mapping = $contextsProperty->getValue($requestQueue);
         self::assertArrayNotHasKey('req_test', $mapping);
     }
 
-    public function testItHasCorrectHasPendingResponse(): void
+    #[Test]
+    public function it_has_correct_has_pending_response(): void
     {
         $config = new ServerConfig(port: 18083);
         $this->server = new Server($config);
@@ -155,16 +162,16 @@ class ServerRequestIdTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $property = $rpReflection->getProperty('requestConnections');
-        $property->setAccessible(true);
-
-        $property->setValue($requestProcessor, [
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setValue($requestQueue, [
             'req_test' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -172,7 +179,8 @@ class ServerRequestIdTest extends TestCase
         self::assertTrue($this->server->hasPendingResponse());
     }
 
-    public function testItResetsRequestIdCounterOnReset(): void
+    #[Test]
+    public function it_resets_request_id_counter_on_reset(): void
     {
         $config = new ServerConfig(port: 18084);
         $this->server = new Server($config);
@@ -180,21 +188,20 @@ class ServerRequestIdTest extends TestCase
         $reflection = new ReflectionClass($this->server);
 
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $counterProperty = $rpReflection->getProperty('requestIdCounter');
-        $counterProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $counterProperty->setValue($requestProcessor, 100);
-        $connectionsProperty->setValue($requestProcessor, ['test' => []]);
+        $contextsProperty->setValue($requestQueue, ['test' => []]);
 
         $this->server->reset();
 
         self::assertSame(0, $counterProperty->getValue($requestProcessor));
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 }

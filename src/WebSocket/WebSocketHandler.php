@@ -13,7 +13,6 @@ use Override;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Socket;
 use Throwable;
 
 final class WebSocketHandler implements WebSocketHandlerInterface
@@ -125,42 +124,18 @@ final class WebSocketHandler implements WebSocketHandlerInterface
         return $this->processWebSocketData($connection, $wsConn);
     }
 
-    private function processWebSocketData(TcpConnection $connection, Connection $wsConn): bool
+    public function processWebSocketDataDirect(TcpConnection $connection, Connection $wsConn): bool
     {
         if (false === $connection->isValid()) {
             $wsConn->close();
             return false;
         }
 
-        $socket = $connection->getSocket();
-        $internalResource = $socket instanceof StreamSocketResource
-            ? $socket->getInternalResource()
-            : null;
+        return $this->processFrameLoop($connection, $wsConn);
+    }
 
-        if (null === $internalResource) {
-            return false;
-        }
-
-        if ($internalResource instanceof Socket) {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = socket_select($read, $write, $except, 0);
-
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
-        } else {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = stream_select($read, $write, $except, 0);
-
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
-        }
-
+    private function processFrameLoop(TcpConnection $connection, Connection $wsConn): bool
+    {
         try {
             $data = $connection->read($this->config->bufferSize);
 
@@ -170,6 +145,10 @@ final class WebSocketHandler implements WebSocketHandlerInterface
             }
 
             $connection->appendToBuffer($data);
+
+            if ($connection->isClosed()) {
+                return false;
+            }
 
             while (true) {
                 $buffer = $connection->getBuffer();
@@ -185,6 +164,10 @@ final class WebSocketHandler implements WebSocketHandlerInterface
                 $connection->clearBuffer();
                 if ('' !== $remaining) {
                     $connection->appendToBuffer($remaining);
+
+                    if ($connection->isClosed()) {
+                        return false;
+                    }
                 }
 
                 $message = $wsConn->processFrame($frame);
@@ -205,6 +188,31 @@ final class WebSocketHandler implements WebSocketHandlerInterface
             $wsConn->close();
             return false;
         }
+    }
+
+    private function processWebSocketData(TcpConnection $connection, Connection $wsConn): bool
+    {
+        if (false === $connection->isValid()) {
+            $wsConn->close();
+            return false;
+        }
+
+        $socket = $connection->getSocket();
+        $internalResource = $socket instanceof StreamSocketResource
+            ? $socket->getInternalResource()
+            : null;
+
+        if (null === $internalResource) {
+            return false;
+        }
+
+        $ready = StreamSocketResource::select([$internalResource]);
+
+        if (null === $ready) {
+            return true;
+        }
+
+        return $this->processFrameLoop($connection, $wsConn);
     }
 
     #[Override]
@@ -228,10 +236,7 @@ final class WebSocketHandler implements WebSocketHandlerInterface
     #[Override]
     public function reset(): void
     {
-        foreach ($this->wsServers as $wsServer) {
-            $wsServer->closeAll();
-        }
-        $this->wsConnections = [];
+        $this->closeAll();
     }
 
     public function removeConnection(TcpConnection $connection): void

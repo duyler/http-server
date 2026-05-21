@@ -12,6 +12,7 @@ use Duyler\HttpServer\Server;
 use Nyholm\Psr7\Response;
 use Nyholm\Psr7\ServerRequest;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 use ReflectionClass;
@@ -35,58 +36,60 @@ class RequestIdEdgeCasesTest extends TestCase
         }
         parent::tearDown();
     }
-    public function testItHandlesRequestTimeout(): void
+    #[Test]
+    public function it_handles_request_timeout(): void
     {
         $config = new ServerConfig(port: 18260, requestTimeout: 1);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->expects($this->once())->method('close');
 
         $oldTimestamp = microtime(true) - 2;
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_timeout' => [
                 'connection' => $connection,
                 'timestamp' => $oldTimestamp,
             ],
         ]);
 
-        self::assertArrayHasKey('req_timeout', $connectionsProperty->getValue($requestProcessor));
+        self::assertArrayHasKey('req_timeout', $contextsProperty->getValue($requestQueue));
 
         $requestProcessor->cleanupStaleRequests(1);
 
-        self::assertArrayNotHasKey('req_timeout', $connectionsProperty->getValue($requestProcessor));
+        self::assertArrayNotHasKey('req_timeout', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConnectionClose(): void
+    #[Test]
+    public function it_handles_connection_close(): void
     {
         $config = new ServerConfig(port: 18261);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
         $connection->expects($this->once())->method('close');
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_closed' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -96,29 +99,30 @@ class RequestIdEdgeCasesTest extends TestCase
         $response = new Response(200, [], 'OK');
         $this->server->respond(new ResponseData('req_closed', $response));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesActorExceptionGracefully(): void
+    #[Test]
+    public function it_handles_actor_exception_gracefully(): void
     {
         $config = new ServerConfig(port: 18262);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
-        $connection = $this->createMock(ConnectionInterface::class);
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willThrowException(new RuntimeException('Write failed'));
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_exception' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -129,29 +133,30 @@ class RequestIdEdgeCasesTest extends TestCase
 
         $this->server->respond(new ResponseData('req_exception', $response));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesDuplicateRespond(): void
+    #[Test]
+    public function it_handles_duplicate_respond(): void
     {
         $config = new ServerConfig(port: 18263);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->expects($this->once())->method('write')->willReturn(100);
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_duplicate' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -161,31 +166,32 @@ class RequestIdEdgeCasesTest extends TestCase
         $response = new Response(200, [], 'First Response');
         $this->server->respond(new ResponseData('req_duplicate', $response));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
 
         $secondResponse = new Response(200, [], 'Second Response');
         $this->server->respond(new ResponseData('req_duplicate', $secondResponse));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesInvalidRequestId(): void
+    #[Test]
+    public function it_handles_invalid_request_id(): void
     {
         $config = new ServerConfig(port: 18264);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
-        $connectionsProperty->setValue($requestProcessor, [
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setValue($requestQueue, [
             'req_valid' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -193,24 +199,25 @@ class RequestIdEdgeCasesTest extends TestCase
         $response = new Response(200, [], 'OK');
         $this->server->respond(new ResponseData('req_nonexistent', $response));
 
-        self::assertCount(1, $connectionsProperty->getValue($requestProcessor));
-        self::assertArrayHasKey('req_valid', $connectionsProperty->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
+        self::assertArrayHasKey('req_valid', $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItCleansUpAfterTimeout(): void
+    #[Test]
+    public function it_cleans_up_after_timeout(): void
     {
         $config = new ServerConfig(port: 18265, requestTimeout: 1);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connections = [];
         for ($i = 0; $i < 3; $i++) {
             $connection = $this->createMock(ConnectionInterface::class);
@@ -220,7 +227,7 @@ class RequestIdEdgeCasesTest extends TestCase
         }
 
         for ($i = 3; $i < 5; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connections[$i] = $connection;
         }
@@ -228,7 +235,7 @@ class RequestIdEdgeCasesTest extends TestCase
         $oldTimestamp = microtime(true) - 5;
         $freshTimestamp = microtime(true);
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_old_1' => ['connection' => $connections[0], 'timestamp' => $oldTimestamp],
             'req_old_2' => ['connection' => $connections[1], 'timestamp' => $oldTimestamp],
             'req_old_3' => ['connection' => $connections[2], 'timestamp' => $oldTimestamp],
@@ -236,12 +243,12 @@ class RequestIdEdgeCasesTest extends TestCase
             'req_fresh_2' => ['connection' => $connections[4], 'timestamp' => $freshTimestamp],
         ]);
 
-        self::assertCount(5, $connectionsProperty->getValue($requestProcessor));
+        self::assertCount(5, $contextsProperty->getValue($requestQueue));
 
         // cleanupStaleRequests is now on requestProcessor
         $requestProcessor->cleanupStaleRequests(1);
 
-        $remaining = $connectionsProperty->getValue($requestProcessor);
+        $remaining = $contextsProperty->getValue($requestQueue);
         self::assertCount(2, $remaining);
         self::assertArrayNotHasKey('req_old_1', $remaining);
         self::assertArrayNotHasKey('req_old_2', $remaining);
@@ -250,24 +257,25 @@ class RequestIdEdgeCasesTest extends TestCase
         self::assertArrayHasKey('req_fresh_2', $remaining);
     }
 
-    public function testItHandlesEmptyRequestId(): void
+    #[Test]
+    public function it_handles_empty_request_id(): void
     {
         $config = new ServerConfig(port: 18266);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
-        $connection = $this->createMock(ConnectionInterface::class);
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_valid' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -277,30 +285,31 @@ class RequestIdEdgeCasesTest extends TestCase
         $response = new Response(200, [], 'OK');
         $this->server->respond(new ResponseData('', $response));
 
-        self::assertCount(1, $connectionsProperty->getValue($requestProcessor));
+        self::assertCount(1, $contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConnectionWriteFailure(): void
+    #[Test]
+    public function it_handles_connection_write_failure(): void
     {
         $config = new ServerConfig(port: 18267);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(false);
         $connection->expects($this->once())->method('close');
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_write_fail' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -310,25 +319,26 @@ class RequestIdEdgeCasesTest extends TestCase
         $response = new Response(200, [], 'OK');
         $this->server->respond(new ResponseData('req_write_fail', $response));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesSpecialCharactersInResponseBody(): void
+    #[Test]
+    public function it_handles_special_characters_in_response_body(): void
     {
         $config = new ServerConfig(port: 18268);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $writtenData = '';
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturnCallback(function (string $data) use (&$writtenData): int|false {
@@ -336,7 +346,7 @@ class RequestIdEdgeCasesTest extends TestCase
             return strlen($data);
         });
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_special' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -349,25 +359,26 @@ class RequestIdEdgeCasesTest extends TestCase
 
         self::assertNotSame('', $writtenData);
         self::assertStringContainsString($specialBody, $writtenData);
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesLargeResponseHeaders(): void
+    #[Test]
+    public function it_handles_large_response_headers(): void
     {
         $config = new ServerConfig(port: 18269);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $writtenData = '';
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturnCallback(function (string $data) use (&$writtenData): int|false {
@@ -375,7 +386,7 @@ class RequestIdEdgeCasesTest extends TestCase
             return strlen($data);
         });
 
-        $connectionsProperty->setValue($requestProcessor, [
+        $contextsProperty->setValue($requestQueue, [
             'req_large_headers' => [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
@@ -391,26 +402,27 @@ class RequestIdEdgeCasesTest extends TestCase
 
         self::assertNotSame('', $writtenData);
         self::assertGreaterThan(10000, strlen($writtenData));
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesConcurrentCleanupAndRespond(): void
+    #[Test]
+    public function it_handles_concurrent_cleanup_and_respond(): void
     {
         $config = new ServerConfig(port: 18270, requestTimeout: 1);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $connections = [];
         for ($i = 0; $i < 10; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connection->method('isKeepAlive')->willReturn(false);
             $connection->method('write')->willReturn(100);
@@ -437,61 +449,61 @@ class RequestIdEdgeCasesTest extends TestCase
             ];
         }
 
-        $connectionsProperty->setValue($requestProcessor, $mapping);
+        $contextsProperty->setValue($requestQueue, $mapping);
 
         // cleanupStaleRequests is now on requestProcessor
         $requestProcessor->cleanupStaleRequests(1);
 
-        $remaining = $connectionsProperty->getValue($requestProcessor);
+        $remaining = $contextsProperty->getValue($requestQueue);
         self::assertCount(5, $remaining);
 
         foreach (array_keys($remaining) as $requestId) {
             $this->server->respond(new ResponseData($requestId, new Response(200)));
         }
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesRequestWithoutConnection(): void
+    #[Test]
+    public function it_handles_request_without_connection(): void
     {
         $config = new ServerConfig(port: 18271);
         $this->server = new Server($config, new NullLogger());
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
-        $connectionsProperty->setValue($requestProcessor, []);
+        $queueProperty = $rpReflection->getProperty('requestQueue');
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
+        $contextsProperty->setValue($requestQueue, []);
 
         $response = new Response(200, [], 'OK');
         $this->server->respond(new ResponseData('req_orphan', $response));
 
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 
-    public function testItHandlesMultipleResponsesSameConnection(): void
+    #[Test]
+    public function it_handles_multiple_responses_same_connection(): void
     {
         $config = new ServerConfig(port: 18272);
         $this->server = new Server($config);
 
         $reflection = new ReflectionClass($this->server);
         $requestProcessorProperty = $reflection->getProperty('requestProcessor');
-        $requestProcessorProperty->setAccessible(true);
         $requestProcessor = $requestProcessorProperty->getValue($this->server);
 
         $rpReflection = new ReflectionClass($requestProcessor);
         $queueProperty = $rpReflection->getProperty('requestQueue');
-        $queueProperty->setAccessible(true);
-        $connectionsProperty = $rpReflection->getProperty('requestConnections');
-        $connectionsProperty->setAccessible(true);
-
+        $requestQueue = $queueProperty->getValue($requestProcessor);
+        $rqReflection = new ReflectionClass($requestQueue);
+        $contextsProperty = $rqReflection->getProperty('contexts');
         $writeCount = 0;
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(true);
         $connection->method('write')->willReturnCallback(function () use (&$writeCount): int|false {
@@ -504,17 +516,17 @@ class RequestIdEdgeCasesTest extends TestCase
         for ($i = 0; $i < 3; $i++) {
             $request = new ServerRequest('GET', "/same-connection-$i");
             $requestData = new RequestData("req_same_$i", $request, $connectionId);
-            $queueProperty->getValue($requestProcessor)->enqueue($requestData);
+            $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-            $mapping = $connectionsProperty->getValue($requestProcessor);
+            $mapping = $contextsProperty->getValue($requestQueue);
             $mapping["req_same_$i"] = [
                 'connection' => $connection,
                 'timestamp' => microtime(true),
             ];
-            $connectionsProperty->setValue($requestProcessor, $mapping);
+            $contextsProperty->setValue($requestQueue, $mapping);
         }
 
-        self::assertCount(3, $connectionsProperty->getValue($requestProcessor));
+        self::assertCount(3, $contextsProperty->getValue($requestQueue));
 
         for ($i = 0; $i < 3; $i++) {
             $requestData = $this->server->getRequest();
@@ -525,6 +537,6 @@ class RequestIdEdgeCasesTest extends TestCase
         }
 
         self::assertSame(3, $writeCount);
-        self::assertEmpty($connectionsProperty->getValue($requestProcessor));
+        self::assertEmpty($contextsProperty->getValue($requestQueue));
     }
 }

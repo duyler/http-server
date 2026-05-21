@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
 use Socket;
+use Throwable;
 
 final class ExistingSocket implements SocketInterface
 {
@@ -38,18 +39,10 @@ final class ExistingSocket implements SocketInterface
         $client = socket_accept($this->socket);
 
         if (false === $client) {
-            $error = socket_last_error($this->socket);
-
-            if (SOCKET_EAGAIN === $error || SOCKET_EWOULDBLOCK === $error || 0 === $error) {
-                return false;
-            }
-
             return false;
         }
 
-        socket_set_nonblock($client);
-
-        return new StreamSocketResource($client);
+        return StreamSocketResource::configureClient($client);
     }
 
     #[Override]
@@ -59,8 +52,7 @@ final class ExistingSocket implements SocketInterface
             return false;
         }
 
-        $data = socket_read($this->socket, $length, PHP_BINARY_READ);
-        return false === $data ? false : $data;
+        return socket_read($this->socket, $length, PHP_BINARY_READ);
     }
 
     #[Override]
@@ -70,8 +62,7 @@ final class ExistingSocket implements SocketInterface
             return false;
         }
 
-        $result = socket_write($this->socket, $data, strlen($data));
-        return false === $result ? false : $result;
+        return socket_write($this->socket, $data, strlen($data));
     }
 
     #[Override]
@@ -105,5 +96,43 @@ final class ExistingSocket implements SocketInterface
     public function getInternalResource(): mixed
     {
         return $this->socket;
+    }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if ($this->closed) {
+            return false;
+        }
+
+        $ip = '';
+        $port = 0;
+        $result = socket_getpeername($this->socket, $ip, $port);
+
+        if (false === $result) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if ($this->closed) {
+            return false;
+        }
+
+        try {
+            error_clear_last();
+            socket_set_block($this->socket);
+        } catch (Throwable) {
+            return false;
+        }
+
+        $stream = socket_export_stream($this->socket);
+        socket_set_nonblock($this->socket);
+
+        return $stream;
     }
 }

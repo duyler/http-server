@@ -4,20 +4,28 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Connection;
 
+use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Metrics\ServerMetrics;
 use Duyler\HttpServer\Parser\HttpParser;
 use Duyler\HttpServer\Processor\HttpRequestProcessor;
 use Duyler\HttpServer\Socket\SocketInterface;
 use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Duyler\HttpServer\Socket\StreamSocketResource;
+use Duyler\HttpServer\Util\ClientIpResolver;
 use Override;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
-use Socket;
 
 final class ConnectionManager implements ConnectionManagerInterface
 {
-    public function __construct(private readonly ConnectionPool $pool, private readonly HttpParser $httpParser, private readonly HttpRequestProcessor $requestProcessor, private readonly ServerMetrics $metrics, private LoggerInterface $logger = new NullLogger()) {}
+    public function __construct(
+        private readonly ConnectionPool $pool,
+        private readonly HttpParser $httpParser,
+        private readonly HttpRequestProcessor $requestProcessor,
+        private readonly ServerMetrics $metrics,
+        private readonly ServerConfig $config,
+        private LoggerInterface $logger = new NullLogger(),
+    ) {}
 
     public function setLogger(LoggerInterface $logger): void
     {
@@ -63,11 +71,21 @@ final class ConnectionManager implements ConnectionManagerInterface
     #[Override]
     public function removeTimedOut(int $timeout): int
     {
-        return $this->pool->removeTimedOut($timeout);
+        return count($this->pool->removeTimedOut($timeout));
     }
 
+    #[Override]
     public function closeConnectionWithMetrics(ConnectionInterface $connection): void
     {
+        if ($this->config->debugMode) {
+            $this->logger->debug('Closing connection', [
+                'remote' => $connection->getRemoteAddress() . ':' . $connection->getRemotePort(),
+                'request_count' => $connection->getRequestCount(),
+                'active_connections' => $this->pool->count() - 1,
+            ]);
+        }
+
+        $this->requestProcessor->removeConnectionsByConnection($connection);
         $connection->close();
         $this->pool->remove($connection);
         $this->metrics->incrementClosedConnections();
@@ -93,24 +111,31 @@ final class ConnectionManager implements ConnectionManagerInterface
             return false;
         }
 
-        if ($internalResource instanceof Socket) {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = socket_select($read, $write, $except, 0);
+        $ready = StreamSocketResource::select([$internalResource]);
 
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
-        } else {
-            $read = [$internalResource];
-            $write = null;
-            $except = null;
-            $changed = stream_select($read, $write, $except, 0);
+        if (null === $ready) {
+            return true;
+        }
 
-            if (false === $changed || 0 === $changed) {
-                return true;
-            }
+        return $this->readAndProcess($connection, $bufferSize, $onDataCallback);
+    }
+
+    public function readFromConnectionDirect(
+        ConnectionInterface $connection,
+        int $bufferSize,
+        callable $onDataCallback,
+    ): void {
+        $this->readAndProcess($connection, $bufferSize, $onDataCallback);
+    }
+
+    private function readAndProcess(
+        ConnectionInterface $connection,
+        int $bufferSize,
+        callable $onDataCallback,
+    ): bool {
+        if (false === $connection->isValid()) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
         }
 
         $data = $connection->read($bufferSize);
@@ -121,6 +146,12 @@ final class ConnectionManager implements ConnectionManagerInterface
         }
 
         $connection->appendToBuffer($data);
+
+        if ($connection->isClosed()) {
+            $this->closeConnectionWithMetrics($connection);
+            return false;
+        }
+
         $onDataCallback($connection);
 
         return true;
@@ -145,24 +176,13 @@ final class ConnectionManager implements ConnectionManagerInterface
             $remoteAddr = '0.0.0.0';
             $remotePort = 0;
 
-            $internalResource = $clientSocketResource instanceof StreamSocketResource
-                ? $clientSocketResource->getInternalResource()
-                : null;
-
-            if (null !== $internalResource) {
-                if ($internalResource instanceof Socket) {
-                    socket_getpeername($internalResource, $remoteAddr, $remotePort);
-                } else {
-                    $remoteName = stream_socket_get_name($internalResource, true);
-                    if (false !== $remoteName) {
-                        $parts = explode(':', $remoteName, 2);
-                        $remoteAddr = $parts[0];
-                        $remotePort = isset($parts[1]) ? (int) $parts[1] : 0;
-                    }
-                }
+            $peerInfo = ClientIpResolver::resolveFromResource($clientSocketResource);
+            if (false !== $peerInfo) {
+                $remoteAddr = $peerInfo['ip'];
+                $remotePort = $peerInfo['port'];
             }
 
-            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort);
+            $connection = new Connection($clientSocketResource, $remoteAddr, $remotePort, $this->config->maxRequestSize);
             $this->pool->add($connection);
             $this->metrics->incrementTotalConnections();
 
@@ -181,14 +201,11 @@ final class ConnectionManager implements ConnectionManagerInterface
     public function cleanupTimedOut(int $timeout): int
     {
         $removed = $this->pool->removeTimedOut($timeout);
-        for ($i = 0; $i < $removed; $i++) {
+        foreach ($removed as $connection) {
+            $this->requestProcessor->removeConnectionsByConnection($connection);
             $this->metrics->incrementTimedOutConnections();
         }
-        return $removed;
+        return count($removed);
     }
 
-    public function getPool(): ConnectionPool
-    {
-        return $this->pool;
-    }
 }

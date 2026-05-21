@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Handler;
 
 use Duyler\HttpServer\Security\AuditLoggerInterface;
+use Duyler\HttpServer\Util\ClientIpResolver;
+use Duyler\HttpServer\Util\MimeTypeMap;
 use Nyholm\Psr7\Response;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -12,29 +14,6 @@ use stdClass;
 
 final class StaticFileHandler
 {
-    /** @var array<string, string> */
-    private const array MIME_TYPES = [
-        'html' => 'text/html',
-        'htm' => 'text/html',
-        'css' => 'text/css',
-        'js' => 'application/javascript',
-        'json' => 'application/json',
-        'xml' => 'application/xml',
-        'txt' => 'text/plain',
-        'jpg' => 'image/jpeg',
-        'jpeg' => 'image/jpeg',
-        'png' => 'image/png',
-        'gif' => 'image/gif',
-        'svg' => 'image/svg+xml',
-        'ico' => 'image/x-icon',
-        'pdf' => 'application/pdf',
-        'zip' => 'application/zip',
-        'woff' => 'font/woff',
-        'woff2' => 'font/woff2',
-        'ttf' => 'font/ttf',
-        'otf' => 'font/otf',
-    ];
-
     /** @var array<string, array{content: string, mtime: int, etag: string, size: int, lruNode: object}> */
     private array $cache = [];
     private int $cacheSize = 0;
@@ -43,13 +22,17 @@ final class StaticFileHandler
     /** @var object|null LRU list tail (least recently used) */
     private ?object $lruTail = null;
 
+    private readonly string|false $realPublicPath;
+
     public function __construct(
         private readonly string $publicPath,
         private readonly bool $enableCache = true,
         private readonly int $maxCacheSize = 52428800,
         private readonly int $maxCacheFiles = 1000,
         private readonly ?AuditLoggerInterface $auditLogger = null,
-    ) {}
+    ) {
+        $this->realPublicPath = realpath($this->publicPath);
+    }
 
     public function isStaticFile(ServerRequestInterface $request): bool
     {
@@ -66,12 +49,11 @@ final class StaticFileHandler
             return false;
         }
 
-        $realPublicPath = realpath($this->publicPath);
-        if (false === $realPublicPath) {
+        if (false === $this->realPublicPath) {
             return false;
         }
 
-        return str_starts_with($realPath, $realPublicPath) && is_file($realPath);
+        return str_starts_with($realPath, $this->realPublicPath) && is_file($realPath);
     }
 
     public function handle(ServerRequestInterface $request): ?ResponseInterface
@@ -86,13 +68,12 @@ final class StaticFileHandler
             return null;
         }
 
-        $realPublicPath = realpath($this->publicPath);
-        if (false === $realPublicPath) {
+        if (false === $this->realPublicPath) {
             return null;
         }
 
-        if (!str_starts_with($realPath, $realPublicPath)) {
-            $this->auditLogger?->logPathTraversalAttempt($this->getClientIp($request), $path);
+        if (!str_starts_with($realPath, $this->realPublicPath)) {
+            $this->auditLogger?->logPathTraversalAttempt(ClientIpResolver::resolve($request), $path);
             return null;
         }
 
@@ -149,32 +130,6 @@ final class StaticFileHandler
             ],
             $content,
         );
-    }
-
-    private function getClientIp(ServerRequestInterface $request): string
-    {
-        $serverParams = $request->getServerParams();
-
-        if (isset($serverParams['HTTP_X_FORWARDED_FOR']) && is_string($serverParams['HTTP_X_FORWARDED_FOR'])) {
-            $ips = explode(',', $serverParams['HTTP_X_FORWARDED_FOR']);
-            $ip = trim($ips[0]);
-            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        if (isset($serverParams['HTTP_X_REAL_IP']) && is_string($serverParams['HTTP_X_REAL_IP'])) {
-            $ip = $serverParams['HTTP_X_REAL_IP'];
-            if (false !== filter_var($ip, FILTER_VALIDATE_IP)) {
-                return $ip;
-            }
-        }
-
-        if (isset($serverParams['REMOTE_ADDR']) && is_string($serverParams['REMOTE_ADDR'])) {
-            return $serverParams['REMOTE_ADDR'];
-        }
-
-        return 'unknown';
     }
 
     private function streamFile(
@@ -342,9 +297,7 @@ final class StaticFileHandler
 
     private function getMimeType(string $filePath): string
     {
-        $extension = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-
-        return self::MIME_TYPES[$extension] ?? 'application/octet-stream';
+        return MimeTypeMap::getFromFilePath($filePath);
     }
 
     /**

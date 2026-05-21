@@ -8,6 +8,7 @@ use Duyler\HttpServer\Parser\ResponseWriter;
 use Duyler\HttpServer\Security\SecurityHeadersService;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class ResponseWriterTest extends TestCase
@@ -20,7 +21,8 @@ class ResponseWriterTest extends TestCase
         $this->writer = new ResponseWriter();
     }
 
-    public function testWritesSimpleResponse(): void
+    #[Test]
+    public function writes_simple_response(): void
     {
         $response = new Response(200, [], 'Hello World');
 
@@ -30,7 +32,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Hello World', $output);
     }
 
-    public function testWritesStatusCodeAndPhrase(): void
+    #[Test]
+    public function writes_status_code_and_phrase(): void
     {
         $response = new Response(404);
 
@@ -39,7 +42,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('HTTP/1.1 404 Not Found', $output);
     }
 
-    public function testWritesCustomStatusPhrase(): void
+    #[Test]
+    public function writes_custom_status_phrase(): void
     {
         $response = new Response(200, [], null, '1.1', 'Custom Phrase');
 
@@ -48,7 +52,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('HTTP/1.1 200 Custom Phrase', $output);
     }
 
-    public function testWritesHeaders(): void
+    #[Test]
+    public function writes_headers(): void
     {
         $response = (new Response(200))
             ->withHeader('Content-Type', 'application/json')
@@ -60,7 +65,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('X-Custom: value', $output);
     }
 
-    public function testWritesMultipleHeaderValues(): void
+    #[Test]
+    public function writes_multiple_header_values(): void
     {
         $response = (new Response(200))
             ->withHeader('Set-Cookie', ['cookie1=value1', 'cookie2=value2']);
@@ -71,7 +77,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Set-Cookie: cookie2=value2', $output);
     }
 
-    public function testWritesResponseWithBody(): void
+    #[Test]
+    public function writes_response_with_body(): void
     {
         $response = new Response(200, ['Content-Type' => 'text/plain'], 'Response body');
 
@@ -80,7 +87,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringEndsWith("Response body", $output);
     }
 
-    public function testSeparatesHeadersAndBodyWithDoubleCrlf(): void
+    #[Test]
+    public function separates_headers_and_body_with_double_crlf(): void
     {
         $response = new Response(200, [], 'Body');
 
@@ -89,7 +97,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString("\r\n\r\nBody", $output);
     }
 
-    public function testWritesEmptyBody(): void
+    #[Test]
+    public function writes_empty_body(): void
     {
         $response = new Response(204);
 
@@ -99,7 +108,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringEndsWith("\r\n\r\n", $output);
     }
 
-    public function testUsesCorrectHttpVersion(): void
+    #[Test]
+    public function uses_correct_http_version(): void
     {
         $response = new Response(200, [], null, '1.0');
 
@@ -108,110 +118,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringStartsWith('HTTP/1.0', $output);
     }
 
-    public function testWriteBufferedSmallResponseSingleCall(): void
-    {
-        $response = new Response(200, [], 'Small body');
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, 8192);
-
-        $this->assertCount(1, $chunks);
-        $this->assertStringContainsString('HTTP/1.1 200 OK', $chunks[0]);
-        $this->assertStringContainsString('Small body', $chunks[0]);
-    }
-
-    public function testWriteBufferedLargeResponseMultipleCalls(): void
-    {
-        $largeBody = str_repeat('X', 20000);
-        $response = new Response(200, [], $largeBody);
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, 8192);
-
-        $this->assertGreaterThan(1, count($chunks));
-
-        $fullOutput = implode('', $chunks);
-        $this->assertStringContainsString('HTTP/1.1 200 OK', $fullOutput);
-        $this->assertStringContainsString($largeBody, $fullOutput);
-    }
-
-    public function testWriteBufferedRespectsBufferSize(): void
-    {
-        $body = str_repeat('A', 10000);
-        $response = new Response(200, [], $body);
-
-        $chunks = [];
-        $bufferSize = 4096;
-
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, $bufferSize);
-
-        foreach ($chunks as $index => $chunk) {
-            if ($index < count($chunks) - 1) {
-                $this->assertLessThanOrEqual($bufferSize, strlen($chunk));
-            }
-        }
-    }
-
-    public function testWriteBufferedEmptyBody(): void
-    {
-        $response = new Response(204);
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        });
-
-        $this->assertCount(1, $chunks);
-        $this->assertStringContainsString('HTTP/1.1 204 No Content', $chunks[0]);
-    }
-
-    public function testWriteBufferedWithHeaders(): void
-    {
-        $response = (new Response(200, ['Content-Type' => 'text/plain'], str_repeat('X', 10000)));
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, 4096);
-
-        $fullOutput = implode('', $chunks);
-        $this->assertStringContainsString('Content-Type: text/plain', $fullOutput);
-    }
-
-    public function testWriteBufferedMinimizesChunks(): void
-    {
-        $body = str_repeat('B', 16000);
-        $response = new Response(200, [], $body);
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, 8192);
-
-        $this->assertLessThanOrEqual(3, count($chunks), 'Should minimize number of chunks');
-    }
-
-    public function testWriteBufferedExactBufferSize(): void
-    {
-        $body = str_repeat('C', 8000);
-        $response = new Response(200, [], $body);
-
-        $chunks = [];
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$chunks): void {
-            $chunks[] = $chunk;
-        }, 8192);
-
-        $fullOutput = implode('', $chunks);
-        $this->assertStringContainsString($body, $fullOutput);
-    }
-
-    public function testAppliesSecurityHeadersWhenServiceSet(): void
+    #[Test]
+    public function applies_security_headers_when_service_set(): void
     {
         $securityService = new SecurityHeadersService();
         $this->writer->setSecurityHeadersService($securityService);
@@ -221,11 +129,12 @@ class ResponseWriterTest extends TestCase
 
         $this->assertStringContainsString('X-Content-Type-Options: nosniff', $output);
         $this->assertStringContainsString('X-Frame-Options: DENY', $output);
-        $this->assertStringContainsString('X-XSS-Protection: 1; mode=block', $output);
+        $this->assertStringContainsString('X-XSS-Protection: 0', $output);
         $this->assertStringContainsString('Referrer-Policy: strict-origin-when-cross-origin', $output);
     }
 
-    public function testDoesNotApplySecurityHeadersWhenServiceNotSet(): void
+    #[Test]
+    public function does_not_apply_security_headers_when_service_not_set(): void
     {
         $response = new Response(200);
         $output = $this->writer->write($response);
@@ -235,39 +144,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringNotContainsString('X-XSS-Protection', $output);
     }
 
-    public function testWriteChunkedAppliesSecurityHeaders(): void
-    {
-        $securityService = new SecurityHeadersService();
-        $this->writer->setSecurityHeadersService($securityService);
-
-        $response = new Response(200, [], 'Test body');
-        $output = '';
-
-        $this->writer->writeChunked($response, function (string $chunk) use (&$output): void {
-            $output .= $chunk;
-        });
-
-        $this->assertStringContainsString('X-Content-Type-Options: nosniff', $output);
-        $this->assertStringContainsString('X-Frame-Options: DENY', $output);
-    }
-
-    public function testWriteBufferedAppliesSecurityHeaders(): void
-    {
-        $securityService = new SecurityHeadersService();
-        $this->writer->setSecurityHeadersService($securityService);
-
-        $response = new Response(200, [], 'Test body');
-        $output = '';
-
-        $this->writer->writeBuffered($response, function (string $chunk) use (&$output): void {
-            $output .= $chunk;
-        });
-
-        $this->assertStringContainsString('X-Content-Type-Options: nosniff', $output);
-        $this->assertStringContainsString('X-Frame-Options: DENY', $output);
-    }
-
-    public function testDoesNotOverwriteExistingSecurityHeaders(): void
+    #[Test]
+    public function does_not_overwrite_existing_security_headers(): void
     {
         $securityService = new SecurityHeadersService();
         $this->writer->setSecurityHeadersService($securityService);
@@ -279,7 +157,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringNotContainsString('X-Frame-Options: DENY', $output);
     }
 
-    public function testCustomSecurityHeadersFromService(): void
+    #[Test]
+    public function custom_security_headers_from_service(): void
     {
         $securityService = new SecurityHeadersService(
             frameOptions: 'SAMEORIGIN',
@@ -294,7 +173,8 @@ class ResponseWriterTest extends TestCase
         $this->assertStringContainsString('Referrer-Policy: no-referrer', $output);
     }
 
-    public function testHstsHeaderWhenEnabled(): void
+    #[Test]
+    public function hsts_header_when_enabled(): void
     {
         $securityService = new SecurityHeadersService(enableHsts: true);
         $this->writer->setSecurityHeadersService($securityService);
@@ -302,10 +182,11 @@ class ResponseWriterTest extends TestCase
         $response = new Response(200);
         $output = $this->writer->write($response);
 
-        $this->assertStringContainsString('Strict-Transport-Security: max-age=31536000; includeSubDomains', $output);
+        $this->assertStringContainsString('Strict-Transport-Security: max-age=31536000', $output);
     }
 
-    public function testNoHstsHeaderWhenDisabled(): void
+    #[Test]
+    public function no_hsts_header_when_disabled(): void
     {
         $securityService = new SecurityHeadersService(enableHsts: false);
         $this->writer->setSecurityHeadersService($securityService);
@@ -314,5 +195,17 @@ class ResponseWriterTest extends TestCase
         $output = $this->writer->write($response);
 
         $this->assertStringNotContainsString('Strict-Transport-Security', $output);
+    }
+
+    #[Test]
+    public function date_header_present_in_rfc_7231_format(): void
+    {
+        $response = new Response(200, [], 'OK');
+        $output = $this->writer->write($response);
+
+        $this->assertMatchesRegularExpression(
+            '/Date: [A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT/',
+            $output,
+        );
     }
 }

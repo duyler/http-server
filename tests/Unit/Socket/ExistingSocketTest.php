@@ -6,6 +6,7 @@ namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Socket\ExistingSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -15,6 +16,7 @@ use Socket;
 #[CoversClass(ExistingSocket::class)]
 class ExistingSocketTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Socket $socket = null;
     private ?ExistingSocket $existingSocket = null;
 
@@ -140,11 +142,11 @@ class ExistingSocketTest extends TestCase
     #[Test]
     public function acceptReturnsFalseOnUnboundSocket(): void
     {
-        $previousHandler = set_error_handler(static function (int $errno, string $errstr) use (&$previousHandler): bool {
+        $previousHandler = set_error_handler(static function (int $errno, string $errstr, string $errfile, int $errline) use (&$previousHandler): bool {
             if (str_contains($errstr, 'Invalid argument')) {
                 return true;
             }
-            return false !== $previousHandler && $previousHandler($errno, $errstr);
+            return false !== $previousHandler && $previousHandler($errno, $errstr, $errfile, $errline);
         });
 
         try {
@@ -159,11 +161,11 @@ class ExistingSocketTest extends TestCase
     #[Test]
     public function readReturnsFalseOnUnconnectedSocket(): void
     {
-        $previousHandler = set_error_handler(static function (int $errno, string $errstr) use (&$previousHandler): bool {
+        $previousHandler = set_error_handler(static function (int $errno, string $errstr, string $errfile, int $errline) use (&$previousHandler): bool {
             if (str_contains($errstr, 'Transport endpoint is not connected')) {
                 return true;
             }
-            return false !== $previousHandler && $previousHandler($errno, $errstr);
+            return false !== $previousHandler && $previousHandler($errno, $errstr, $errfile, $errline);
         });
 
         try {
@@ -178,11 +180,11 @@ class ExistingSocketTest extends TestCase
     #[Test]
     public function writeReturnsFalseOnUnconnectedSocket(): void
     {
-        $previousHandler = set_error_handler(static function (int $errno, string $errstr) use (&$previousHandler): bool {
+        $previousHandler = set_error_handler(static function (int $errno, string $errstr, string $errfile, int $errline) use (&$previousHandler): bool {
             if (str_contains($errstr, 'Broken pipe')) {
                 return true;
             }
-            return false !== $previousHandler && $previousHandler($errno, $errstr);
+            return false !== $previousHandler && $previousHandler($errno, $errstr, $errfile, $errline);
         });
 
         try {
@@ -266,7 +268,7 @@ class ExistingSocketTest extends TestCase
 
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         socket_set_nonblock($clientSocket);
-        @socket_connect($clientSocket, '127.0.0.1', 19001);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', 19001));
 
         usleep(10000);
 
@@ -279,5 +281,94 @@ class ExistingSocketTest extends TestCase
         if ($accepted instanceof \Duyler\HttpServer\Socket\SocketResourceInterface) {
             $accepted->close();
         }
+    }
+
+    #[Test]
+    public function getPeerNameReturnsFalseOnClosedSocket(): void
+    {
+        $this->existingSocket->close();
+
+        $result = $this->existingSocket->getPeerName();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function getPeerNameReturnsFalseOnUnconnectedSocket(): void
+    {
+        $previousHandler = set_error_handler(static fn(): bool => true);
+        $result = $this->existingSocket->getPeerName();
+        restore_error_handler();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function getPeerNameReturnsPeerInfoOnConnectedSocket(): void
+    {
+        $serverSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_set_option($serverSocket, SOL_SOCKET, SO_REUSEADDR, 1);
+        socket_bind($serverSocket, '127.0.0.1', 0);
+        socket_listen($serverSocket, 1);
+
+        $address = '';
+        $port = 0;
+        socket_getsockname($serverSocket, $address, $port);
+
+        $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
+        socket_set_nonblock($clientSocket);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
+
+        usleep(10000);
+
+        $accepted = socket_accept($serverSocket);
+
+        $existingSocket = new ExistingSocket($accepted);
+
+        $result = $existingSocket->getPeerName();
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('ip', $result);
+        $this->assertArrayHasKey('port', $result);
+        $this->assertSame('127.0.0.1', $result['ip']);
+        $this->assertIsInt($result['port']);
+
+        $existingSocket->close();
+        socket_close($clientSocket);
+        socket_close($serverSocket);
+    }
+
+    #[Test]
+    public function exportStreamReturnsFalseOnClosedSocket(): void
+    {
+        $this->existingSocket->close();
+
+        $result = $this->existingSocket->exportStream();
+
+        $this->assertFalse($result);
+    }
+
+    #[Test]
+    public function exportStreamReturnsResourceOnValidSocket(): void
+    {
+        $pair = [];
+        $result = socket_create_pair(AF_UNIX, SOCK_STREAM, 0, $pair);
+
+        if (false === $result) {
+            $this->markTestSkipped('Failed to create socket pair');
+        }
+
+        [$server, $client] = $pair;
+
+        socket_set_nonblock($server);
+
+        $existingSocket = new ExistingSocket($server);
+
+        $stream = $existingSocket->exportStream();
+
+        $this->assertIsResource($stream);
+
+        $existingSocket->close();
+        socket_close($client);
     }
 }

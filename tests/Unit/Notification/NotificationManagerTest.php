@@ -4,127 +4,127 @@ declare(strict_types=1);
 
 namespace Duyler\HttpServer\Tests\Unit\Notification;
 
+use Duyler\HttpServer\Exception\SocketException;
 use Duyler\HttpServer\Notification\NotificationManager;
+use Duyler\HttpServer\Socket\NotificationSocketPairInterface;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
-use Psr\Log\NullLogger;
-use Socket;
+use Psr\Log\LoggerInterface;
 
 #[CoversClass(NotificationManager::class)]
 class NotificationManagerTest extends TestCase
 {
+    private NotificationSocketPairInterface&MockObject $socketPair;
+
     private NotificationManager $manager;
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->manager = new NotificationManager(new NullLogger());
+        $this->socketPair = $this->createMock(NotificationSocketPairInterface::class);
+        $this->manager = new NotificationManager($this->socketPair);
     }
 
-    #[Override]
-    protected function tearDown(): void
+    #[Test]
+    public function enable_creates_pair_when_not_enabled(): void
     {
+        $this->socketPair->expects($this->once())->method('isEnabled')->willReturn(false);
+        $this->socketPair->expects($this->once())->method('createPair');
+
+        $this->manager->enable();
+    }
+
+    #[Test]
+    public function enable_skips_when_already_enabled(): void
+    {
+        $this->socketPair->expects($this->once())->method('isEnabled')->willReturn(true);
+        $this->socketPair->expects($this->never())->method('createPair');
+
+        $this->manager->enable();
+    }
+
+    #[Test]
+    public function enable_propagates_exception_from_create_pair(): void
+    {
+        $exception = SocketException::fromLastError();
+
+        $this->socketPair->expects($this->once())->method('isEnabled')->willReturn(false);
+        $this->socketPair->expects($this->once())->method('createPair')->willThrowException($exception);
+
+        $this->expectException(SocketException::class);
+
+        $this->manager->enable();
+    }
+
+    #[Test]
+    public function disable_closes_socket_pair(): void
+    {
+        $this->socketPair->expects($this->once())->method('close');
+
         $this->manager->disable();
-        parent::tearDown();
     }
 
-    public function testEnableDoesNotSetNonBlocking(): void
+    #[Test]
+    public function disable_logs_info_message(): void
     {
-        $this->manager->enable();
+        $this->socketPair->expects($this->once())->method('close');
 
-        $readSocket = $this->manager->getReadSocket();
-        $this->assertNotNull($readSocket);
+        $logger = $this->createMock(LoggerInterface::class);
+        $logger->expects($this->once())->method('info')->with('Notification sockets disabled');
 
-        $result = socket_set_nonblock($readSocket);
-        $this->assertTrue($result);
-
-        socket_set_block($readSocket);
+        $manager = new NotificationManager($this->socketPair, $logger);
+        $manager->disable();
     }
 
-    public function testGetReadSocketReturnsValidSocket(): void
+    #[Test]
+    public function is_enabled_delegates_to_socket_pair(): void
     {
-        $this->manager->enable();
+        $this->socketPair->expects($this->once())->method('isEnabled')->willReturn(true);
 
-        $socket = $this->manager->getReadSocket();
-
-        $this->assertInstanceOf(Socket::class, $socket);
-    }
-
-    public function testGetReadSocketReturnsNullBeforeEnable(): void
-    {
-        $this->assertNull($this->manager->getReadSocket());
-    }
-
-    public function testIsEnabledReturnsFalseBeforeEnable(): void
-    {
-        $this->assertFalse($this->manager->isEnabled());
-    }
-
-    public function testIsEnabledReturnsTrueAfterEnable(): void
-    {
-        $this->manager->enable();
         $this->assertTrue($this->manager->isEnabled());
     }
 
-    public function testIsEnabledReturnsFalseAfterDisable(): void
+    #[Test]
+    public function is_enabled_returns_false_when_pair_disabled(): void
     {
-        $this->manager->enable();
-        $this->manager->disable();
+        $this->socketPair->expects($this->once())->method('isEnabled')->willReturn(false);
+
         $this->assertFalse($this->manager->isEnabled());
     }
 
-    public function testNotifyWritesToSocket(): void
+    #[Test]
+    public function get_read_socket_returns_null_when_no_pair(): void
     {
-        $this->manager->enable();
-
-        $readSocket = $this->manager->getReadSocket();
-        $this->assertNotNull($readSocket);
-
-        $this->manager->notify();
-
-        socket_set_nonblock($readSocket);
-        $data = socket_read($readSocket, 1);
-        $this->assertSame('x', $data);
-    }
-
-    public function testNotifyDoesNothingBeforeEnable(): void
-    {
-        $this->manager->notify();
-        $this->assertFalse($this->manager->isEnabled());
-    }
-
-    public function testEnableIsIdempotent(): void
-    {
-        $this->manager->enable();
-        $socket1 = $this->manager->getReadSocket();
-
-        $this->manager->enable();
-        $socket2 = $this->manager->getReadSocket();
-
-        $this->assertSame($socket1, $socket2);
-    }
-
-    public function testDisableClosesSockets(): void
-    {
-        $this->manager->enable();
-        $this->manager->disable();
+        $this->socketPair->expects($this->once())->method('getReadSocket')->willReturn(null);
 
         $this->assertNull($this->manager->getReadSocket());
     }
 
-    public function testResetDisablesNotification(): void
+    #[Test]
+    public function get_notify_socket_returns_null_when_no_pair(): void
     {
-        $this->manager->enable();
+        $this->socketPair->expects($this->once())->method('getWriteSocket')->willReturn(null);
+
+        $this->assertNull($this->manager->getNotifySocket());
+    }
+
+    #[Test]
+    public function notify_delegates_to_socket_pair(): void
+    {
+        $this->socketPair->expects($this->once())->method('notify');
+
+        $this->manager->notify();
+    }
+
+    #[Test]
+    public function reset_calls_disable(): void
+    {
+        $this->socketPair->expects($this->once())->method('close');
+
         $this->manager->reset();
-
-        $this->assertFalse($this->manager->isEnabled());
-        $this->assertNull($this->manager->getReadSocket());
-    }
-
-    public function testSetNotifySocketDoesNotExist(): void
-    {
-        $this->assertFalse(method_exists($this->manager, 'setNotifySocket'));
     }
 }

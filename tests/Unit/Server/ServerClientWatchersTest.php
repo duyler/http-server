@@ -8,12 +8,14 @@ use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Throwable;
 
 #[CoversClass(Server::class)]
+#[Group('ev')]
 class ServerClientWatchersTest extends TestCase
 {
     private ?Server $server = null;
@@ -47,7 +49,6 @@ class ServerClientWatchersTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $property = $reflection->getProperty('clientWatchers');
-        $property->setAccessible(true);
 
         $this->assertEmpty($property->getValue($this->server));
 
@@ -71,7 +72,6 @@ class ServerClientWatchersTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $property = $reflection->getProperty('clientWatchers');
-        $property->setAccessible(true);
 
         $this->assertEmpty($property->getValue($this->server));
     }
@@ -91,7 +91,6 @@ class ServerClientWatchersTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $property = $reflection->getProperty('listeningWatcher');
-        $property->setAccessible(true);
 
         $this->assertNotNull($property->getValue($this->server));
 
@@ -114,7 +113,6 @@ class ServerClientWatchersTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $property = $reflection->getProperty('listeningWatcher');
-        $property->setAccessible(true);
 
         $this->assertNull($property->getValue($this->server));
     }
@@ -134,7 +132,6 @@ class ServerClientWatchersTest extends TestCase
 
         $reflection = new ReflectionClass($this->server);
         $clientWatchersProperty = $reflection->getProperty('clientWatchers');
-        $clientWatchersProperty->setAccessible(true);
 
         $this->assertEmpty($clientWatchersProperty->getValue($this->server));
 

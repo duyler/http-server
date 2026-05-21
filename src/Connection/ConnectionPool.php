@@ -5,9 +5,15 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Connection;
 
 use Duyler\HttpServer\Socket\SocketResourceInterface;
+use IteratorAggregate;
+use Override;
 use SplObjectStorage;
+use Traversable;
 
-final class ConnectionPool
+/**
+ * @implements IteratorAggregate<int, ConnectionInterface>
+ */
+final class ConnectionPool implements IteratorAggregate
 {
     /** @var SplObjectStorage<ConnectionInterface, int> */
     private SplObjectStorage $connections;
@@ -24,6 +30,14 @@ final class ConnectionPool
         private readonly int $maxConnections = 1000,
     ) {
         $this->connections = new SplObjectStorage();
+    }
+
+    #[Override]
+    public function getIterator(): Traversable
+    {
+        foreach ($this->connections as $connection) {
+            yield $connection;
+        }
     }
 
     public function add(ConnectionInterface $connection): void
@@ -113,16 +127,19 @@ final class ConnectionPool
         return $this->connections->count();
     }
 
-    public function removeTimedOut(int $timeout): int
+    /**
+     * @return array<ConnectionInterface>
+     */
+    public function removeTimedOut(int $timeout): array
     {
         if ($this->isModifying) {
-            return 0;
+            return [];
         }
 
         $this->isModifying = true;
 
         try {
-            $removed = 0;
+            $removed = [];
             $now = time();
             $toRemove = [];
 
@@ -148,7 +165,7 @@ final class ConnectionPool
                         unset($this->connectionsByAddress[$address]);
                     }
 
-                    ++$removed;
+                    $removed[] = $connection;
                 }
             }
 

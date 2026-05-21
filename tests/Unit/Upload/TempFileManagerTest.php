@@ -6,7 +6,9 @@ namespace Duyler\HttpServer\Tests\Unit\Upload;
 
 use Duyler\HttpServer\Upload\TempFileManager;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 
 class TempFileManagerTest extends TestCase
 {
@@ -26,7 +28,8 @@ class TempFileManagerTest extends TestCase
         }
     }
 
-    public function testCreatesTemporaryFileWithDefaultPrefix(): void
+    #[Test]
+    public function creates_temporary_file_with_default_prefix(): void
     {
         $tmpFile = $this->manager->create();
 
@@ -35,7 +38,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(1, $this->manager->getTrackedFilesCount());
     }
 
-    public function testCreatesTemporaryFileWithCustomPrefix(): void
+    #[Test]
+    public function creates_temporary_file_with_custom_prefix(): void
     {
         $tmpFile = $this->manager->create('test_');
 
@@ -43,7 +47,8 @@ class TempFileManagerTest extends TestCase
         $this->assertStringContainsString('test_', basename($tmpFile));
     }
 
-    public function testTracksMultipleTemporaryFiles(): void
+    #[Test]
+    public function tracks_multiple_temporary_files(): void
     {
         $tmpFile1 = $this->manager->create();
         $tmpFile2 = $this->manager->create();
@@ -55,7 +60,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(3, $this->manager->getTrackedFilesCount());
     }
 
-    public function testCleanupRemovesAllTemporaryFiles(): void
+    #[Test]
+    public function cleanup_removes_all_temporary_files(): void
     {
         $tmpFile1 = $this->manager->create();
         $tmpFile2 = $this->manager->create();
@@ -70,7 +76,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    public function testCleanupHandlesAlreadyDeletedFiles(): void
+    #[Test]
+    public function cleanup_handles_already_deleted_files(): void
     {
         $tmpFile = $this->manager->create();
         unlink($tmpFile);
@@ -80,7 +87,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    public function testDestructorCleansUpFiles(): void
+    #[Test]
+    public function destructor_cleans_up_files(): void
     {
         $tmpFile = $this->manager->create();
         $this->assertFileExists($tmpFile);
@@ -90,7 +98,8 @@ class TempFileManagerTest extends TestCase
         $this->assertFileDoesNotExist($tmpFile);
     }
 
-    public function testCreatedFilesCanBeWrittenTo(): void
+    #[Test]
+    public function created_files_can_be_written_to(): void
     {
         $tmpFile = $this->manager->create();
         $content = 'test content';
@@ -100,7 +109,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame($content, file_get_contents($tmpFile));
     }
 
-    public function testCleanupCanBeCalledMultipleTimes(): void
+    #[Test]
+    public function cleanup_can_be_called_multiple_times(): void
     {
         $tmpFile = $this->manager->create();
 
@@ -111,7 +121,8 @@ class TempFileManagerTest extends TestCase
         $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 
-    public function testFilesCreatedAfterCleanupAreTrackedSeparately(): void
+    #[Test]
+    public function files_created_after_cleanup_are_tracked_separately(): void
     {
         $tmpFile1 = $this->manager->create();
         $this->manager->cleanup();
@@ -122,5 +133,54 @@ class TempFileManagerTest extends TestCase
 
         $this->assertFileExists($tmpFile2);
         $this->assertSame(1, $this->manager->getTrackedFilesCount());
+    }
+
+    #[Test]
+    public function shutdown_registered_flag_is_false_before_create(): void
+    {
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertFalse($reflection->getValue($this->manager));
+    }
+
+    #[Test]
+    public function shutdown_registered_flag_is_set_after_first_create(): void
+    {
+        $this->manager->create();
+
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertTrue($reflection->getValue($this->manager));
+    }
+
+    #[Test]
+    public function shutdown_registered_flag_remains_true_after_multiple_creates(): void
+    {
+        $this->manager->create();
+        $this->manager->create();
+        $this->manager->create();
+
+        $reflection = new ReflectionProperty($this->manager, 'shutdownRegistered');
+        $this->assertTrue($reflection->getValue($this->manager));
+    }
+
+    #[Test]
+    public function cleanup_called_after_shutdown_function_registration(): void
+    {
+        $tmpFile = $this->manager->create();
+        $this->assertFileExists($tmpFile);
+
+        $this->manager->cleanup();
+
+        $this->assertFileDoesNotExist($tmpFile);
+        $this->assertSame(0, $this->manager->getTrackedFilesCount());
+    }
+
+    #[Test]
+    public function cleanup_is_idempotent_after_shutdown_registration(): void
+    {
+        $this->manager->create();
+        $this->manager->cleanup();
+        $this->manager->cleanup();
+
+        $this->assertSame(0, $this->manager->getTrackedFilesCount());
     }
 }

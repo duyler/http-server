@@ -7,12 +7,15 @@ namespace Duyler\HttpServer\Tests\Integration;
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Dto\ResponseData;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Nyholm\Psr7\Response;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
 class HttpRequestSmugglingTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Server $server = null;
     private int $port;
 
@@ -33,7 +36,8 @@ class HttpRequestSmugglingTest extends TestCase
         parent::tearDown();
     }
 
-    public function testRejectsRequestWithDuplicateContentLength(): void
+    #[Test]
+    public function rejects_request_with_duplicate_content_length(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -61,7 +65,8 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    public function testRejectsRequestWithDuplicateHost(): void
+    #[Test]
+    public function rejects_request_with_duplicate_host(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -87,7 +92,8 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    public function testRejectsRequestWithDuplicateTransferEncoding(): void
+    #[Test]
+    public function rejects_request_with_duplicate_transfer_encoding(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -114,7 +120,8 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    public function testAcceptsRequestWithSingleValidHeaders(): void
+    #[Test]
+    public function accepts_request_with_single_valid_headers(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -154,7 +161,8 @@ class HttpRequestSmugglingTest extends TestCase
         fclose($client);
     }
 
-    public function testAcceptsRequestWithMultipleCookieHeaders(): void
+    #[Test]
+    public function accepts_request_with_multiple_cookie_headers(): void
     {
         $config = new ServerConfig(
             host: '127.0.0.1',
@@ -198,12 +206,12 @@ class HttpRequestSmugglingTest extends TestCase
      */
     private function createClient()
     {
-        $client = @stream_socket_client(
+        $client = $this->withSuppressedErrors(fn() => stream_socket_client(
             "tcp://127.0.0.1:{$this->port}",
             $errno,
             $errstr,
             1,
-        );
+        ));
 
         if ($client === false) {
             $this->fail("Failed to connect to server: $errstr ($errno)");

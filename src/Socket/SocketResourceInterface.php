@@ -22,4 +22,18 @@ interface SocketResourceInterface
      * @return Socket|resource|null
      */
     public function getInternalResource(): mixed;
+
+    /**
+     * Get remote peer address information
+     *
+     * @return array{ip: string, port: int}|false
+     */
+    public function getPeerName(): array|false;
+
+    /**
+     * Export socket resource as stream
+     *
+     * @return resource|false
+     */
+    public function exportStream(): mixed;
 }

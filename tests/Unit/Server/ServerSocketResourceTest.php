@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
-use Duyler\HttpServer\ErrorHandler;
 use Duyler\HttpServer\Server;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
@@ -28,11 +28,11 @@ class ServerSocketResourceTest extends TestCase
             } catch (Throwable) {
             }
         }
-        ErrorHandler::reset();
         parent::tearDown();
     }
 
-    public function testReturnsNullWhenNotStarted(): void
+    #[Test]
+    public function returns_null_when_not_started(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -42,7 +42,8 @@ class ServerSocketResourceTest extends TestCase
         $this->assertNull($resource);
     }
 
-    public function testReturnsSocketResourceInStandaloneMode(): void
+    #[Test]
+    public function returns_socket_resource_in_standalone_mode(): void
     {
         $config = new ServerConfig(port: 18080);
         $this->server = new Server($config);
@@ -57,7 +58,8 @@ class ServerSocketResourceTest extends TestCase
         );
     }
 
-    public function testReturnsNullAfterStop(): void
+    #[Test]
+    public function returns_null_after_stop(): void
     {
         $config = new ServerConfig(port: 18081);
         $this->server = new Server($config);
@@ -70,7 +72,8 @@ class ServerSocketResourceTest extends TestCase
         $this->assertNull($resource);
     }
 
-    public function testReturnsExternalResourceInWorkerPoolMode(): void
+    #[Test]
+    public function returns_external_resource_in_worker_pool_mode(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -89,7 +92,8 @@ class ServerSocketResourceTest extends TestCase
         socket_close($socket);
     }
 
-    public function testReturnsNullInWorkerPoolModeWithoutExternalResource(): void
+    #[Test]
+    public function returns_null_in_worker_pool_mode_without_external_resource(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -101,7 +105,8 @@ class ServerSocketResourceTest extends TestCase
         $this->assertNull($resource);
     }
 
-    public function testStandaloneTakesPriorityOverExternalResource(): void
+    #[Test]
+    public function standalone_takes_priority_over_external_resource(): void
     {
         $config = new ServerConfig(port: 18082);
         $this->server = new Server($config);
@@ -121,7 +126,8 @@ class ServerSocketResourceTest extends TestCase
         socket_close($externalSocket);
     }
 
-    public function testSetExternalSocketResourceStoresResource(): void
+    #[Test]
+    public function set_external_socket_resource_stores_resource(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -137,7 +143,8 @@ class ServerSocketResourceTest extends TestCase
         socket_close($socket);
     }
 
-    public function testSetExternalSocketResourceAcceptsStreamResource(): void
+    #[Test]
+    public function set_external_socket_resource_accepts_stream_resource(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -153,7 +160,8 @@ class ServerSocketResourceTest extends TestCase
         fclose($stream);
     }
 
-    public function testSetExternalSocketResourceCanBeCalledMultipleTimes(): void
+    #[Test]
+    public function set_external_socket_resource_can_be_called_multiple_times(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -173,7 +181,8 @@ class ServerSocketResourceTest extends TestCase
         socket_close($socket2);
     }
 
-    public function testSetExternalSocketResourceAcceptsNull(): void
+    #[Test]
+    public function set_external_socket_resource_accepts_null(): void
     {
         $config = new ServerConfig();
         $this->server = new Server($config);
@@ -190,7 +199,8 @@ class ServerSocketResourceTest extends TestCase
         socket_close($socket);
     }
 
-    public function testSslServerReturnsStreamResource(): void
+    #[Test]
+    public function ssl_server_returns_stream_resource(): void
     {
         $certPath = sys_get_temp_dir() . '/test_' . uniqid() . '.pem';
         $this->generateTestCertificate($certPath);

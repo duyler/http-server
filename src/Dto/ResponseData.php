@@ -11,8 +11,6 @@ use Psr\Http\Message\ResponseInterface;
  *
  * Immutable container that binds a PSR-7 response to its
  * originating request via requestId for proper routing.
- *
- * @package Duyler\HttpServer\Dto
  */
 final readonly class ResponseData
 {

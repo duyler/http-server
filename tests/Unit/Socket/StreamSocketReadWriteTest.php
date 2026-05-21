@@ -5,13 +5,16 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\Socket;
 
 use Duyler\HttpServer\Socket\StreamSocket;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use Socket;
 
 class StreamSocketReadWriteTest extends TestCase
 {
+    use ErrorReportingScope;
     private StreamSocket $server;
     private StreamSocket $client;
 
@@ -29,21 +32,24 @@ class StreamSocketReadWriteTest extends TestCase
         $this->client->close();
     }
 
-    public function testReadReturnsFalseWhenNotBound(): void
+    #[Test]
+    public function read_returns_false_when_not_bound(): void
     {
         $result = $this->server->read(100);
 
         $this->assertFalse($result);
     }
 
-    public function testWriteReturnsFalseWhenNotBound(): void
+    #[Test]
+    public function write_returns_false_when_not_bound(): void
     {
         $result = $this->server->write('data');
 
         $this->assertFalse($result);
     }
 
-    public function testReadReturnsFalseForZeroLength(): void
+    #[Test]
+    public function read_returns_false_for_zero_length(): void
     {
         $this->server->bind('127.0.0.1', 0);
         $this->server->listen();
@@ -53,7 +59,8 @@ class StreamSocketReadWriteTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testReadReturnsFalseForNegativeLength(): void
+    #[Test]
+    public function read_returns_false_for_negative_length(): void
     {
         $this->server->bind('127.0.0.1', 0);
         $this->server->listen();
@@ -63,7 +70,8 @@ class StreamSocketReadWriteTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testAcceptReturnsResourceOnConnection(): void
+    #[Test]
+    public function accept_returns_resource_on_connection(): void
     {
         $this->server->bind('127.0.0.1', 0);
         $this->server->listen();
@@ -74,11 +82,11 @@ class StreamSocketReadWriteTest extends TestCase
         $this->client->bind('127.0.0.1', 0);
         $this->client->setBlocking(false);
 
-        @socket_connect(
+        $this->withSuppressedErrors(fn() => socket_connect(
             $this->extractSocket($this->client),
             '127.0.0.1',
             $port,
-        );
+        ));
 
         usleep(10000);
 
@@ -87,7 +95,8 @@ class StreamSocketReadWriteTest extends TestCase
         $this->assertNotFalse($resource);
     }
 
-    public function testReadAndWriteThroughConnectedSockets(): void
+    #[Test]
+    public function read_and_write_through_connected_sockets(): void
     {
         $this->server->bind('127.0.0.1', 0);
         $this->server->listen();
@@ -98,7 +107,7 @@ class StreamSocketReadWriteTest extends TestCase
         $this->assertNotFalse($clientSocket);
 
         socket_set_nonblock($clientSocket);
-        @socket_connect($clientSocket, '127.0.0.1', $port);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
 
         usleep(10000);
 
@@ -123,14 +132,16 @@ class StreamSocketReadWriteTest extends TestCase
         socket_close($clientSocket);
     }
 
-    public function testCloseDoesNothingWhenNotBound(): void
+    #[Test]
+    public function close_does_nothing_when_not_bound(): void
     {
         $this->server->close();
 
         $this->assertFalse($this->server->isValid());
     }
 
-    public function testWriteOnConnectedSocketReturnsBytesWritten(): void
+    #[Test]
+    public function write_on_connected_socket_returns_bytes_written(): void
     {
         $this->server->bind('127.0.0.1', 0);
         $this->server->listen();
@@ -140,7 +151,7 @@ class StreamSocketReadWriteTest extends TestCase
         $clientSocket = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
         $this->assertNotFalse($clientSocket);
 
-        @socket_connect($clientSocket, '127.0.0.1', $port);
+        $this->withSuppressedErrors(fn() => socket_connect($clientSocket, '127.0.0.1', $port));
         usleep(10000);
 
         $serverConn = $this->server->accept();

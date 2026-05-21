@@ -12,7 +12,7 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Nyholm\Psr7\ServerRequest;
 use Override;
-use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -21,7 +21,7 @@ use RuntimeException;
 class WebSocketServerConnectionTest extends TestCase
 {
     private WebSocketServer $server;
-    private TcpConnection&MockObject $tcpConnection;
+    private TcpConnection $tcpConnection;
     private ServerRequestInterface $request;
 
     #[Override]
@@ -30,7 +30,7 @@ class WebSocketServerConnectionTest extends TestCase
         parent::setUp();
 
         $this->server = new WebSocketServer(new WebSocketConfig());
-        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->tcpConnection = $this->createStub(TcpConnection::class);
         $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
         $this->tcpConnection->method('getRemotePort')->willReturn(12345);
         $this->request = new ServerRequest('GET', '/ws');
@@ -41,7 +41,8 @@ class WebSocketServerConnectionTest extends TestCase
         return new Connection($this->tcpConnection, $this->request, $this->server);
     }
 
-    public function testAddsConnection(): void
+    #[Test]
+    public function adds_connection(): void
     {
         $conn = $this->createConnection();
 
@@ -51,7 +52,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame($conn, $this->server->getConnection($conn->getId()));
     }
 
-    public function testRemovesConnection(): void
+    #[Test]
+    public function removes_connection(): void
     {
         $conn = $this->createConnection();
         $this->server->addConnection($conn);
@@ -62,7 +64,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertNull($this->server->getConnection($conn->getId()));
     }
 
-    public function testRemovesConnectionFromRooms(): void
+    #[Test]
+    public function removes_connection_from_rooms(): void
     {
         $conn = $this->createConnection();
         $this->server->addConnection($conn);
@@ -76,7 +79,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame([], $this->server->getRoomConnections('room2'));
     }
 
-    public function testBroadcastsToAllConnections(): void
+    #[Test]
+    public function broadcasts_to_all_connections(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -90,10 +94,11 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcast('test message');
 
-        $this->assertTrue(true);
+        $this->assertSame(2, $this->server->getConnectionCount());
     }
 
-    public function testBroadcastsArrayData(): void
+    #[Test]
+    public function broadcasts_array_data(): void
     {
         $conn = $this->createConnection();
         $this->tcpConnection->method('write')->willReturn(100);
@@ -103,10 +108,11 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcast(['key' => 'value']);
 
-        $this->assertTrue(true);
+        $this->assertSame(1, $this->server->getConnectionCount());
     }
 
-    public function testBroadcastExcludesConnection(): void
+    #[Test]
+    public function broadcast_excludes_connection(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -127,7 +133,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame(1, $writeCount);
     }
 
-    public function testBroadcastToRoom(): void
+    #[Test]
+    public function broadcast_to_room(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -144,10 +151,12 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcastToRoom('room1', 'test message');
 
-        $this->assertTrue(true);
+        $this->assertSame(1, $this->server->getRoomCount('room1'));
+        $this->assertSame(1, $this->server->getRoomCount('room2'));
     }
 
-    public function testBroadcastToRoomExcludesConnection(): void
+    #[Test]
+    public function broadcast_to_room_excludes_connection(): void
     {
         $conn = $this->createConnection();
         $this->tcpConnection->method('write')->willReturn(100);
@@ -158,10 +167,11 @@ class WebSocketServerConnectionTest extends TestCase
 
         $this->server->broadcastToRoom('room1', 'test', $conn);
 
-        $this->assertTrue(true);
+        $this->assertSame(1, $this->server->getRoomCount('room1'));
     }
 
-    public function testHandlesConnectionError(): void
+    #[Test]
+    public function handles_connection_error(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
         $logger->expects($this->once())
@@ -179,11 +189,10 @@ class WebSocketServerConnectionTest extends TestCase
 
         $error = new RuntimeException('Test error');
         $this->server->handleConnectionError($conn, $error);
-
-        $this->assertTrue(true);
     }
 
-    public function testEmitErrorOnConnectionError(): void
+    #[Test]
+    public function emit_error_on_connection_error(): void
     {
         $errorReceived = null;
         $connReceived = null;
@@ -203,7 +212,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame($error, $errorReceived);
     }
 
-    public function testCleanupClosedConnections(): void
+    #[Test]
+    public function cleanup_closed_connections(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -224,7 +234,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertNull($this->server->getConnection('conn2'));
     }
 
-    public function testCleanupMultipleClosedConnections(): void
+    #[Test]
+    public function cleanup_multiple_closed_connections(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -244,7 +255,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame(1, $this->server->getConnectionCount());
     }
 
-    public function testCloseAllConnections(): void
+    #[Test]
+    public function close_all_connections(): void
     {
         $conn1 = $this->createConnection('conn1');
         $conn2 = $this->createConnection('conn2');
@@ -263,7 +275,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame(ConnectionState::CLOSING, $conn2->getState());
     }
 
-    public function testCloseAllWithCustomCode(): void
+    #[Test]
+    public function close_all_with_custom_code(): void
     {
         $conn = $this->createConnection();
         $this->tcpConnection->method('write')->willReturn(100);
@@ -275,7 +288,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame(ConnectionState::CLOSING, $conn->getState());
     }
 
-    public function testGetsConfig(): void
+    #[Test]
+    public function gets_config(): void
     {
         $config = new WebSocketConfig(
             maxMessageSize: 2097152,
@@ -287,7 +301,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame($config, $server->getConfig());
     }
 
-    public function testManageRoomMembers(): void
+    #[Test]
+    public function manage_room_members(): void
     {
         $conn = $this->createConnection();
         $this->server->addConnection($conn);
@@ -312,7 +327,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertFalse($conn->isInRoom('room1'));
     }
 
-    public function testRoomIsRemovedWhenEmpty(): void
+    #[Test]
+    public function room_is_removed_when_empty(): void
     {
         $conn = $this->createConnection();
         $this->server->addConnection($conn);
@@ -323,7 +339,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame([], $this->server->getRoomConnections('room1'));
     }
 
-    public function testConnectionData(): void
+    #[Test]
+    public function connection_data(): void
     {
         $conn = $this->createConnection();
 
@@ -337,7 +354,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertSame('default', $conn->getData('nonexistent', 'default'));
     }
 
-    public function testConnectionState(): void
+    #[Test]
+    public function connection_state(): void
     {
         $conn = $this->createConnection();
 
@@ -352,7 +370,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertFalse($conn->isOpen());
     }
 
-    public function testConnectionPingPong(): void
+    #[Test]
+    public function connection_ping_pong(): void
     {
         $this->tcpConnection->method('write')->willReturn(100);
 
@@ -369,7 +388,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testSendWhenNotOpenReturnsFalse(): void
+    #[Test]
+    public function send_when_not_open_returns_false(): void
     {
         $conn = $this->createConnection();
         $conn->setState(ConnectionState::CLOSED);
@@ -379,7 +399,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertFalse($result);
     }
 
-    public function testSendArrayAsJson(): void
+    #[Test]
+    public function send_array_as_json(): void
     {
         $this->tcpConnection->method('write')->willReturn(100);
 
@@ -391,42 +412,48 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertTrue($result);
     }
 
-    public function testGetServerFromConnection(): void
+    #[Test]
+    public function get_server_from_connection(): void
     {
         $conn = $this->createConnection();
 
         $this->assertSame($this->server, $conn->getServer());
     }
 
-    public function testGetRequestFromConnection(): void
+    #[Test]
+    public function get_request_from_connection(): void
     {
         $conn = $this->createConnection();
 
         $this->assertSame($this->request, $conn->getRequest());
     }
 
-    public function testGetTcpConnection(): void
+    #[Test]
+    public function get_tcp_connection(): void
     {
         $conn = $this->createConnection();
 
         $this->assertSame($this->tcpConnection, $conn->getTcpConnection());
     }
 
-    public function testGetRemoteAddress(): void
+    #[Test]
+    public function get_remote_address(): void
     {
         $conn = $this->createConnection();
 
         $this->assertSame('127.0.0.1', $conn->getRemoteAddress());
     }
 
-    public function testGetRemotePort(): void
+    #[Test]
+    public function get_remote_port(): void
     {
         $conn = $this->createConnection();
 
         $this->assertSame(12345, $conn->getRemotePort());
     }
 
-    public function testConnectionLastPong(): void
+    #[Test]
+    public function connection_last_pong(): void
     {
         $conn = $this->createConnection();
 
@@ -436,7 +463,8 @@ class WebSocketServerConnectionTest extends TestCase
         $this->assertGreaterThan(0, $lastPong);
     }
 
-    public function testUniqueConnectionIds(): void
+    #[Test]
+    public function unique_connection_ids(): void
     {
         $conn1 = $this->createConnection();
         $conn2 = $this->createConnection();

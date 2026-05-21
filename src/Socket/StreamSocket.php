@@ -7,6 +7,7 @@ namespace Duyler\HttpServer\Socket;
 use Duyler\HttpServer\Exception\SocketException;
 use Override;
 use Socket;
+use Throwable;
 
 final class StreamSocket implements SocketInterface
 {
@@ -94,9 +95,7 @@ final class StreamSocket implements SocketInterface
             );
         }
 
-        socket_set_nonblock($client);
-
-        return new StreamSocketResource($client);
+        return StreamSocketResource::configureClient($client);
     }
 
     #[Override]
@@ -132,8 +131,7 @@ final class StreamSocket implements SocketInterface
 
         assert($this->socket instanceof Socket);
 
-        $data = socket_read($this->socket, $length, PHP_BINARY_READ);
-        return $data === false ? false : $data;
+        return socket_read($this->socket, $length, PHP_BINARY_READ);
     }
 
     #[Override]
@@ -145,8 +143,7 @@ final class StreamSocket implements SocketInterface
 
         assert($this->socket instanceof Socket);
 
-        $result = socket_write($this->socket, $data, strlen($data));
-        return $result === false ? false : $result;
+        return socket_write($this->socket, $data, strlen($data));
     }
 
     #[Override]
@@ -171,5 +168,47 @@ final class StreamSocket implements SocketInterface
     public function getInternalResource(): mixed
     {
         return $this->socket;
+    }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert($this->socket instanceof Socket);
+
+        $ip = '';
+        $port = 0;
+        $result = socket_getpeername($this->socket, $ip, $port);
+
+        if (false === $result) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        assert($this->socket instanceof Socket);
+
+        try {
+            error_clear_last();
+            socket_set_block($this->socket);
+        } catch (Throwable) {
+            return false;
+        }
+
+        $stream = socket_export_stream($this->socket);
+        socket_set_nonblock($this->socket);
+
+        return $stream;
     }
 }

@@ -10,11 +10,14 @@ use Ev;
 use EvIo;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Group;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
 
 #[CoversClass(Server::class)]
+#[Group('ev')]
 class SocketResourceWithEvioSimulationTest extends TestCase
 {
     private Server $server;
@@ -32,25 +35,28 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         parent::tearDown();
     }
 
-    public function testSocketResourceWorksWithEvio(): void
+    #[Test]
+    public function socket_resource_works_with_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
         }
 
-        $config = new ServerConfig(port: 18083);
+        $certPath = sys_get_temp_dir() . '/test_evio_ssl_' . uniqid() . '.pem';
+        $this->generateTestCertificate($certPath);
+
+        $config = new ServerConfig(
+            port: 18083,
+            ssl: true,
+            sslCert: $certPath,
+            sslKey: $certPath,
+        );
         $this->server = new Server($config);
         $this->server->start();
 
         $resource = $this->server->getSocketResource();
         $this->assertNotNull($resource);
-
-        if ($resource instanceof Socket) {
-            $this->markTestSkipped(
-                'EvIo does not support Socket objects in this PHP version. '
-                . 'Use SSL mode (stream resource) for EvIo compatibility.',
-            );
-        }
+        $this->assertIsNotSocket($resource);
 
         $ioCallbackCalled = false;
 
@@ -68,42 +74,56 @@ class SocketResourceWithEvioSimulationTest extends TestCase
 
         $this->assertFalse($ioCallbackCalled, 'No data, callback should not be called');
 
-        $ch = curl_init("http://127.0.0.1:18083/");
+        $ch = curl_init("https://127.0.0.1:18083/");
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT_MS, 100);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
         curl_exec($ch);
 
         $ioWatcher->start();
         Ev::run(Ev::RUN_NOWAIT);
+
+        if (file_exists($certPath)) {
+            unlink($certPath);
+        }
     }
 
-    public function testEvioCanBeCreatedWithServerResource(): void
+    #[Test]
+    public function evio_can_be_created_with_server_resource(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
         }
 
-        $config = new ServerConfig(port: 18084);
+        $certPath = sys_get_temp_dir() . '/test_evio_ssl2_' . uniqid() . '.pem';
+        $this->generateTestCertificate($certPath);
+
+        $config = new ServerConfig(
+            port: 18084,
+            ssl: true,
+            sslCert: $certPath,
+            sslKey: $certPath,
+        );
         $this->server = new Server($config);
         $this->server->start();
 
         $resource = $this->server->getSocketResource();
-
-        if ($resource instanceof Socket) {
-            $this->markTestSkipped(
-                'EvIo does not support Socket objects in this PHP version. '
-                . 'Use SSL mode (stream resource) for EvIo compatibility.',
-            );
-        }
+        $this->assertIsNotSocket($resource);
 
         $ioWatcher = new EvIo($resource, Ev::READ, function (): void {});
 
         $this->assertInstanceOf(EvIo::class, $ioWatcher);
 
         $ioWatcher->stop();
+
+        if (file_exists($certPath)) {
+            unlink($certPath);
+        }
     }
 
-    public function testExternalSocketResourceWorksWithEvio(): void
+    #[Test]
+    public function external_socket_resource_works_with_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');
@@ -129,7 +149,8 @@ class SocketResourceWithEvioSimulationTest extends TestCase
         fclose($stream);
     }
 
-    public function testSslServerReturnsStreamResourceForEvio(): void
+    #[Test]
+    public function ssl_server_returns_stream_resource_for_evio(): void
     {
         if (!extension_loaded('ev')) {
             $this->markTestSkipped('ev extension not loaded');

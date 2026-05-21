@@ -6,8 +6,10 @@ namespace Duyler\HttpServer\Tests\Integration\Server;
 
 use Duyler\HttpServer\Config\ServerConfig;
 use Duyler\HttpServer\Server;
+use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use Socket;
 use Throwable;
@@ -15,6 +17,7 @@ use Throwable;
 #[CoversClass(Server::class)]
 class NotificationEdgeCasesTest extends TestCase
 {
+    use ErrorReportingScope;
     private ?Server $server = null;
 
     #[Override]
@@ -31,7 +34,8 @@ class NotificationEdgeCasesTest extends TestCase
         parent::tearDown();
     }
 
-    public function testMultipleRequestsSingleNotification(): void
+    #[Test]
+    public function multiple_requests_single_notification(): void
     {
         $config = new ServerConfig(port: 18100);
         $this->server = new Server($config);
@@ -75,7 +79,8 @@ class NotificationEdgeCasesTest extends TestCase
         $this->assertGreaterThan(0, $changed, 'Notification should be sent when Event Loop is inactive');
     }
 
-    public function testNotificationAfterEventLoopFinishes(): void
+    #[Test]
+    public function notification_after_event_loop_finishes(): void
     {
         $config = new ServerConfig(port: 18101);
         $this->server = new Server($config);
@@ -117,11 +122,12 @@ class NotificationEdgeCasesTest extends TestCase
         $changed = socket_select($read, $write, $except, 1);
         $this->assertGreaterThan(0, $changed, 'Notification should be sent after Event Loop finishes');
 
-        $data = @socket_read($notifySocket, 1);
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 1));
         $this->assertSame('x', $data);
     }
 
-    public function testConcurrentAcceptAndNotification(): void
+    #[Test]
+    public function concurrent_accept_and_notification(): void
     {
         $config = new ServerConfig(port: 18102);
         $this->server = new Server($config);
@@ -157,7 +163,8 @@ class NotificationEdgeCasesTest extends TestCase
         }
     }
 
-    public function testNotificationDuringGracefulShutdown(): void
+    #[Test]
+    public function notification_during_graceful_shutdown(): void
     {
         $config = new ServerConfig(port: 18103);
         $this->server = new Server($config);
@@ -181,13 +188,14 @@ class NotificationEdgeCasesTest extends TestCase
 
         $this->assertGreaterThan(0, $changed, 'Notification should work during shutdown');
 
-        $data = @socket_read($notifySocket, 1);
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 1));
         $this->assertSame('x', $data);
 
         $this->server->shutdown(1);
     }
 
-    public function testRapidEnableDisableNotification(): void
+    #[Test]
+    public function rapid_enable_disable_notification(): void
     {
         $config = new ServerConfig(port: 18104);
         $this->server = new Server($config);
@@ -213,7 +221,8 @@ class NotificationEdgeCasesTest extends TestCase
         $this->assertNotSame($listeningSocket, $finalSocket);
     }
 
-    public function testNotificationWithResetBetweenRequests(): void
+    #[Test]
+    public function notification_with_reset_between_requests(): void
     {
         $config = new ServerConfig(port: 18105);
         $this->server = new Server($config);
@@ -256,7 +265,8 @@ class NotificationEdgeCasesTest extends TestCase
         $this->assertGreaterThan(0, $changed);
     }
 
-    public function testNotificationBufferOverflowProtection(): void
+    #[Test]
+    public function notification_buffer_overflow_protection(): void
     {
         $config = new ServerConfig(port: 18106);
         $this->server = new Server($config);
@@ -283,11 +293,12 @@ class NotificationEdgeCasesTest extends TestCase
 
         $this->assertGreaterThan(0, $changed);
 
-        $data = @socket_read($notifySocket, 4096);
-        $this->assertGreaterThanOrEqual(1, strlen($data));
+        $data = $this->withSuppressedErrors(fn() => socket_read($notifySocket, 4096));
+        $this->assertGreaterThanOrEqual(1, strlen((string) $data));
     }
 
-    public function testNotificationStatePreservedAcrossHasRequestCalls(): void
+    #[Test]
+    public function notification_state_preserved_across_has_request_calls(): void
     {
         $config = new ServerConfig(port: 18107);
         $this->server = new Server($config);
@@ -318,7 +329,8 @@ class NotificationEdgeCasesTest extends TestCase
         $this->assertFalse($this->server->isEventLoopActive());
     }
 
-    public function testNotificationWithPartialRequest(): void
+    #[Test]
+    public function notification_with_partial_request(): void
     {
         $config = new ServerConfig(port: 18108);
         $this->server = new Server($config);

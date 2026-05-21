@@ -28,10 +28,18 @@ final class StreamSocketResource implements SocketResourceInterface
         mixed $resource,
         private readonly LoggerInterface $logger = new NullLogger(),
     ) {
-        if (false === is_resource($resource) && !$resource instanceof Socket) {
+        if (false === is_resource($resource) && false === $resource instanceof Socket) {
             throw new InvalidArgumentException('Invalid socket resource or Socket object');
         }
         $this->resource = $resource;
+    }
+
+    public static function configureClient(Socket $client): self
+    {
+        socket_set_nonblock($client);
+        socket_set_option($client, SOL_TCP, TCP_NODELAY, 1);
+
+        return new self($client);
     }
 
     #[Override]
@@ -46,13 +54,11 @@ final class StreamSocketResource implements SocketResourceInterface
         }
 
         if ($this->resource instanceof Socket) {
-            $data = socket_read($this->resource, $length, PHP_BINARY_READ);
-            return $data === false ? false : $data;
+            return socket_read($this->resource, $length, PHP_BINARY_READ);
         }
 
         assert(is_resource($this->resource));
-        $data = fread($this->resource, $length);
-        return $data === false ? false : $data;
+        return fread($this->resource, $length);
     }
 
     #[Override]
@@ -63,8 +69,7 @@ final class StreamSocketResource implements SocketResourceInterface
         }
 
         if ($this->resource instanceof Socket) {
-            $result = socket_write($this->resource, $data, strlen($data));
-            return $result === false ? false : $result;
+            return socket_write($this->resource, $data, strlen($data));
         }
 
         assert(is_resource($this->resource));
@@ -148,5 +153,129 @@ final class StreamSocketResource implements SocketResourceInterface
     public function getInternalResource(): mixed
     {
         return $this->resource;
+    }
+
+    #[Override]
+    public function getPeerName(): array|false
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        if ($this->resource instanceof Socket) {
+            $ip = '';
+            $port = 0;
+            $result = socket_getpeername($this->resource, $ip, $port);
+
+            if (false === $result) {
+                return false;
+            }
+
+            return ['ip' => $ip, 'port' => $port];
+        }
+
+        assert(is_resource($this->resource));
+        $address = stream_socket_get_name($this->resource, true);
+
+        if (false === $address) {
+            return false;
+        }
+
+        $colonPos = strrpos($address, ':');
+
+        if (false === $colonPos) {
+            return false;
+        }
+
+        $ip = substr($address, 0, $colonPos);
+        $port = substr($address, $colonPos + 1);
+
+        if (false === is_numeric($port)) {
+            return false;
+        }
+
+        return ['ip' => $ip, 'port' => (int) $port];
+    }
+
+    #[Override]
+    public function exportStream(): mixed
+    {
+        if (false === $this->isValid()) {
+            return false;
+        }
+
+        if ($this->resource instanceof Socket) {
+            try {
+                error_clear_last();
+                socket_set_block($this->resource);
+            } catch (Throwable) {
+                return false;
+            }
+
+            $stream = socket_export_stream($this->resource);
+            socket_set_nonblock($this->resource);
+
+            return $stream;
+        }
+
+        assert(is_resource($this->resource));
+        return $this->resource;
+    }
+
+    /**
+     * Select for readable data on Socket or stream resources
+     *
+     * @param array<Socket|resource> $resources Resources to check for readability
+     * @param int $timeout Timeout in seconds (0 for non-blocking)
+     * @return array<Socket|resource>|null Changed resources, or null on error
+     */
+    public static function select(array $resources, int $timeout = 0): ?array
+    {
+        if ([] === $resources) {
+            return null;
+        }
+
+        $sockets = [];
+        $streams = [];
+
+        foreach ($resources as $resource) {
+            if ($resource instanceof Socket) {
+                $sockets[] = $resource;
+            } else {
+                $streams[] = $resource;
+            }
+        }
+
+        $ready = [];
+
+        if ([] !== $sockets) {
+            $write = null;
+            $except = null;
+            $changed = socket_select($sockets, $write, $except, $timeout);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($sockets as $socket) {
+                    $ready[] = $socket;
+                }
+            }
+        }
+
+        if ([] !== $streams) {
+            $write = null;
+            $except = null;
+            $changed = stream_select($streams, $write, $except, $timeout);
+
+            if (false !== $changed && 0 < $changed) {
+                foreach ($streams as $stream) {
+                    $ready[] = $stream;
+                }
+            }
+        }
+
+        if ([] === $ready) {
+            return null;
+        }
+
+        return $ready;
     }
 }
