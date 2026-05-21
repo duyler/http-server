@@ -13,7 +13,6 @@ use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Nyholm\Psr7\ServerRequest;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -22,7 +21,7 @@ use RuntimeException;
 class WebSocketServerConnectionTest extends TestCase
 {
     private WebSocketServer $server;
-    private TcpConnection&MockObject $tcpConnection;
+    private TcpConnection $tcpConnection;
     private ServerRequestInterface $request;
 
     #[Override]
@@ -31,7 +30,7 @@ class WebSocketServerConnectionTest extends TestCase
         parent::setUp();
 
         $this->server = new WebSocketServer(new WebSocketConfig());
-        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->tcpConnection = $this->createStub(TcpConnection::class);
         $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
         $this->tcpConnection->method('getRemotePort')->willReturn(12345);
         $this->request = new ServerRequest('GET', '/ws');

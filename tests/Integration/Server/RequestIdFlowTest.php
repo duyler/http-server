@@ -49,7 +49,7 @@ class RequestIdFlowTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(100);
@@ -108,7 +108,7 @@ class RequestIdFlowTest extends TestCase
             $id = $requestProcessor->generateRequestId();
             $ids[] = $id;
 
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
 
             $request = new ServerRequest('GET', "/test-$i");
@@ -144,7 +144,7 @@ class RequestIdFlowTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(100);
@@ -185,7 +185,7 @@ class RequestIdFlowTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(true);
         $connection->method('write')->willReturn(100);
@@ -238,7 +238,7 @@ class RequestIdFlowTest extends TestCase
 
         $connections = [];
         for ($i = 0; $i < 5; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connection->method('isKeepAlive')->willReturn(false);
             $connection->method('write')->willReturn(100);
@@ -295,7 +295,7 @@ class RequestIdFlowTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(100);
@@ -341,7 +341,7 @@ class RequestIdFlowTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(100);
@@ -395,7 +395,7 @@ class RequestIdFlowTest extends TestCase
         $requestOrder = [];
 
         for ($i = 0; $i < 10; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connection->method('isKeepAlive')->willReturn(false);
             $connection->method('write')->willReturn(100);

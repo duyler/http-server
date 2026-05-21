@@ -13,7 +13,6 @@ use Duyler\HttpServer\Server;
 use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use ReflectionMethod;
@@ -22,7 +21,7 @@ use Throwable;
 
 class ServerMockSocketTest extends TestCase
 {
-    private ErrorHandlerInterface&MockObject $errorHandler;
+    private ErrorHandlerInterface $errorHandler;
 
     private ?Server $server = null;
 
@@ -31,7 +30,7 @@ class ServerMockSocketTest extends TestCase
     {
         parent::setUp();
 
-        $this->errorHandler = $this->createMock(ErrorHandlerInterface::class);
+        $this->errorHandler = $this->createStub(ErrorHandlerInterface::class);
         $this->errorHandler->method('handleError')->willReturn(false);
     }
 
@@ -74,7 +73,7 @@ class ServerMockSocketTest extends TestCase
     public function add_external_connection_falls_back_to_default_ip(): void
     {
         $warnings = [];
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $logger->method('warning')->willReturnCallback(
             static function (string $message) use (&$warnings): void {
                 $warnings[] = $message;
@@ -102,7 +101,7 @@ class ServerMockSocketTest extends TestCase
     #[Test]
     public function add_external_connection_uses_client_ip_from_metadata(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $logger->method('warning');
         $logger->method('debug');
 
@@ -127,7 +126,7 @@ class ServerMockSocketTest extends TestCase
     {
         $this->server = $this->createServer();
 
-        $mockResource = $this->createMock(SocketResourceInterface::class);
+        $mockResource = $this->createStub(SocketResourceInterface::class);
 
         $this->expectException(InvalidConfigException::class);
 
@@ -188,7 +187,7 @@ class ServerMockSocketTest extends TestCase
 
         $stream = fopen('php://memory', 'r+');
 
-        $mockResource = $this->createMock(SocketResourceInterface::class);
+        $mockResource = $this->createStub(SocketResourceInterface::class);
         $mockResource->method('exportStream')->willReturn($stream);
 
         $ref = new ReflectionMethod($this->server, 'exportToStream');
@@ -204,7 +203,7 @@ class ServerMockSocketTest extends TestCase
     public function export_to_stream_returns_false_on_failure(): void
     {
         $warnings = [];
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $logger->method('warning')->willReturnCallback(
             static function (string $message) use (&$warnings): void {
                 $warnings[] = $message;
@@ -214,7 +213,7 @@ class ServerMockSocketTest extends TestCase
 
         $this->server = $this->createServer($logger);
 
-        $mockResource = $this->createMock(SocketResourceInterface::class);
+        $mockResource = $this->createStub(SocketResourceInterface::class);
         $mockResource->method('exportStream')->willReturn(false);
 
         $ref = new ReflectionMethod($this->server, 'exportToStream');
@@ -239,7 +238,7 @@ class ServerMockSocketTest extends TestCase
 
     private function createMockSocketResource(array|false $peerName): SocketResourceInterface
     {
-        $mock = $this->createMock(SocketResourceInterface::class);
+        $mock = $this->createStub(SocketResourceInterface::class);
         $mock->method('getPeerName')->willReturn($peerName);
         $mock->method('isValid')->willReturn(true);
 

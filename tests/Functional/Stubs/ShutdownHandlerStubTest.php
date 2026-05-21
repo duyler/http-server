@@ -11,7 +11,6 @@ use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use RuntimeException;
@@ -23,13 +22,14 @@ class ShutdownHandlerStubTest extends TestCase
     use ErrorReportingScope;
 
     private ErrorHandler $handler;
-    private LoggerInterface&MockObject $logger;
+    private LoggerInterface $logger;
+
 
     #[Override]
     protected function setUp(): void
     {
         parent::setUp();
-        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->logger = $this->createStub(LoggerInterface::class);
         $this->handler = new ErrorHandler($this->logger);
     }
 
@@ -41,9 +41,16 @@ class ShutdownHandlerStubTest extends TestCase
         parent::tearDown();
     }
 
+    private function useMockLogger(): void
+    {
+        $this->logger = $this->createMock(LoggerInterface::class);
+        $this->handler = new ErrorHandler($this->logger);
+    }
+
     #[Test]
     public function shutdown_handler_registered_on_construct(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Error handler registered', $this->callback(fn($arg) => is_array($arg)));
@@ -73,6 +80,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function shutdown_handler_runs_only_once(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Server shutdown normally', $this->anything());
@@ -85,6 +93,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Group('pcntl')]
     public function signal_handler_registers_for_sigterm(): void
     {
+        $this->useMockLogger();
         if (false === function_exists('pcntl_signal')) {
             $this->markTestSkipped('pcntl extension not available');
         }
@@ -126,6 +135,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Group('pcntl')]
     public function signal_handler_callback_exception_is_caught(): void
     {
+        $this->useMockLogger();
         if (false === defined('SIGTERM')) {
             $this->markTestSkipped('SIGTERM not available');
         }
@@ -163,6 +173,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function register_idempotent(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info');
 
@@ -173,6 +184,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function handle_error_logs_with_suppressed_reporting(): void
     {
+        $this->useMockLogger();
         $this->withSuppressedErrors(function (): void {
             $this->logger->expects($this->never())
                 ->method('error');
@@ -186,6 +198,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function handle_error_logs_warning(): void
     {
+        $this->useMockLogger();
         $oldReporting = error_reporting(E_ALL);
 
         $this->logger->expects($this->once())
@@ -200,6 +213,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function handle_exception_logs_critical(): void
     {
+        $this->useMockLogger();
         $exception = new RuntimeException('Test exception');
 
         $this->logger->expects($this->once())
@@ -215,6 +229,7 @@ class ShutdownHandlerStubTest extends TestCase
     #[Test]
     public function handle_shutdown_without_error_logs_normal(): void
     {
+        $this->useMockLogger();
         $this->logger->expects($this->once())
             ->method('info')
             ->with('Server shutdown normally');

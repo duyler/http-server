@@ -13,19 +13,18 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 
 class ServerExtendedMethodsTest extends TestCase
 {
     use ErrorReportingScope;
-    private ErrorHandlerInterface&MockObject $errorHandler;
+    private ErrorHandlerInterface $errorHandler;
 
     #[Override]
     protected function setUp(): void
     {
-        $this->errorHandler = $this->createMock(ErrorHandlerInterface::class);
+        $this->errorHandler = $this->createStub(ErrorHandlerInterface::class);
         $this->errorHandler->method('handleError')->willReturn(false);
     }
 
@@ -101,7 +100,7 @@ class ServerExtendedMethodsTest extends TestCase
     public function set_logger_updates_logger(): void
     {
         $server = $this->createServer();
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
 
         $server->setLogger($logger);
 

@@ -34,7 +34,7 @@ class WebSocketServerTest extends TestCase
     #[Test]
     public function sets_logger(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $this->server->setLogger($logger);
 
         $this->assertInstanceOf(WebSocketServer::class, $this->server);

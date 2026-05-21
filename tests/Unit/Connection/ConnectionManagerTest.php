@@ -18,7 +18,6 @@ use Duyler\HttpServer\Socket\SocketResourceInterface;
 use Nyholm\Psr7\Factory\Psr17Factory;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\NullLogger;
 
@@ -132,10 +131,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_uses_get_peer_name(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '192.168.1.100', 'port' => 54321]);
@@ -155,10 +154,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_fallback_when_get_peer_name_returns_false(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(false);
@@ -178,8 +177,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_returns_zero_when_no_connections(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
 
         $socket->method('accept')->willReturn(false);
 
@@ -192,12 +191,12 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_accepts_multiple_connections(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource1 */
-        $clientResource1 = $this->createMock(SocketResourceInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource2 */
-        $clientResource2 = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource1 */
+        $clientResource1 = $this->createStub(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $clientResource2 */
+        $clientResource2 = $this->createStub(SocketResourceInterface::class);
 
         $clientResource1->method('isValid')->willReturn(true);
         $clientResource1->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1111]);
@@ -216,10 +215,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_respects_max_accepts(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1111]);
@@ -235,17 +234,17 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_logs_in_debug_mode(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '127.0.0.1', 'port' => 8080]);
 
         $socket->method('accept')->willReturnOnConsecutiveCalls($clientResource, false);
 
-        /** @var \Psr\Log\LoggerInterface&MockObject $logger */
+        /** @var \Psr\Log\LoggerInterface $logger */
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $logger->expects($this->once())->method('debug')->with(
             'New connection accepted',
@@ -294,10 +293,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function accept_from_server_socket_increments_metrics(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
@@ -313,8 +312,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function set_logger_updates_logger(): void
     {
-        /** @var \Psr\Log\LoggerInterface&MockObject $logger */
-        $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
+        /** @var \Psr\Log\LoggerInterface $logger */
+        $logger = $this->createStub(\Psr\Log\LoggerInterface::class);
         $this->manager->setLogger($logger);
 
         $this->assertInstanceOf(ConnectionManager::class, $this->manager);
@@ -323,10 +322,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function cleanup_timed_out_removes_connections(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
@@ -348,8 +347,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function add_adds_connection_to_pool(): void
     {
-        /** @var SocketResourceInterface&MockObject $mockSocket */
-        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $mockSocket */
+        $mockSocket = $this->createStub(SocketResourceInterface::class);
         $mockSocket->method('isValid')->willReturn(true);
 
         $connection = new Connection($mockSocket, '127.0.0.1', 8080);
@@ -362,8 +361,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function remove_removes_connection_from_pool(): void
     {
-        /** @var SocketResourceInterface&MockObject $mockSocket */
-        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $mockSocket */
+        $mockSocket = $this->createStub(SocketResourceInterface::class);
         $mockSocket->method('isValid')->willReturn(true);
 
         $connection = new Connection($mockSocket, '127.0.0.1', 8080);
@@ -377,8 +376,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function find_by_socket_returns_matching_connection(): void
     {
-        /** @var SocketResourceInterface&MockObject $mockSocket */
-        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $mockSocket */
+        $mockSocket = $this->createStub(SocketResourceInterface::class);
         $mockSocket->method('isValid')->willReturn(true);
 
         $connection = new Connection($mockSocket, '192.168.1.1', 9000);
@@ -391,8 +390,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function find_by_socket_returns_null_when_not_found(): void
     {
-        /** @var SocketResourceInterface&MockObject $mockSocket */
-        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $mockSocket */
+        $mockSocket = $this->createStub(SocketResourceInterface::class);
 
         $found = $this->manager->findBySocket($mockSocket);
         $this->assertNull($found);
@@ -401,10 +400,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function close_connection_with_metrics_removes_from_pool(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
@@ -423,10 +422,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function close_connection_with_metrics_increments_metric(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
@@ -445,7 +444,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function close_connection_with_metrics_logs_in_debug_mode(): void
     {
-        /** @var \Psr\Log\LoggerInterface&MockObject $logger */
+        /** @var \Psr\Log\LoggerInterface $logger */
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $logger->expects($this->once())->method('debug')->with(
             'Closing connection',
@@ -486,10 +485,10 @@ class ConnectionManagerTest extends TestCase
 
         $requestProcessor->setConnectionManager($manager);
 
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.5', 'port' => 5500]);
@@ -506,7 +505,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_closes_on_invalid(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
+        /** @var ConnectionInterface $connection */
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
         $connection->expects($this->once())->method('close');
@@ -517,7 +516,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_closes_when_read_fails(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
+        /** @var ConnectionInterface $connection */
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('read')->willReturn(false);
@@ -529,7 +528,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_closes_when_read_empty(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
+        /** @var ConnectionInterface $connection */
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('read')->willReturn('');
@@ -541,7 +540,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_closes_when_closed_after_append(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
+        /** @var ConnectionInterface $connection */
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('read')->willReturn('some data');
@@ -554,8 +553,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_calls_callback_on_success(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
-        $connection = $this->createMock(ConnectionInterface::class);
+        /** @var ConnectionInterface $connection */
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('read')->willReturn('HTTP data');
         $connection->method('isClosed')->willReturn(false);
@@ -575,8 +574,8 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_returns_false_on_invalid(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
-        $connection = $this->createMock(ConnectionInterface::class);
+        /** @var ConnectionInterface $connection */
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
         $result = $this->manager->readFromConnection($connection, 8192, static fn() => null);
@@ -586,12 +585,12 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_returns_false_when_socket_not_stream_resource(): void
     {
-        /** @var SocketResourceInterface&MockObject $mockSocket */
-        $mockSocket = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketResourceInterface $mockSocket */
+        $mockSocket = $this->createStub(SocketResourceInterface::class);
         $mockSocket->method('isValid')->willReturn(true);
 
-        /** @var ConnectionInterface&MockObject $connection */
-        $connection = $this->createMock(ConnectionInterface::class);
+        /** @var ConnectionInterface $connection */
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('getSocket')->willReturn($mockSocket);
 
@@ -602,10 +601,10 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function close_connection_with_metrics_removes_from_processor(): void
     {
-        /** @var SocketInterface&MockObject $socket */
-        $socket = $this->createMock(SocketInterface::class);
-        /** @var SocketResourceInterface&MockObject $clientResource */
-        $clientResource = $this->createMock(SocketResourceInterface::class);
+        /** @var SocketInterface $socket */
+        $socket = $this->createStub(SocketInterface::class);
+        /** @var SocketResourceInterface $clientResource */
+        $clientResource = $this->createStub(SocketResourceInterface::class);
 
         $clientResource->method('isValid')->willReturn(true);
         $clientResource->method('getPeerName')->willReturn(['ip' => '10.0.0.1', 'port' => 1234]);
@@ -625,7 +624,7 @@ class ConnectionManagerTest extends TestCase
     #[Test]
     public function read_from_connection_direct_appends_data_to_buffer(): void
     {
-        /** @var ConnectionInterface&MockObject $connection */
+        /** @var ConnectionInterface $connection */
         $connection = $this->createMock(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('read')->willReturn('buffer content');

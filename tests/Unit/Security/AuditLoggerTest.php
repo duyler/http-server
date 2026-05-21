@@ -225,7 +225,7 @@ final class AuditLoggerTest extends TestCase
     #[Test]
     public function implements_audit_logger_interface(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $auditLogger = new AuditLogger($logger);
 
         $this->assertInstanceOf(AuditLoggerInterface::class, $auditLogger);

@@ -29,7 +29,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_adds_content_length_header(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
 
@@ -62,7 +62,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_sets_keep_alive_headers(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(true);
         $connection->method('getRequestCount')->willReturn(5);
@@ -83,7 +83,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_sets_close_header_when_not_keep_alive(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
 
@@ -102,7 +102,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_handles_write_failure_gracefully(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('getRemoteAddress')->willReturn('127.0.0.1');
@@ -123,7 +123,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_error_creates_error_response(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $writtenData = '';
         $connection->method('write')->willReturnCallback(function (string $data) use (&$writtenData): int {
@@ -142,7 +142,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_preserves_existing_content_length(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
 
@@ -162,7 +162,7 @@ final class ResponseSenderTest extends TestCase
     #[Test]
     public function send_error_with_500_status(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $writtenData = '';
         $connection->method('write')->willReturnCallback(function (string $data) use (&$writtenData): int {

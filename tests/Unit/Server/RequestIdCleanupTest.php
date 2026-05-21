@@ -112,7 +112,7 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $oldTimestamp = microtime(true) - 2;
 
@@ -122,7 +122,7 @@ class RequestIdCleanupTest extends TestCase
                 'timestamp' => $oldTimestamp,
             ],
             'req_new' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -153,7 +153,7 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $contextsProperty->setValue($requestQueue, [
             'req_fresh' => [
@@ -186,7 +186,7 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
 
         $oldTimestamp = microtime(true) - 2;
@@ -221,14 +221,14 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $fourSecondsAgo = microtime(true) - 4;
         $sixSecondsAgo = microtime(true) - 6;
 
         $contextsProperty->setValue($requestQueue, [
             'req_4s' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => $fourSecondsAgo,
             ],
             'req_6s' => [
@@ -265,19 +265,19 @@ class RequestIdCleanupTest extends TestCase
 
         $contextsProperty->setValue($requestQueue, [
             'req_stale_1' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => $oldTimestamp,
             ],
             'req_stale_2' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => $oldTimestamp,
             ],
             'req_stale_3' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => $oldTimestamp,
             ],
             'req_fresh' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -330,7 +330,7 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $exactlyTwoSecondsAgo = microtime(true) - 2.01;
 
@@ -362,7 +362,7 @@ class RequestIdCleanupTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $justUnderTwoSeconds = microtime(true) - 1.9;
 

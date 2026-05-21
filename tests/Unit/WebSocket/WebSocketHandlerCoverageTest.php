@@ -14,7 +14,6 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketHandler;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -25,13 +24,13 @@ class WebSocketHandlerCoverageTest extends TestCase
 {
     private ServerConfig $config;
 
-    /** @var RequestProcessorInterface&MockObject */
+    /** @var RequestProcessorInterface */
     private RequestProcessorInterface $requestProcessor;
 
-    /** @var TcpConnection&MockObject */
+    /** @var TcpConnection */
     private TcpConnection $tcpConnection;
 
-    /** @var SocketResourceInterface&MockObject */
+    /** @var SocketResourceInterface */
     private SocketResourceInterface $socket;
 
     private WebSocketHandler $handler;
@@ -39,18 +38,31 @@ class WebSocketHandlerCoverageTest extends TestCase
     protected function setUp(): void
     {
         $this->config = new ServerConfig();
-        $this->requestProcessor = $this->createMock(RequestProcessorInterface::class);
-        $this->socket = $this->createMock(SocketResourceInterface::class);
-        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->requestProcessor = $this->createStub(RequestProcessorInterface::class);
+        $this->socket = $this->createStub(SocketResourceInterface::class);
+        $this->tcpConnection = $this->createStub(TcpConnection::class);
         $this->tcpConnection->method('getSocket')->willReturn($this->socket);
         $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
         $this->handler = new WebSocketHandler($this->config, $this->requestProcessor);
     }
 
+    private function useMockRequestProcessor(): void
+    {
+        $this->requestProcessor = $this->createMock(RequestProcessorInterface::class);
+        $this->handler = new WebSocketHandler($this->config, $this->requestProcessor);
+    }
+
+    private function useMockTcpConnection(): void
+    {
+        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->tcpConnection->method('getSocket')->willReturn($this->socket);
+        $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
+    }
+
     #[Test]
     public function set_logger_updates_logger(): void
     {
-        $logger = $this->createMock(LoggerInterface::class);
+        $logger = $this->createStub(LoggerInterface::class);
         $wsServer = new WebSocketServer();
         $this->handler->attachWebSocketServer('/ws', $wsServer);
         $this->handler->setLogger($logger);
@@ -77,8 +89,9 @@ class WebSocketHandlerCoverageTest extends TestCase
     #[Test]
     public function handle_handshake_returns_false_for_unknown_endpoint(): void
     {
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $this->useMockRequestProcessor();
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/unknown');
         $request->method('getUri')->willReturn($uri);
 
@@ -95,12 +108,13 @@ class WebSocketHandlerCoverageTest extends TestCase
     #[Test]
     public function handle_handshake_succeeds_with_valid_origin_bypass(): void
     {
+        $this->useMockTcpConnection();
         $wsConfig = new WebSocketConfig(validateOrigin: false, allowedOrigins: ['https://example.com']);
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -128,8 +142,8 @@ class WebSocketHandlerCoverageTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -157,12 +171,13 @@ class WebSocketHandlerCoverageTest extends TestCase
     #[Test]
     public function handle_handshake_returns_403_on_origin_validation_failure(): void
     {
+        $this->useMockRequestProcessor();
         $wsConfig = new WebSocketConfig(validateOrigin: true, allowedOrigins: ['https://allowed.com']);
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -194,8 +209,8 @@ class WebSocketHandlerCoverageTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -233,8 +248,8 @@ class WebSocketHandlerCoverageTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -265,8 +280,8 @@ class WebSocketHandlerCoverageTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -297,7 +312,7 @@ class WebSocketHandlerCoverageTest extends TestCase
     public function process_web_socket_data_direct_returns_false_for_invalid_connection(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $this->tcpConnection->method('isValid')->willReturn(false);
@@ -312,7 +327,7 @@ class WebSocketHandlerCoverageTest extends TestCase
     public function process_web_socket_data_direct_returns_false_for_empty_read(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $this->tcpConnection->method('isValid')->willReturn(true);
@@ -328,7 +343,7 @@ class WebSocketHandlerCoverageTest extends TestCase
     public function process_web_socket_data_direct_returns_false_for_empty_string_read(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $this->tcpConnection->method('isValid')->willReturn(true);
@@ -344,7 +359,7 @@ class WebSocketHandlerCoverageTest extends TestCase
     public function process_web_socket_data_direct_returns_false_when_closed_after_buffer(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $this->tcpConnection->method('isValid')->willReturn(true);
@@ -365,7 +380,7 @@ class WebSocketHandlerCoverageTest extends TestCase
         $handler = new WebSocketHandler($config, $this->requestProcessor, logger: $logger);
 
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $this->tcpConnection->method('isValid')->willReturn(true);
@@ -383,7 +398,7 @@ class WebSocketHandlerCoverageTest extends TestCase
     public function process_web_socket_data_direct_returns_true_with_valid_frame(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $frame = new \Duyler\HttpServer\WebSocket\Frame(
@@ -422,8 +437,8 @@ class WebSocketHandlerCoverageTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -449,12 +464,13 @@ class WebSocketHandlerCoverageTest extends TestCase
     #[Test]
     public function handle_handshake_returns_403_when_no_origin_header(): void
     {
+        $this->useMockRequestProcessor();
         $wsConfig = new WebSocketConfig(validateOrigin: true, allowedOrigins: ['https://allowed.com']);
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([

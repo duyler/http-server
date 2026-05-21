@@ -12,7 +12,6 @@ use Duyler\HttpServer\WebSocket\WebSocketServer;
 use Nyholm\Psr7\ServerRequest;
 use Override;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Log\LoggerInterface;
@@ -22,7 +21,7 @@ class WebSocketServerProcessPingsTest extends TestCase
 {
     private WebSocketServer $server;
 
-    /** @var TcpConnection&MockObject */
+    /** @var TcpConnection */
     private TcpConnection $tcpConnection;
 
     private ServerRequestInterface $request;
@@ -30,7 +29,7 @@ class WebSocketServerProcessPingsTest extends TestCase
     #[Override]
     protected function setUp(): void
     {
-        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->tcpConnection = $this->createStub(TcpConnection::class);
         $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
         $this->tcpConnection->method('getRemotePort')->willReturn(12345);
         $this->tcpConnection->method('write')->willReturn(100);

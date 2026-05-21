@@ -12,7 +12,6 @@ use Duyler\HttpServer\Tests\Support\ErrorReportingScope;
 use Override;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Log\LoggerInterface;
 use Socket;
@@ -21,14 +20,14 @@ use Socket;
 class ServerExternalConnectionTest extends TestCase
 {
     use ErrorReportingScope;
-    private ErrorHandlerInterface&MockObject $errorHandler;
+    private ErrorHandlerInterface $errorHandler;
 
     private int $basePort = 28080;
 
     #[Override]
     protected function setUp(): void
     {
-        $this->errorHandler = $this->createMock(ErrorHandlerInterface::class);
+        $this->errorHandler = $this->createStub(ErrorHandlerInterface::class);
         $this->errorHandler->method('handleError')->willReturn(false);
     }
 

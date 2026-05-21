@@ -51,7 +51,7 @@ class RequestResponseMappingTest extends TestCase
         $contextsProperty = $rqReflection->getProperty('contexts');
         self::assertEmpty($contextsProperty->getValue($requestQueue));
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
 
         $request = new ServerRequest('GET', '/test');
@@ -121,10 +121,10 @@ class RequestResponseMappingTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection1 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
         $connection1->method('isValid')->willReturn(false);
 
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
         $connection2->method('isValid')->willReturn(false);
 
         $contextsProperty->setValue($requestQueue, [
@@ -165,7 +165,7 @@ class RequestResponseMappingTest extends TestCase
         $contextsProperty = $rqReflection->getProperty('contexts');
         $connections = [];
         for ($i = 0; $i < 5; $i++) {
-            $connections[$i] = $this->createMock(ConnectionInterface::class);
+            $connections[$i] = $this->createStub(ConnectionInterface::class);
             $connections[$i]->method('isValid')->willReturn(false);
         }
 
@@ -208,7 +208,7 @@ class RequestResponseMappingTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $timestamp = microtime(true);
 
         $contextsProperty->setValue($requestQueue, [
@@ -245,7 +245,7 @@ class RequestResponseMappingTest extends TestCase
 
         $requestQueue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
         $contextsProperty->setValue($requestQueue, [
@@ -279,7 +279,7 @@ class RequestResponseMappingTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
         $contextsProperty->setValue($requestQueue, [

@@ -55,10 +55,10 @@ class ParallelProcessingTest extends TestCase
         $request1 = new ServerRequest('GET', '/slow');
         $request2 = new ServerRequest('GET', '/fast');
 
-        $connection1 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
         $connection1->method('isValid')->willReturn(true);
 
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
         $connection2->method('isValid')->willReturn(true);
 
         $requestData1 = new RequestData('req_slow', $request1, 1);
@@ -153,7 +153,7 @@ class ParallelProcessingTest extends TestCase
         $processedOrder = [];
 
         for ($i = 0; $i < $actorCount; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connection->method('isKeepAlive')->willReturn(false);
             $connection->method('write')->willReturn(100);
@@ -192,12 +192,12 @@ class ParallelProcessingTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $slowConnection = $this->createMock(ConnectionInterface::class);
+        $slowConnection = $this->createStub(ConnectionInterface::class);
         $slowConnection->method('isValid')->willReturn(true);
         $slowConnection->method('isKeepAlive')->willReturn(false);
         $slowConnection->method('write')->willReturn(100);
 
-        $fastConnection = $this->createMock(ConnectionInterface::class);
+        $fastConnection = $this->createStub(ConnectionInterface::class);
         $fastConnection->method('isValid')->willReturn(true);
         $fastConnection->method('isKeepAlive')->willReturn(false);
         $fastConnection->method('write')->willReturn(100);
@@ -235,7 +235,7 @@ class ParallelProcessingTest extends TestCase
 
         $responseMapping = [];
 
-        $connection1 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
         $connection1->method('isValid')->willReturn(true);
         $connection1->method('isKeepAlive')->willReturn(false);
         $connection1
@@ -245,7 +245,7 @@ class ParallelProcessingTest extends TestCase
                 return strlen($data);
             });
 
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
         $connection2->method('isValid')->willReturn(true);
         $connection2->method('isKeepAlive')->willReturn(false);
         $connection2
@@ -255,7 +255,7 @@ class ParallelProcessingTest extends TestCase
                 return strlen($data);
             });
 
-        $connection3 = $this->createMock(ConnectionInterface::class);
+        $connection3 = $this->createStub(ConnectionInterface::class);
         $connection3->method('isValid')->willReturn(true);
         $connection3->method('isKeepAlive')->willReturn(false);
         $connection3
@@ -308,7 +308,7 @@ class ParallelProcessingTest extends TestCase
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(true);
         $connection->method('isKeepAlive')->willReturn(false);
         $connection->method('write')->willReturn(100);
@@ -370,7 +370,7 @@ class ParallelProcessingTest extends TestCase
         $processedCount = 0;
 
         for ($i = 0; $i < $requestCount; $i++) {
-            $connection = $this->createMock(ConnectionInterface::class);
+            $connection = $this->createStub(ConnectionInterface::class);
             $connection->method('isValid')->willReturn(true);
             $connection->method('isKeepAlive')->willReturn(false);
             $connection->method('write')->willReturn(100);

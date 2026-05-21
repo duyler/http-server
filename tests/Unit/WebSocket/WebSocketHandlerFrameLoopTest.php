@@ -15,7 +15,6 @@ use Duyler\HttpServer\WebSocket\WebSocketConfig;
 use Duyler\HttpServer\WebSocket\WebSocketHandler;
 use Duyler\HttpServer\WebSocket\WebSocketServer;
 use PHPUnit\Framework\Attributes\Test;
-use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UriInterface;
@@ -24,13 +23,13 @@ class WebSocketHandlerFrameLoopTest extends TestCase
 {
     private ServerConfig $config;
 
-    /** @var RequestProcessorInterface&MockObject */
+    /** @var RequestProcessorInterface */
     private RequestProcessorInterface $requestProcessor;
 
-    /** @var TcpConnection&MockObject */
+    /** @var TcpConnection */
     private TcpConnection $tcpConnection;
 
-    /** @var SocketResourceInterface&MockObject */
+    /** @var SocketResourceInterface */
     private SocketResourceInterface $socket;
 
     private WebSocketHandler $handler;
@@ -38,9 +37,9 @@ class WebSocketHandlerFrameLoopTest extends TestCase
     protected function setUp(): void
     {
         $this->config = new ServerConfig();
-        $this->requestProcessor = $this->createMock(RequestProcessorInterface::class);
-        $this->socket = $this->createMock(SocketResourceInterface::class);
-        $this->tcpConnection = $this->createMock(TcpConnection::class);
+        $this->requestProcessor = $this->createStub(RequestProcessorInterface::class);
+        $this->socket = $this->createStub(SocketResourceInterface::class);
+        $this->tcpConnection = $this->createStub(TcpConnection::class);
         $this->tcpConnection->method('getSocket')->willReturn($this->socket);
         $this->tcpConnection->method('getRemoteAddress')->willReturn('127.0.0.1');
         $this->handler = new WebSocketHandler($this->config, $this->requestProcessor);
@@ -52,8 +51,8 @@ class WebSocketHandlerFrameLoopTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([
@@ -81,7 +80,7 @@ class WebSocketHandlerFrameLoopTest extends TestCase
     public function process_frame_loop_with_remaining_buffer_data(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $frame1 = new Frame(Opcode::TEXT, 'hello', fin: true, masked: false);
@@ -128,7 +127,7 @@ class WebSocketHandlerFrameLoopTest extends TestCase
             $receivedMessage = $msg;
         });
 
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $textFrame = new Frame(Opcode::TEXT, 'hello world', fin: true, masked: false);
@@ -162,7 +161,7 @@ class WebSocketHandlerFrameLoopTest extends TestCase
     public function process_frame_loop_returns_false_when_closed_after_remaining(): void
     {
         $wsServer = new WebSocketServer();
-        $request = $this->createMock(ServerRequestInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
         $wsConn = new Connection($this->tcpConnection, $request, $wsServer);
 
         $frame1 = new Frame(Opcode::TEXT, 'first', fin: true, masked: false);
@@ -208,8 +207,8 @@ class WebSocketHandlerFrameLoopTest extends TestCase
         $wsServer = new WebSocketServer($wsConfig);
         $this->handler->attachWebSocketServer('/ws', $wsServer);
 
-        $request = $this->createMock(ServerRequestInterface::class);
-        $uri = $this->createMock(UriInterface::class);
+        $request = $this->createStub(ServerRequestInterface::class);
+        $uri = $this->createStub(UriInterface::class);
         $uri->method('getPath')->willReturn('/ws');
         $request->method('getUri')->willReturn($uri);
         $request->method('getHeaderLine')->willReturnMap([

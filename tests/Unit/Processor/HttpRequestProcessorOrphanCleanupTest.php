@@ -65,7 +65,7 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
     #[Test]
     public function remove_connections_by_connection_removes_matching_entries(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->setRequestConnections([
             'req_0' => [
@@ -74,7 +74,7 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
                 'cors_origin' => null,
             ],
             'req_1' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
                 'cors_origin' => null,
             ],
@@ -90,11 +90,11 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
     #[Test]
     public function remove_connections_by_connection_handles_no_matches(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->setRequestConnections([
             'req_0' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
                 'cors_origin' => null,
             ],
@@ -108,7 +108,7 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
     #[Test]
     public function remove_connections_by_connection_removes_all_entries_for_same_connection(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->setRequestConnections([
             'req_0' => [
@@ -138,7 +138,7 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
     #[Test]
     public function remove_connections_by_connection_on_empty_map(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->setRequestConnections([]);
 
@@ -154,7 +154,7 @@ final class HttpRequestProcessorOrphanCleanupTest extends TestCase
         $entries = [];
 
         for ($i = 0; $i < 1000; $i++) {
-            $conn = $this->createMock(ConnectionInterface::class);
+            $conn = $this->createStub(ConnectionInterface::class);
             $connections[] = $conn;
             $entries["req_{$i}"] = [
                 'connection' => $conn,

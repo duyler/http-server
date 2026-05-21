@@ -135,7 +135,7 @@ class ServerRequestIdTest extends TestCase
 
         $contextsProperty->setValue($requestQueue, [
             'req_test' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -171,7 +171,7 @@ class ServerRequestIdTest extends TestCase
         $contextsProperty = $rqReflection->getProperty('contexts');
         $contextsProperty->setValue($requestQueue, [
             'req_test' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);

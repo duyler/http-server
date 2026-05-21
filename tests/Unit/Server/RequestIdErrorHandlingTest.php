@@ -77,7 +77,7 @@ class RequestIdErrorHandlingTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
         $contextsProperty->setValue($requestQueue, [
@@ -243,11 +243,11 @@ class RequestIdErrorHandlingTest extends TestCase
         $contextsProperty = $rqReflection->getProperty('contexts');
         $contextsProperty->setValue($requestQueue, [
             'req_1' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
             'req_2' => [
-                'connection' => $this->createMock(ConnectionInterface::class),
+                'connection' => $this->createStub(ConnectionInterface::class),
                 'timestamp' => microtime(true),
             ],
         ]);
@@ -332,7 +332,7 @@ class RequestIdErrorHandlingTest extends TestCase
         $requestQueue = $queueProperty->getValue($requestProcessor);
         $rqReflection = new ReflectionClass($requestQueue);
         $contextsProperty = $rqReflection->getProperty('contexts');
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $connection->method('isValid')->willReturn(false);
 
         $contextsProperty->setValue($requestQueue, [

@@ -27,7 +27,7 @@ final class RequestQueueTest extends TestCase
     {
         $request = new ServerRequest('GET', '/test');
         $requestData = new RequestData('req_0', $request, 1);
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue($requestData, [
             'connection' => $connection,
@@ -68,7 +68,7 @@ final class RequestQueueTest extends TestCase
         $requestData2 = new RequestData('req_2', $request2, 2);
         $requestData3 = new RequestData('req_3', $request3, 3);
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue($requestData1, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
         $this->queue->enqueue($requestData2, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
@@ -82,7 +82,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function remove_deletes_context(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $requestData = new RequestData('req_0', new ServerRequest('GET', '/test'), 1);
 
         $this->queue->enqueue($requestData, ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null]);
@@ -106,8 +106,8 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function remove_by_connection_removes_matching_entries(): void
     {
-        $connection1 = $this->createMock(ConnectionInterface::class);
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue(
             new RequestData('req_1', new ServerRequest('GET', '/a'), 1),
@@ -135,7 +135,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function get_context_returns_correct_data(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $timestamp = microtime(true);
         $requestData = new RequestData('req_42', new ServerRequest('POST', '/api'), 5);
 
@@ -163,7 +163,7 @@ final class RequestQueueTest extends TestCase
     {
         self::assertFalse($this->queue->hasPendingResponse());
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $this->queue->enqueue(
             new RequestData('req_0', new ServerRequest('GET', '/'), 1),
             ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null],
@@ -180,7 +180,7 @@ final class RequestQueueTest extends TestCase
     {
         self::assertNull($this->queue->getPendingRequestId());
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $this->queue->enqueue(
             new RequestData('req_first', new ServerRequest('GET', '/'), 1),
             ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null],
@@ -196,7 +196,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function cleanup_stale_calls_on_stale_for_old_entries(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $staleTimestamp = microtime(true) - 100;
 
         $this->queue->enqueue(
@@ -217,7 +217,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function cleanup_stale_preserves_fresh_entries(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $freshTimestamp = microtime(true);
 
         $this->queue->enqueue(
@@ -233,7 +233,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function reset_clears_all_state(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue(
             new RequestData('req_0', new ServerRequest('GET', '/'), 1),
@@ -259,7 +259,7 @@ final class RequestQueueTest extends TestCase
     {
         self::assertSame(0, $this->queue->getQueueCount());
 
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
         $this->queue->enqueue(
             new RequestData('req_0', new ServerRequest('GET', '/'), 1),
             ['connection' => $connection, 'timestamp' => microtime(true), 'cors_origin' => null],
@@ -275,8 +275,8 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function dequeue_skips_orphaned_entries(): void
     {
-        $connection1 = $this->createMock(ConnectionInterface::class);
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue(
             new RequestData('req_orphan', new ServerRequest('GET', '/'), 1),
@@ -298,8 +298,8 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function dequeue_skips_orphaned_by_connection(): void
     {
-        $connection1 = $this->createMock(ConnectionInterface::class);
-        $connection2 = $this->createMock(ConnectionInterface::class);
+        $connection1 = $this->createStub(ConnectionInterface::class);
+        $connection2 = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue(
             new RequestData('req_1', new ServerRequest('GET', '/'), 1),
@@ -326,7 +326,7 @@ final class RequestQueueTest extends TestCase
     #[Test]
     public function has_request_returns_false_when_all_orphaned(): void
     {
-        $connection = $this->createMock(ConnectionInterface::class);
+        $connection = $this->createStub(ConnectionInterface::class);
 
         $this->queue->enqueue(
             new RequestData('req_0', new ServerRequest('GET', '/'), 1),
