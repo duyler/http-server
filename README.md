@@ -890,13 +890,13 @@ The `examples/` directory contains various usage examples:
 
 ```bash
 # Run all tests
-composer test
+make tests
 
-# Run with coverage (requires Xdebug or pcov)
-composer test:coverage
+# Run with coverage
+make coverage
 
-# Run PHPStan
-composer phpstan
+# Run Psalm
+make psalm
 ```
 
 ## Performance Tips
