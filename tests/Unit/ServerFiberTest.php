@@ -94,9 +94,7 @@ class ServerFiberTest extends TestCase
     {
         $this->server->start();
 
-        $terminated = new Fiber(function (): void {
-            // Terminates immediately
-        });
+        $terminated = new Fiber(function (): void {});
 
         $suspended = new Fiber(function (): void {
             Fiber::suspend();
@@ -129,13 +127,9 @@ class ServerFiberTest extends TestCase
     {
         $this->server->start();
 
-        $fiber1 = new Fiber(function (): void {
-            // Terminates immediately
-        });
+        $fiber1 = new Fiber(function (): void {});
 
-        $fiber2 = new Fiber(function (): void {
-            // Terminates immediately
-        });
+        $fiber2 = new Fiber(function (): void {});
 
         $fiber3 = new Fiber(function (): void {
             Fiber::suspend();
@@ -194,9 +188,7 @@ class ServerFiberTest extends TestCase
             Fiber::suspend();
         });
 
-        $fiber2 = new Fiber(function (): void {
-            // Terminates immediately
-        });
+        $fiber2 = new Fiber(function (): void {});
 
         $fiber3 = new Fiber(function (): void {
             Fiber::suspend();
@@ -227,9 +219,7 @@ class ServerFiberTest extends TestCase
 
         $resumeCount = 0;
 
-        $terminated = new Fiber(function (): void {
-            // Terminates immediately
-        });
+        $terminated = new Fiber(function (): void {});
 
         $suspended = new Fiber(function () use (&$resumeCount): void {
             while (true) {

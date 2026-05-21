@@ -108,7 +108,6 @@ final class Connection implements ConnectionInterface
     #[Override]
     public function getCachedHeaders(): ?array
     {
-        /** @var array<string, string|array<int, string>>|null */
         return $this->cachedHeaders;
     }
 

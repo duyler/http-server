@@ -94,7 +94,6 @@ final class Server implements ServerInterface
     /** @var EvIo|null Watcher for listening socket */
     private ?EvIo $listeningWatcher = null;
 
-    /** @var bool Watchers started flag */
     private bool $watchersStarted = false;
 
     /** @var resource|null Cached notification stream */

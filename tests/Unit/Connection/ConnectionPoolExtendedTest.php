@@ -70,9 +70,6 @@ class ConnectionPoolExtendedTest extends TestCase
     {
         $pool = new ConnectionPool();
 
-        $reflection = new ReflectionClass($pool);
-        $property = $reflection->getProperty('isModifying');
-
         $removed = $pool->removeTimedOut(30);
 
         $this->assertSame([], $removed);

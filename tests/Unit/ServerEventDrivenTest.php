@@ -129,7 +129,6 @@ class ServerEventDrivenTest extends TestCase
         $this->server->hasRequest();
         $this->assertSame(2, $resumeCount);
 
-        // Call again
         $this->server->hasRequest();
         $this->assertSame(3, $resumeCount);
 

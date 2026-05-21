@@ -39,12 +39,6 @@ final class ExistingSocket implements SocketInterface
         $client = socket_accept($this->socket);
 
         if (false === $client) {
-            $error = socket_last_error($this->socket);
-
-            if (SOCKET_EAGAIN === $error || SOCKET_EWOULDBLOCK === $error || 0 === $error) {
-                return false;
-            }
-
             return false;
         }
 
@@ -58,8 +52,7 @@ final class ExistingSocket implements SocketInterface
             return false;
         }
 
-        $data = socket_read($this->socket, $length, PHP_BINARY_READ);
-        return false === $data ? false : $data;
+        return socket_read($this->socket, $length, PHP_BINARY_READ);
     }
 
     #[Override]
@@ -69,8 +62,7 @@ final class ExistingSocket implements SocketInterface
             return false;
         }
 
-        $result = socket_write($this->socket, $data, strlen($data));
-        return false === $result ? false : $result;
+        return socket_write($this->socket, $data, strlen($data));
     }
 
     #[Override]

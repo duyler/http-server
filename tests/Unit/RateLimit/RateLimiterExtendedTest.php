@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Duyler\HttpServer\Tests\Unit\RateLimit;
 
 use Duyler\HttpServer\RateLimit\RateLimiter;
-use Override;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
@@ -96,6 +95,5 @@ class RateLimiterExtendedTest extends TestCase
         $this->assertSame(1, $limiter->getActiveIdentifiersCount());
     }
 
-    #[Override]
-    protected function tearDown(): void {}
+
 }

@@ -131,8 +131,7 @@ final class StreamSocket implements SocketInterface
 
         assert($this->socket instanceof Socket);
 
-        $data = socket_read($this->socket, $length, PHP_BINARY_READ);
-        return $data === false ? false : $data;
+        return socket_read($this->socket, $length, PHP_BINARY_READ);
     }
 
     #[Override]
@@ -144,8 +143,7 @@ final class StreamSocket implements SocketInterface
 
         assert($this->socket instanceof Socket);
 
-        $result = socket_write($this->socket, $data, strlen($data));
-        return $result === false ? false : $result;
+        return socket_write($this->socket, $data, strlen($data));
     }
 
     #[Override]

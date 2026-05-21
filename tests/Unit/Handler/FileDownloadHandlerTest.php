@@ -76,8 +76,6 @@ class FileDownloadHandlerTest extends TestCase
     #[Test]
     public function downloads_file_range(): void
     {
-        $fileSize = filesize($this->tempFile);
-
         $response = $this->handler->downloadRange($this->tempFile, 0, 4);
 
         $this->assertSame(206, $response->getStatusCode());
@@ -88,8 +86,6 @@ class FileDownloadHandlerTest extends TestCase
     #[Test]
     public function returns_416_for_invalid_range(): void
     {
-        $fileSize = filesize($this->tempFile);
-
         $response = $this->handler->downloadRange($this->tempFile, 1000, 2000);
 
         $this->assertSame(416, $response->getStatusCode());

@@ -54,13 +54,11 @@ final class StreamSocketResource implements SocketResourceInterface
         }
 
         if ($this->resource instanceof Socket) {
-            $data = socket_read($this->resource, $length, PHP_BINARY_READ);
-            return $data === false ? false : $data;
+            return socket_read($this->resource, $length, PHP_BINARY_READ);
         }
 
         assert(is_resource($this->resource));
-        $data = fread($this->resource, $length);
-        return $data === false ? false : $data;
+        return fread($this->resource, $length);
     }
 
     #[Override]
@@ -71,8 +69,7 @@ final class StreamSocketResource implements SocketResourceInterface
         }
 
         if ($this->resource instanceof Socket) {
-            $result = socket_write($this->resource, $data, strlen($data));
-            return $result === false ? false : $result;
+            return socket_write($this->resource, $data, strlen($data));
         }
 
         assert(is_resource($this->resource));

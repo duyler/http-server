@@ -34,9 +34,6 @@ final class WebSocketServer
         $this->logger = $logger;
     }
 
-    /**
-     * @param callable $callback
-     */
     public function on(string $event, callable $callback): void
     {
         if (!isset($this->eventListeners[$event])) {

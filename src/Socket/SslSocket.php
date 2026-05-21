@@ -119,8 +119,7 @@ final class SslSocket implements SocketInterface
         }
 
         assert(null !== $this->socket);
-        $data = fread($this->socket, $length);
-        return $data === false ? false : $data;
+        return fread($this->socket, $length);
     }
 
     #[Override]

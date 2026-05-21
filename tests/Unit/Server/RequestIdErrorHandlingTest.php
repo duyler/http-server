@@ -202,7 +202,6 @@ class RequestIdErrorHandlingTest extends TestCase
     public function it_logs_warning_for_invalid_request_id(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
-        assert($logger instanceof LoggerInterface);
         $logger->expects($this->once())
             ->method('warning')
             ->with(
@@ -223,7 +222,6 @@ class RequestIdErrorHandlingTest extends TestCase
     public function it_logs_valid_request_ids_on_error(): void
     {
         $logger = $this->createMock(LoggerInterface::class);
-        assert($logger instanceof LoggerInterface);
         $logger->expects($this->once())
             ->method('warning')
             ->with(
